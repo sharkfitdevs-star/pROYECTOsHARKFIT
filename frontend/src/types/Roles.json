@@ -1,0 +1,141 @@
+{
+  "name": "Roles",
+  "type": "object",
+  "properties": {
+    "nombre_rol": {
+      "type": "string",
+      "description": "Nombre único del rol personalizado"
+    },
+    "descripcion": {
+      "type": "string",
+      "description": "Descripción del rol"
+    },
+    "permisos": {
+      "type": "object",
+      "properties": {
+        "ver_dashboard_comercial": {
+          "type": "boolean",
+          "default": false
+        },
+        "ver_dashboard_costos": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_leads_diarios": {
+          "type": "boolean",
+          "default": false
+        },
+        "ver_agenda": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_agenda": {
+          "type": "boolean",
+          "default": false
+        },
+        "ver_prospectos": {
+          "type": "boolean",
+          "default": false
+        },
+        "crear_prospectos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite crear nuevos prospectos"
+        },
+        "editar_prospectos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite editar prospectos existentes"
+        },
+        "eliminar_prospectos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite eliminar prospectos individuales"
+        },
+        "eliminar_prospectos_masivo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite eliminar múltiples prospectos a la vez"
+        },
+        "editar_prospectos_masivo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite editar múltiples prospectos simultáneamente"
+        },
+        "importar_prospectos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite importar prospectos desde archivos CSV/Excel"
+        },
+        "exportar_prospectos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite exportar prospectos a Excel"
+        },
+        "deshacer_importacion": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite deshacer la última importación de prospectos"
+        },
+        "ver_ventas": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_ventas": {
+          "type": "boolean",
+          "default": false
+        },
+        "eliminar_ventas": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite eliminar ventas"
+        },
+        "gestionar_gastos_ads": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_remarketing": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite gestionar bloques de remarketing"
+        },
+        "acceso_configuracion": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_sucursales": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_staff": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_cerradores": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_planes": {
+          "type": "boolean",
+          "default": false
+        },
+        "gestionar_clases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permite gestionar clases"
+        },
+        "gestionar_roles": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "description": "Permisos específicos del rol"
+    },
+    "activo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Indica si el rol está activo"
+    }
+  },
+  "required": ["nombre_rol", "permisos"]
+}

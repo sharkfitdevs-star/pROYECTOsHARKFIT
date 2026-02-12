@@ -1,0 +1,111 @@
+{
+    "name": "Bajas_Programadas",
+    "type": "object",
+    "properties": {
+        "cliente": {
+            "type": "string",
+            "relation": "Clientes",
+            "description": "Cliente que solicita o tiene programada la baja"
+        },
+        "cliente_nombre": {
+            "type": "string",
+            "description": "Nombre del cliente para referencia rápida"
+        },
+        "cliente_whatsapp": {
+            "type": "string",
+            "description": "WhatsApp del cliente para contacto"
+        },
+        "estado_cliente": {
+            "type": "string",
+            "enum": ["activo", "deudor", "baja"],
+            "default": "activo",
+            "description": "Estado del cliente al momento de programar la baja"
+        },
+        "plan_actual": {
+            "type": "string",
+            "description": "Nombre del plan actual del cliente"
+        },
+        "fecha_baja_programada": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha en la que se ejecutará la baja (usualmente fecha de vencimiento del plan)"
+        },
+        "motivo": {
+            "type": "string",
+            "enum": ["Precio", "Mudanza", "No uso", "Servicio", "Competencia", "Salud", "Otro"],
+            "description": "Motivo principal de la baja"
+        },
+        "detalle_motivo": {
+            "type": "string",
+            "description": "Detalle adicional del motivo de baja"
+        },
+        "fecha_ultimo_cobro": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha del último cobro realizado al cliente"
+        },
+        "metodo_cobro": {
+            "type": "string",
+            "enum": ["Tarjeta", "Evo", "Mercado Pago"],
+            "description": "Método de cobro utilizado"
+        },
+        "referencia_pago": {
+            "type": "string",
+            "description": "Últimos 4 dígitos de tarjeta o ID de pago"
+        },
+        "programada": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indica si la baja está confirmada como programada o es solo una intención"
+        },
+        "sede": {
+            "type": "string",
+            "relation": "Sucursales",
+            "description": "Sede del cliente"
+        },
+        "responsable_sede": {
+            "type": "string",
+            "relation": "Staff",
+            "description": "Responsable de sede asignado automáticamente para gestionar la retención"
+        },
+        "estado_gestion": {
+            "type": "string",
+            "enum": ["programada", "en_gestion", "continua_baja", "recuperado", "ejecutada", "no_contactado"],
+            "default": "programada",
+            "description": "Estado de la gestión de retención"
+        },
+        "resultado_contacto": {
+            "type": "string",
+            "enum": ["Continúa en Baja", "Recuperado", "No contactado", "Reprogramar seguimiento"],
+            "description": "Resultado del contacto realizado por el RS"
+        },
+        "reporte_gestion": {
+            "type": "string",
+            "description": "Comentarios y detalles del contacto realizado"
+        },
+        "fecha_contacto": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha en la que se realizó el contacto de retención"
+        },
+        "fecha_resultado": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha en la que se registró el resultado final"
+        },
+        "tarea_asignada": {
+            "type": "string",
+            "relation": "Tareas_RS",
+            "description": "ID de la tarea creada automáticamente para el RS"
+        },
+        "creado_por": {
+            "type": "string",
+            "description": "Email del usuario que programó la baja"
+        },
+        "notas": {
+            "type": "string",
+            "description": "Notas adicionales"
+        }
+    },
+    "required": ["cliente", "cliente_nombre", "fecha_baja_programada", "motivo", "sede", "responsable_sede"]
+}

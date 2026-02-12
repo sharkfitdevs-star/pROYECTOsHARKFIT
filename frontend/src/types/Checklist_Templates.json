@@ -1,0 +1,71 @@
+{
+  "name": "Checklist_Templates",
+  "type": "object",
+  "properties": {
+    "nombre_plantilla": {
+      "type": "string",
+      "description": "Nombre descriptivo de la plantilla (ej: Apertura Vendedor, Cierre Cerrador)"
+    },
+    "rol_asociado": {
+      "type": "string",
+      "enum": ["vendedor", "cerrador", "jefe_ventas", "RS", "asistente", "direccion"],
+      "description": "Rol al que aplica esta plantilla"
+    },
+    "tipo_checklist": {
+      "type": "string",
+      "enum": ["apertura", "cierre"],
+      "description": "Tipo de checklist: apertura o cierre de turno"
+    },
+    "dias_activos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
+      },
+      "description": "Días de la semana en que aplica este checklist"
+    },
+    "hora_inicio_esperada": {
+      "type": "string",
+      "description": "Hora esperada de inicio del checklist (formato HH:mm)"
+    },
+    "minutos_max_completar": {
+      "type": "number",
+      "description": "Tiempo máximo en minutos para completar el checklist"
+    },
+    "es_obligatorio": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si el checklist es obligatorio o opcional"
+    },
+    "genera_alerta_retraso": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si genera alerta cuando no se inicia a tiempo"
+    },
+    "genera_alerta_incompleto": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si genera alerta cuando no se completa"
+    },
+    "minutos_alerta_retraso": {
+      "type": "number",
+      "default": 15,
+      "description": "Minutos de retraso antes de generar alerta"
+    },
+    "notificar_supervisor": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si notifica al supervisor en caso de incumplimiento"
+    },
+    "activo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si la plantilla está activa"
+    },
+    "descripcion": {
+      "type": "string",
+      "description": "Descripción o instrucciones generales de la plantilla"
+    }
+  },
+  "required": ["nombre_plantilla", "rol_asociado", "tipo_checklist", "dias_activos", "hora_inicio_esperada"]
+}

@@ -1,0 +1,178 @@
+{
+  "name": "Datos_EVO",
+  "type": "object",
+  "description": "Almacena datos sincronizados de la API de Evo5 vinculados con clientes del Prototipo Gestionador de Ventas",
+  
+  "properties": {
+    
+    "cliente_id": {
+      "type": "string",
+      "description": "ID del cliente en Dashboard (Foreign Key a Clientes.json)",
+      "nullable": true,
+      "notes": "null si contacto Evo5 no está vinculado a cliente aún"
+    },
+    
+    "prospecto_id": {
+      "type": "string",
+      "description": "ID del prospecto (Foreign Key a Prospectos.json)",
+      "nullable": true,
+      "notes": "Para prospectos que interactúan en Evo5"
+    },
+    
+    "tipo_evo5": {
+      "type": "string",
+      "enum": ["cliente", "prospecto", "miembro", "contacto", "grupo"],
+      "description": "Tipo de dato en Evo5",
+      "example": "cliente"
+    },
+    
+    "evo5_id": {
+      "type": "string",
+      "description": "ID único en Evo5 (member ID, contact ID, etc)",
+      "example": "12345",
+      "notes": "Identificador original de Evo5"
+    },
+    
+    "nombre": {
+      "type": "string",
+      "description": "Nombre del contacto",
+      "example": "Juan Pérez"
+    },
+    
+    "whatsapp": {
+      "type": "string",
+      "nullable": true,
+      "description": "Número de WhatsApp normalizado (E.164)",
+      "example": "56912345678",
+      "notes": "Formato sin '+': 56912345678"
+    },
+    
+    "email": {
+      "type": "string",
+      "nullable": true,
+      "description": "Email del contacto",
+      "example": "juan@example.com"
+    },
+    
+    "telefono": {
+      "type": "string",
+      "nullable": true,
+      "description": "Teléfono principal",
+      "example": "56912345678"
+    },
+    
+    "ultimo_contacto": {
+      "type": "date",
+      "nullable": true,
+      "description": "Última vez que interactuó en Evo5",
+      "example": "2025-02-09T14:30:00Z"
+    },
+    
+    "estado_evo5": {
+      "type": "string",
+      "enum": ["activo", "inactivo", "bloqueado", "cancelado", "sin_contacto"],
+      "description": "Estado del contacto/miembro en Evo5",
+      "default": "activo"
+    },
+    
+    "tipo_miembro": {
+      "type": "string",
+      "nullable": true,
+      "description": "Tipo de membresía en Evo5",
+      "enum": ["prepago", "suscripcion", "permanente", "cortesia", "otro"],
+      "example": "suscripcion"
+    },
+    
+    "fecha_vencimiento_evo5": {
+      "type": "date",
+      "nullable": true,
+      "description": "Fecha de vencimiento de membresía en Evo5",
+      "example": "2025-04-09T00:00:00Z"
+    },
+    
+    "metadata": {
+      "type": "object",
+      "description": "Información adicional flexible",
+      "properties": {
+        "empresa": {
+          "type": "string",
+          "nullable": true,
+          "description": "Empresa/segmento en Evo5"
+        },
+        "segmento": {
+          "type": "string",
+          "nullable": true,
+          "description": "Segmento (cliente, prospecto, etc)"
+        },
+        "documento": {
+          "type": "string",
+          "nullable": true,
+          "description": "Documento (RUT, CPF, etc)"
+        },
+        "contacto_principal": {
+          "type": "boolean",
+          "default": false,
+          "description": "¿Es contacto principal?"
+        },
+        "grupos": {
+          "type": "array",
+          "items": { "type": "string" },
+          "nullable": true,
+          "description": "Grupos a los que pertenece en Evo5"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "nullable": true,
+          "description": "Tags/etiquetas asignadas"
+        },
+        "notas": {
+          "type": "string",
+          "nullable": true,
+          "description": "Notas o comentarios de Evo5"
+        }
+      }
+    },
+    
+    "datos_raw": {
+      "type": "object",
+      "nullable": true,
+      "description": "Respuesta JSON original de Evo5 sin procesar"
+    },
+    
+    "fecha_sincronizacion": {
+      "type": "date",
+      "description": "Cuándo fue sincronizado",
+      "example": "2025-02-09T14:35:00Z"
+    },
+    
+    "activo": {
+      "type": "boolean",
+      "description": "¿Está sincronizando activamente?",
+      "default": true
+    }
+  },
+  
+  "indexes": [
+    "evo5_id",
+    "cliente_id",
+    "whatsapp",
+    "tipo_evo5",
+    "activo"
+  ],
+  
+  "relationships": {
+    "cliente": {
+      "entity": "Clientes",
+      "field": "cliente_id",
+      "type": "many-to-one",
+      "description": "Cada dato_evo vinculado a UN cliente máximo"
+    },
+    "prospecto": {
+      "entity": "Prospectos",
+      "field": "prospecto_id",
+      "type": "many-to-one",
+      "description": "O vinculado a UN prospecto"
+    }
+  }
+}

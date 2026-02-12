@@ -1,0 +1,64 @@
+{
+  "name": "Tarjetas_Registradas",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "description": "ID del cliente (relación a Clientes)"
+    },
+    "cliente_nombre": {
+      "type": "string",
+      "description": "Nombre del cliente"
+    },
+    "cliente_whatsapp": {
+      "type": "string",
+      "description": "WhatsApp del cliente"
+    },
+    "sede_id": {
+      "type": "string",
+      "description": "ID de la sede (relación a Sucursales)"
+    },
+    "fecha_registro": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora de registro de la tarjeta"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["Pendiente", "Registrada", "Fallida", "Rechazada"],
+      "default": "Pendiente",
+      "description": "Estado del registro de tarjeta"
+    },
+    "ultimos_digitos": {
+      "type": "string",
+      "description": "Últimos 4 dígitos de la tarjeta"
+    },
+    "tipo_tarjeta": {
+      "type": "string",
+      "enum": ["Débito", "Crédito"],
+      "description": "Tipo de tarjeta"
+    },
+    "banco": {
+      "type": "string",
+      "description": "Banco emisor de la tarjeta"
+    },
+    "motivo_falla": {
+      "type": "string",
+      "description": "Motivo de falla si el registro falló"
+    },
+    "intentos": {
+      "type": "number",
+      "default": 0,
+      "description": "Número de intentos de registro"
+    },
+    "registrada_por": {
+      "type": "string",
+      "description": "Staff que registró la tarjeta (relación a Staff)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas adicionales"
+    }
+  },
+  "required": ["cliente_id", "fecha_registro", "estado"]
+}

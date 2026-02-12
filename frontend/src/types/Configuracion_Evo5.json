@@ -1,0 +1,32 @@
+{
+  "name": "Configuracion_Evo5",
+  "type": "object",
+  "properties": {
+    "nombre": {
+      "type": "string",
+      "description": "Nombre de la configuración (siempre 'default')"
+    },
+    "base_url": {
+      "type": "string",
+      "description": "URL base de la API de Evo5"
+    },
+    "api_key": {
+      "type": "string",
+      "description": "Token de autenticación de Evo5"
+    },
+    "gym_id": {
+      "type": "string",
+      "description": "ID del gimnasio"
+    },
+    "instance_id": {
+      "type": "string",
+      "description": "ID de la instancia de Evo5"
+    },
+    "activo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si la configuración está activa"
+    }
+  },
+  "required": ["nombre", "base_url", "api_key"]
+}

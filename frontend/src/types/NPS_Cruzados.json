@@ -1,0 +1,83 @@
+{
+  "name": "NPS_Cruzados",
+  "type": "object",
+  "properties": {
+    "cliente": {
+      "type": "string",
+      "relation": "Clientes",
+      "description": "Cliente al que se le realiza la encuesta NPS"
+    },
+    "sede_evaluada": {
+      "type": "string",
+      "relation": "Sucursales",
+      "description": "Sede que está siendo evaluada por el cliente"
+    },
+    "responsable_asignado": {
+      "type": "string",
+      "relation": "Staff",
+      "description": "Responsable de Sede asignado por cruce para realizar el NPS"
+    },
+    "puntaje_nps": {
+      "type": "number",
+      "description": "Puntaje NPS del 0 al 10",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "comentario_cliente": {
+      "type": "string",
+      "description": "Comentario obligatorio del cliente sobre su experiencia"
+    },
+    "fecha_contacto": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que se realizó el contacto con el cliente"
+    },
+    "resultado_contacto": {
+      "type": "string",
+      "enum": ["compromiso_compra", "reagendo", "no_interesado"],
+      "description": "Resultado del contacto comercial"
+    },
+    "producto_interes": {
+      "type": "string",
+      "description": "Producto o plan que mostró interés (solo si resultado es compromiso_compra)"
+    },
+    "plazo_estimado_compra": {
+      "type": "string",
+      "description": "Plazo estimado de compra (solo si resultado es compromiso_compra)"
+    },
+    "fecha_reagendamiento": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de reagendamiento (solo si resultado es reagendo)"
+    },
+    "motivo_reagendamiento": {
+      "type": "string",
+      "description": "Motivo del reagendamiento (solo si resultado es reagendo)"
+    },
+    "motivo_desinteres": {
+      "type": "string",
+      "description": "Motivo de desinterés (solo si resultado es no_interesado)"
+    },
+    "tarea_relacionada": {
+      "type": "string",
+      "relation": "Tareas_RS",
+      "description": "Tarea de NPS Cruzado relacionada"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["pendiente", "completado", "seguimiento"],
+      "default": "pendiente",
+      "description": "Estado del NPS Cruzado"
+    },
+    "requiere_gestion": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marca si requiere gestión adicional (puntajes 0-6)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas adicionales sobre el NPS"
+    }
+  },
+  "required": ["cliente", "sede_evaluada", "responsable_asignado"]
+}

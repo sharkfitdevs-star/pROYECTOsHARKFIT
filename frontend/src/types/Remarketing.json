@@ -1,0 +1,52 @@
+{
+  "name": "Remarketing",
+  "type": "object",
+  "properties": {
+    "fecha": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del bloque de trabajo de remarketing"
+    },
+    "vendedor": {
+      "type": "string",
+      "relation": {
+        "entity": "Staff",
+        "field": "nombre"
+      },
+      "description": "Vendedor que realizó el remarketing"
+    },
+    "sede": {
+      "type": "string",
+      "relation": {
+        "entity": "Sucursales",
+        "field": "nombre"
+      },
+      "description": "Sede a la que pertenece el bloque de trabajo"
+    },
+    "mensajes_enviados": {
+      "type": "number",
+      "description": "Cantidad de mensajes de remarketing enviados",
+      "default": 0
+    },
+    "respuestas": {
+      "type": "number",
+      "description": "Cantidad de respuestas obtenidas",
+      "default": 0
+    },
+    "agendamientos": {
+      "type": "number",
+      "description": "Cantidad de agendamientos logrados",
+      "default": 0
+    },
+    "ventas": {
+      "type": "number",
+      "description": "Cantidad de ventas cerradas",
+      "default": 0
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas o comentarios sobre el bloque de trabajo"
+    }
+  },
+  "required": ["fecha", "vendedor", "sede", "mensajes_enviados"]
+}

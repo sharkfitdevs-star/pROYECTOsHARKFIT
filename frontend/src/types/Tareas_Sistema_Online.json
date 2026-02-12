@@ -1,0 +1,108 @@
+{
+  "name": "Tareas_Sistema_Online",
+  "type": "object",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "Título de la tarea"
+    },
+    "descripcion": {
+      "type": "string",
+      "description": "Descripción detallada de la tarea"
+    },
+    "departamento": {
+      "type": "string",
+      "enum": ["Soporte", "Financiero", "Retención", "Ventas"],
+      "description": "Departamento al que pertenece la tarea"
+    },
+    "tipo_tarea": {
+      "type": "string",
+      "enum": ["Contrato Pendiente", "Tarjeta Pendiente", "Seguimiento Online", "Alerta Renovación", "Deudor", "Cliente Riesgo", "Onboarding", "Llamado Confirmación", "Confirmación Baja", "Cancelar Suscripción MP", "Otra"],
+      "description": "Tipo específico de tarea"
+    },
+    "prioridad": {
+      "type": "string",
+      "enum": ["Baja", "Media", "Alta", "Urgente"],
+      "default": "Media",
+      "description": "Prioridad de la tarea"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["Pendiente", "En Proceso", "Completada", "Cancelada"],
+      "default": "Pendiente",
+      "description": "Estado actual de la tarea"
+    },
+    "fecha_creacion": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora de creación de la tarea"
+    },
+    "fecha_vencimiento": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha límite para completar la tarea"
+    },
+    "fecha_completada": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que se completó la tarea"
+    },
+    "asignado_a": {
+      "type": "string",
+      "description": "ID del staff asignado (relación a Staff)"
+    },
+    "asignado_nombre": {
+      "type": "string",
+      "description": "Nombre del staff asignado (desnormalizado)"
+    },
+    "sede_id": {
+      "type": "string",
+      "description": "ID de la sede (relación a Sucursales)"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID del cliente relacionado (relación a Clientes)"
+    },
+    "cliente_nombre": {
+      "type": "string",
+      "description": "Nombre del cliente (desnormalizado)"
+    },
+    "cliente_whatsapp": {
+      "type": "string",
+      "description": "WhatsApp del cliente (desnormalizado)"
+    },
+    "referencia_id": {
+      "type": "string",
+      "description": "ID de referencia a otra entidad (Contratos, Tarjetas, Deudores, etc.)"
+    },
+    "referencia_tipo": {
+      "type": "string",
+      "description": "Tipo de entidad referenciada (Contratos, Tarjetas_Registradas, Deudores, etc.)"
+    },
+    "dias_vencida": {
+      "type": "number",
+      "description": "Días transcurridos desde la fecha de vencimiento (si aplica)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas adicionales sobre la tarea"
+    },
+    "resultado": {
+      "type": "string",
+      "description": "Resultado o resolución de la tarea"
+    },
+    "completado_por_id": {
+      "type": "string",
+      "description": "ID del staff que completó la tarea (relación a Staff)"
+    },
+    "completado_por_nombre": {
+      "type": "string",
+      "description": "Nombre del staff que completó la tarea (desnormalizado)"
+    },
+    "tiempo_resolucion_minutos": {
+      "type": "number",
+      "description": "Tiempo en minutos desde creación hasta completado"
+    }
+  },
+  "required": ["titulo", "departamento", "tipo_tarea", "prioridad", "estado", "fecha_creacion"]
+}

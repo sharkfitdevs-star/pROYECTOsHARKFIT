@@ -1,0 +1,60 @@
+{
+  "name": "Alertas_Renovacion",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "description": "ID del cliente (relación a Clientes)"
+    },
+    "fecha_vencimiento": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de vencimiento del plan del cliente"
+    },
+    "fecha_alerta": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que se generó la alerta (vencimiento + 3 días)"
+    },
+    "tipo_alerta": {
+      "type": "string",
+      "enum": ["Llamada Pendiente", "Seguimiento Urgente"],
+      "default": "Llamada Pendiente",
+      "description": "Tipo de alerta generada"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["Pendiente", "En Proceso", "Resuelta", "Cerrada"],
+      "default": "Pendiente",
+      "description": "Estado actual de la alerta"
+    },
+    "prioridad": {
+      "type": "string",
+      "enum": ["Alta", "Media", "Baja"],
+      "default": "Alta",
+      "description": "Prioridad de la alerta"
+    },
+    "dias_vencido": {
+      "type": "number",
+      "description": "Cantidad de días transcurridos desde el vencimiento"
+    },
+    "asignado_a": {
+      "type": "string",
+      "description": "ID del staff asignado para resolver la alerta (relación a Staff)"
+    },
+    "sede": {
+      "type": "string",
+      "description": "ID de la sede del cliente (relación a Sucursales)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas sobre la alerta o acciones tomadas"
+    },
+    "fecha_resolucion": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que se resolvió la alerta"
+    }
+  },
+  "required": ["cliente_id", "fecha_vencimiento", "fecha_alerta", "dias_vencido"]
+}

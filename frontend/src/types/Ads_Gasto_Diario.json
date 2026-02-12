@@ -1,0 +1,51 @@
+{
+  "name": "Ads_Gasto_Diario",
+  "type": "object",
+  "properties": {
+    "fecha": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del gasto (para gastos únicos) o fecha de inicio (para gastos por periodo)"
+    },
+    "sede": {
+      "type": "string",
+      "description": "Sede a la que se atribuye el gasto"
+    },
+    "gasto_monto": {
+      "type": "number",
+      "description": "Monto gastado en publicidad (total si es por periodo, diario si es único)"
+    },
+    "plataforma": {
+      "type": "string",
+      "description": "Plataforma publicitaria (opcional)"
+    },
+    "campana": {
+      "type": "string",
+      "description": "Nombre de la campaña (opcional)"
+    },
+    "tipo_gasto": {
+      "type": "string",
+      "enum": ["unico", "periodo"],
+      "default": "unico",
+      "description": "Tipo de gasto: único (un día) o periodo (varios días)"
+    },
+    "fecha_fin": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de fin del periodo (solo para tipo_gasto = periodo)"
+    },
+    "gasto_total": {
+      "type": "number",
+      "description": "Monto total del gasto (solo para tipo_gasto = periodo)"
+    },
+    "dias_periodo": {
+      "type": "number",
+      "description": "Cantidad de días del periodo (calculado automáticamente)"
+    },
+    "gasto_diario": {
+      "type": "number",
+      "description": "Gasto diario calculado (gasto_total / dias_periodo)"
+    }
+  },
+  "required": ["fecha", "sede", "gasto_monto"]
+}

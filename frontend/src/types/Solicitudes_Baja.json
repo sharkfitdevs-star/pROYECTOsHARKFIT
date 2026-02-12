@@ -1,0 +1,55 @@
+{
+  "name": "Solicitudes_Baja",
+  "type": "object",
+  "properties": {
+    "cliente": {
+      "type": "string",
+      "relation": "Clientes",
+      "description": "Cliente que solicita la baja"
+    },
+    "fecha_solicitud": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que se solicitó la baja"
+    },
+    "motivo": {
+      "type": "string",
+      "enum": ["precio", "mudanza", "salud", "insatisfaccion", "horarios", "otro"],
+      "description": "Motivo de la solicitud de baja"
+    },
+    "detalle_motivo": {
+      "type": "string",
+      "description": "Detalle adicional del motivo"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["pendiente", "en_revision", "aprobada", "rechazada", "retenido"],
+      "default": "pendiente",
+      "description": "Estado de la solicitud"
+    },
+    "responsable": {
+      "type": "string",
+      "relation": "Staff",
+      "description": "RS responsable de gestionar la solicitud"
+    },
+    "sede": {
+      "type": "string",
+      "relation": "Sucursales",
+      "description": "Sede del cliente"
+    },
+    "fecha_gestion": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que se gestionó la solicitud"
+    },
+    "accion_tomada": {
+      "type": "string",
+      "description": "Acción tomada por el RS (descuento, cambio de plan, etc.)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas sobre la gestión"
+    }
+  },
+  "required": ["cliente", "fecha_solicitud", "motivo", "responsable", "sede"]
+}

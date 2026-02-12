@@ -1,0 +1,20 @@
+{
+  "name": "Clases",
+  "type": "object",
+  "properties": {
+    "nombre_clase": {
+      "type": "string",
+      "description": "Nombre de la clase (Ej: Spinning, Yoga, CrossFit)"
+    },
+    "descripcion": {
+      "type": "string",
+      "description": "Descripción opcional de la clase"
+    },
+    "activa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Indica si la clase está activa"
+    }
+  },
+  "required": ["nombre_clase"]
+}

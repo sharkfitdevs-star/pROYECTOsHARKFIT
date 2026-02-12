@@ -1,0 +1,143 @@
+{
+  "name": "Configuracion_Alertas",
+  "type": "object",
+  "properties": {
+    "tipo_alerta": {
+      "type": "string",
+      "enum": [
+        "renovacion",
+        "deudor",
+        "contrato_pendiente",
+        "tarjeta_pendiente",
+        "cliente_riesgo",
+        "seguimiento_online",
+        "baja_programada",
+        "nps_cruzado",
+        "cliente_nuevo"
+      ],
+      "description": "Tipo de alerta a configurar"
+    },
+    "nombre_regla": {
+      "type": "string",
+      "description": "Nombre descriptivo de la regla"
+    },
+    "activa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si la regla está activa o no"
+    },
+    "dias_umbral_activacion": {
+      "type": "number",
+      "description": "Días para activar la alerta (ej: 3 días vencido para renovación)"
+    },
+    "dias_prioridad_alta": {
+      "type": "number",
+      "description": "Días para marcar como prioridad alta (ej: 7 días vencido)"
+    },
+    "dias_critico": {
+      "type": "number",
+      "description": "Días para marcar como crítico (ej: 14 días vencido)"
+    },
+    "crear_tarea_automatica": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si debe crear una tarea automática en Tareas_RS"
+    },
+    "notificar_supervisor": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si debe notificar al supervisor"
+    },
+    "escalar_automaticamente": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si debe escalar automáticamente después de X días"
+    },
+    "dias_para_escalar": {
+      "type": "number",
+      "description": "Días sin gestión antes de escalar"
+    },
+    "asignar_a": {
+      "type": "string",
+      "enum": ["responsable_sede", "staff_especifico", "departamento"],
+      "default": "responsable_sede",
+      "description": "A quién asignar la alerta"
+    },
+    "staff_asignado_id": {
+      "type": "string",
+      "description": "ID del staff específico si asignar_a es 'staff_especifico'"
+    },
+    "departamento": {
+      "type": "string",
+      "enum": ["ventas", "financiero", "retencion", "soporte", "experiencia_cliente"],
+      "description": "Departamento si asignar_a es 'departamento'"
+    },
+    "frecuencia_verificacion": {
+      "type": "string",
+      "enum": ["cada_hora", "cada_4_horas", "diaria", "cada_2_dias"],
+      "default": "diaria",
+      "description": "Frecuencia con la que se verifica esta regla"
+    },
+    "aplicar_a_sedes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs de sedes a las que aplica (vacío = todas)"
+    },
+    "mensaje_alerta": {
+      "type": "string",
+      "description": "Mensaje personalizado para la alerta"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas sobre la configuración de esta regla"
+    },
+    "tareas_automaticas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "description": "Título de la tarea"
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción de la tarea"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": ["administrativa", "comercial", "seguimiento", "operativa"],
+            "description": "Tipo de tarea"
+          },
+          "prioridad": {
+            "type": "string",
+            "enum": ["baja", "media", "alta", "urgente"],
+            "description": "Prioridad de la tarea"
+          },
+          "dias_limite": {
+            "type": "number",
+            "description": "Días desde la creación del cliente para completar la tarea"
+          },
+          "asignar_a": {
+            "type": "string",
+            "enum": ["responsable_sede", "staff_especifico", "departamento"],
+            "description": "A quién asignar la tarea"
+          },
+          "staff_id": {
+            "type": "string",
+            "description": "ID del staff si asignar_a es staff_especifico"
+          },
+          "departamento": {
+            "type": "string",
+            "enum": ["ventas", "financiero", "retencion", "soporte", "experiencia_cliente"],
+            "description": "Departamento si asignar_a es departamento"
+          }
+        }
+      },
+      "description": "Lista de tareas automáticas a crear (solo para tipo cliente_nuevo)"
+    }
+  },
+  "required": ["tipo_alerta", "nombre_regla", "dias_umbral_activacion"]
+}

@@ -1,0 +1,75 @@
+{
+  "name": "Clientes",
+  "type": "object",
+  "properties": {
+    "nombre_cliente": {
+      "type": "string",
+      "description": "Nombre completo del cliente"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "WhatsApp/teléfono del cliente (identificador principal único)"
+    },
+    "sede": {
+      "type": "string",
+      "description": "ID de la sede del cliente (relación a Sucursales)"
+    },
+    "fecha_primer_compra": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de la primera compra del cliente"
+    },
+    "plan_actual": {
+      "type": "string",
+      "description": "ID del plan actual (relación a Planes_Servicios)"
+    },
+    "modalidad_actual": {
+      "type": "string",
+      "enum": ["Suscripción", "Prepago"],
+      "description": "Modalidad de cobro del plan actual (heredada desde plan_actual)"
+    },
+    "duracion_actual_meses": {
+      "type": "number",
+      "description": "Duración en meses del plan actual (heredada desde plan_actual)"
+    },
+    "canal_origen": {
+      "type": "string",
+      "enum": ["Online", "En sede"],
+      "description": "Canal de origen de la primera venta"
+    },
+    "vendedor_origen": {
+      "type": "string",
+      "description": "ID del vendedor que realizó la primera venta (relación a Staff, opcional)"
+    },
+    "cerrador_origen": {
+      "type": "string",
+      "description": "ID del cerrador que realizó la primera venta (relación a Cerradores, opcional)"
+    },
+    "fecha_inicio_plan_actual": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de inicio del plan actual"
+    },
+    "fecha_fin_plan_actual": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de fin del plan actual (calculada: inicio + duracion_meses)"
+    },
+    "estado_suscripcion": {
+      "type": "string",
+      "enum": ["Activo", "Deudor", "Baja"],
+      "default": "Activo",
+      "description": "Estado de la suscripción (solo aplica para modalidad Suscripción): Activo (al día), Deudor (no pagó), Baja (cancelado)"
+    },
+    "activo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Indica si el cliente está activo"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas adicionales sobre el cliente (opcional)"
+    }
+  },
+  "required": ["nombre_cliente", "whatsapp", "sede", "fecha_primer_compra"]
+}

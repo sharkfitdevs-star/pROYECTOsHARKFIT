@@ -1,0 +1,24 @@
+{
+  "name": "Sucursales",
+  "type": "object",
+  "properties": {
+    "nombre_sede": {
+      "type": "string",
+      "description": "Nombre único de la sucursal"
+    },
+    "responsable_sede": {
+      "type": "string",
+      "description": "ID del staff responsable de la sede (RS)",
+      "relation": {
+        "entity": "Staff",
+        "field": "id"
+      }
+    },
+    "activa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Indica si la sucursal está activa"
+    }
+  },
+  "required": ["nombre_sede"]
+}

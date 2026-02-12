@@ -1,0 +1,45 @@
+{
+  "name": "Ciclos_Retencion",
+  "type": "object",
+  "properties": {
+    "cliente": {
+      "type": "string",
+      "description": "ID del cliente (relación a Clientes)"
+    },
+    "sede": {
+      "type": "string",
+      "description": "ID de la sede (relación a Sucursales)"
+    },
+    "fecha_evento": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del evento de retención"
+    },
+    "tipo_evento": {
+      "type": "string",
+      "enum": ["Renovó", "Venció", "No pagó", "Baja", "Recuperado"],
+      "description": "Tipo de evento: Renovó, Venció, No pagó (deudor), Baja o Recuperado"
+    },
+    "plan": {
+      "type": "string",
+      "description": "ID del plan asociado al evento (relación a Planes_Servicios)"
+    },
+    "monto": {
+      "type": "number",
+      "description": "Monto del pago (opcional, aplica principalmente para Renovó)"
+    },
+    "dias_desde_ultimo_pago": {
+      "type": "number",
+      "description": "Días transcurridos desde el último pago (calculado, opcional)"
+    },
+    "responsable_seguimiento": {
+      "type": "string",
+      "description": "ID del responsable de seguimiento (relación a Staff, opcional)"
+    },
+    "nota": {
+      "type": "string",
+      "description": "Nota adicional sobre el evento (opcional)"
+    }
+  },
+  "required": ["cliente", "sede", "fecha_evento", "tipo_evento"]
+}

@@ -1,0 +1,66 @@
+{
+  "name": "Reporte_Diario_Soporte",
+  "type": "object",
+  "properties": {
+    "fecha": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del reporte"
+    },
+    "staff_id": {
+      "type": "string",
+      "description": "ID del staff (relación a Staff)"
+    },
+    "staff_nombre": {
+      "type": "string",
+      "description": "Nombre del staff"
+    },
+    "sede_id": {
+      "type": "string",
+      "description": "ID de la sede (relación a Sucursales)"
+    },
+    "chats_atendidos": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de chats atendidos"
+    },
+    "bajas_gestionadas": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de bajas gestionadas"
+    },
+    "pausas_registradas": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de pausas registradas"
+    },
+    "licencias_registradas": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de licencias registradas"
+    },
+    "contratos_procesados": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de contratos procesados"
+    },
+    "tarjetas_registradas": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de tarjetas registradas"
+    },
+    "observaciones": {
+      "type": "string",
+      "description": "Observaciones del día"
+    },
+    "hora_inicio": {
+      "type": "string",
+      "description": "Hora de inicio de jornada"
+    },
+    "hora_fin": {
+      "type": "string",
+      "description": "Hora de fin de jornada"
+    }
+  },
+  "required": ["fecha", "staff_id"]
+}

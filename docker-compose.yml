@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: sharkfit_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: sharkfit2024
+      MONGO_INITDB_DATABASE: sharkfit
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    ports:
+      - "27017:27017"
+    networks:
+      - sharkfit_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/sharkfit --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node/Express Backend con MongoDB
+  backend:
+    build:
+      context: ./backend-data-intake
+      dockerfile: Dockerfile
+    container_name: sharkfit_backend
+    restart: unless-stopped
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+      PORT: 8000
+      # Para usar MongoDB Atlas (recomendado para producción):
+      # MONGODB_URI: mongodb+srv://sharkfit:TU_PASSWORD@cluster0.xxxxx.mongodb.net/sharkfit?retryWrites=true&w=majority
+      # Para usar MongoDB local con Docker:
+      MONGODB_URI: mongodb://admin:sharkfit2024@mongodb:27017/sharkfit?authSource=admin
+      JWT_SECRET: your-secret-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./backend-data-intake/src:/app/src
+      - ./backend-data-intake/package.json:/app/package.json
+    ports:
+      - "8000:8000"
+    # Si usas MongoDB Atlas, comenta o elimina depends_on:
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - sharkfit_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: sharkfit_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000/api
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - sharkfit_network
+
+  # React Landing Page
+  landing:
+    build:
+      context: ./landing
+      dockerfile: ../docker/Dockerfile.landing
+    container_name: sharkfit_landing
+    restart: unless-stopped
+    volumes:
+      - ./landing/src:/app/src
+      - ./landing/public:/app/public
+    ports:
+      - "3000:3000"
+    networks:
+      - sharkfit_network
+
+networks:
+  sharkfit_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local

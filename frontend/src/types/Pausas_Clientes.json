@@ -1,0 +1,98 @@
+{
+  "name": "Pausas_Clientes",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "description": "ID del cliente (relación a Clientes)"
+    },
+    "cliente_nombre": {
+      "type": "string",
+      "description": "Nombre del cliente (desnormalizado)"
+    },
+    "cliente_whatsapp": {
+      "type": "string",
+      "description": "WhatsApp del cliente (desnormalizado)"
+    },
+    "sede_id": {
+      "type": "string",
+      "description": "ID de la sede (relación a Sucursales)"
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "ID del plan actual del cliente (relación a Planes_Servicios)"
+    },
+    "plan_nombre": {
+      "type": "string",
+      "description": "Nombre del plan (desnormalizado)"
+    },
+    "plataforma_cobro": {
+      "type": "string",
+      "enum": ["EVO", "Mercado Pago"],
+      "description": "Plataforma donde se cobra la suscripción"
+    },
+    "fecha_ultimo_cobro": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del último cobro antes de la pausa (cuando se debe pausar)"
+    },
+    "fecha_inicio_pausa": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que inicia la pausa efectivamente"
+    },
+    "fecha_fin_pausa": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha en que termina la pausa y se reactiva el plan"
+    },
+    "motivo_pausa": {
+      "type": "string",
+      "enum": ["Vacaciones", "Viaje", "Lesión", "Personal", "Otro"],
+      "description": "Motivo de la pausa"
+    },
+    "detalle_motivo": {
+      "type": "string",
+      "description": "Detalle adicional del motivo"
+    },
+    "estado": {
+      "type": "string",
+      "enum": ["Programada", "Pausado", "Activado", "Cancelada"],
+      "default": "Programada",
+      "description": "Estado de la pausa"
+    },
+    "mensaje_pausa_enviado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica si se envió el mensaje de activación de pausa"
+    },
+    "mensaje_activacion_enviado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica si se envió el mensaje de plan en pausa"
+    },
+    "programar_mensaje_pausa": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si se debe programar el envío del mensaje de pausa"
+    },
+    "programar_mensaje_activacion": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si se debe programar el envío del mensaje de activación"
+    },
+    "tarea_pausar_id": {
+      "type": "string",
+      "description": "ID de la tarea de pausar en Sistema Online"
+    },
+    "tarea_activar_id": {
+      "type": "string",
+      "description": "ID de la tarea de activar en Sistema Online"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas adicionales"
+    }
+  },
+  "required": ["cliente_id", "sede_id", "plataforma_cobro", "fecha_ultimo_cobro", "fecha_fin_pausa", "estado"]
+}

@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-02-11T17:19:35.095957",
+  "branches_in_api": {
+    "1": {
+      "name": "SHARK FIT - NOGALES",
+      "member_count": 2253,
+      "active_count": 174,
+      "inactive_count": 2079
+    },
+    "3": {
+      "name": "SHARK FIT - EL BOSQUE",
+      "member_count": 937,
+      "active_count": 145,
+      "inactive_count": 792
+    },
+    "2": {
+      "name": "SHARK FIT - COLON",
+      "member_count": 1213,
+      "active_count": 141,
+      "inactive_count": 1072
+    },
+    "6": {
+      "name": "SHARKFIT - SANTIAGO",
+      "member_count": 4,
+      "active_count": 2,
+      "inactive_count": 2
+    },
+    "5": {
+      "name": "SHARKFIT - BUIN",
+      "member_count": 188,
+      "active_count": 46,
+      "inactive_count": 142
+    },
+    "4": {
+      "name": "SHARK FIT - LA CISTERNA",
+      "member_count": 405,
+      "active_count": 81,
+      "inactive_count": 324
+    }
+  },
+  "branches_in_db": {
+    "1": {
+      "name": "SHARK FIT - NOGALES",
+      "total": 50,
+      "active": 1,
+      "inactive": 49
+    }
+  },
+  "analysis": {
+    "total_in_api": 6,
+    "total_in_db": 1,
+    "missing_in_db": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "missing_in_api": [],
+    "in_both": [
+      1
+    ]
+  }
+}
