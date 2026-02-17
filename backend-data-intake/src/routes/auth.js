@@ -51,11 +51,21 @@ const setRefreshCookie = (res, token, maxAgeMs) => {
       'Configuración inválida: COOKIE_SAMESITE=none requiere COOKIE_SECURE=true. ' +
       'Los navegadores modernos ignoran cookies SameSite=None sin el flag Secure. ' +
       'Cambia COOKIE_SECURE=true en .env o usa COOKIE_SAMESITE=lax';
-    
+
     if (process.env.NODE_ENV === 'production') {
       throw new Error(msg);
     }
+
     logger.warn('[AUTH COOKIE WARNING]', { warning: msg });
+  }
+
+  const cookieMaxAge = maxAgeMs || Number(process.env.REFRESH_COOKIE_MAX_AGE_MS || 1000 * 60 * 60 * 24 * 7);
+
+  res.cookie(REFRESH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/api/auth',
     maxAge: cookieMaxAge
   });
 };

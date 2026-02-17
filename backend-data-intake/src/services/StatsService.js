@@ -1,137 +1,109 @@
-// Intenta cargar SQLite (puede fallar por permisos en OneDrive)
-let db = null;
-try {
-  const sqlite = require('../db/sqlite');
-  db = sqlite.db;
-} catch (error) {
-  console.warn('⚠️  SQLite no disponible, usando fallback');
-}
+const Cliente = require('../models/Cliente');
+const Venta = require('../models/Venta');
+const Lead = require('../models/Lead');
+const AccessLog = require('../models/AccessLog');
 
-
-function toIso(value) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function buildRange(column, desde, hasta) {
-  const clauses = [];
-  const params = [];
-
-  if (desde) {
-    clauses.push(`${column} >= ?`);
-    params.push(toIso(desde));
-  }
-
-  if (hasta) {
-    clauses.push(`${column} <= ?`);
-    params.push(toIso(hasta));
-  }
-
-  return {
-    where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
-    params
-  };
+function _toDate(d) {
+  if (!d) return null;
+  const dt = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
 class StatsService {
   async obtenerResumen(desde, hasta) {
-    const rangeClientes = buildRange('created_at', desde, hasta);
-    const rangeVentas = buildRange('fecha', desde, hasta);
-    const rangeLeads = buildRange('created_at', desde, hasta);
+    const filterCliente = {};
+    const filterVenta = {};
+    const filterLead = {};
 
-    const clientes = db
-      .prepare(`SELECT COUNT(*) as total FROM clientes ${rangeClientes.where}`)
-      .get(...rangeClientes.params);
+    const dDesde = _toDate(desde);
+    const dHasta = _toDate(hasta);
 
-    const ventas = db
-      .prepare(`SELECT COUNT(*) as total, COALESCE(SUM(monto), 0) as totalMonto FROM ventas ${rangeVentas.where}`)
-      .get(...rangeVentas.params);
+    if (dDesde || dHasta) {
+      filterCliente.registrationDate = {};
+      filterVenta.saleDate = {};
+      filterLead.createdAt = {};
+      if (dDesde) {
+        filterCliente.registrationDate.$gte = dDesde;
+        filterVenta.saleDate.$gte = dDesde;
+        filterLead.createdAt.$gte = dDesde;
+      }
+      if (dHasta) {
+        filterCliente.registrationDate.$lte = dHasta;
+        filterVenta.saleDate.$lte = dHasta;
+        filterLead.createdAt.$lte = dHasta;
+      }
+    }
 
-    const leads = db
-      .prepare(`SELECT COUNT(*) as total FROM leads ${rangeLeads.where}`)
-      .get(...rangeLeads.params);
+    const [clientesCount, ventasAgg, leadsCount] = await Promise.all([
+      Cliente.countDocuments(filterCliente),
+      Venta.aggregate([
+        { $match: filterVenta },
+        { $group: { _id: null, count: { $sum: 1 }, totalAmount: { $sum: '$amount' } } }
+      ]),
+      Lead.countDocuments(filterLead)
+    ]);
+
+    const ventasCount = (ventasAgg[0] && ventasAgg[0].count) || 0;
+    const ventasTotal = (ventasAgg[0] && ventasAgg[0].totalAmount) || 0;
 
     return {
-      clientes: clientes?.total || 0,
-      ventas: ventas?.total || 0,
-      leads: leads?.total || 0,
-      totalVentas: ventas?.totalMonto || 0
+      clientes: clientesCount || 0,
+      ventas: ventasCount || 0,
+      leads: leadsCount || 0,
+      totalVentas: ventasTotal || 0
     };
   }
 
   async obtenerVentasSemanales(desde, hasta) {
-    const range = buildRange('fecha', desde, hasta);
-    const rows = db
-      .prepare(`
-        SELECT
-          strftime('%Y-%W', COALESCE(fecha, created_at)) as semana,
-          COUNT(*) as cantidad,
-          COALESCE(SUM(monto), 0) as total
-        FROM ventas
-        ${range.where}
-        GROUP BY semana
-        ORDER BY semana ASC
-      `)
-      .all(...range.params);
+    const match = {};
+    const dDesde = _toDate(desde) || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const dHasta = _toDate(hasta) || new Date();
+    match.saleDate = { $gte: dDesde, $lte: dHasta };
 
-    return rows.map((row) => ({
-      semana: row.semana,
-      cantidad: row.cantidad,
-      total: row.total
-    }));
+    const rows = await Venta.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: { year: { $isoWeekYear: '$saleDate' }, week: { $isoWeek: '$saleDate' } },
+          cantidad: { $sum: 1 },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.week': 1 } },
+      { $project: { semana: { $concat: [ { $toString: '$_id.year' }, '-', { $toString: '$_id.week' } ] }, cantidad: 1, total: 1, _id: 0 } }
+    ]);
+
+    return rows.map(r => ({ semana: r.semana, cantidad: r.cantidad, total: r.total }));
   }
 
   async obtenerClientesPorEstado() {
-    const rows = db
-      .prepare('SELECT estado, COUNT(*) as cantidad FROM clientes GROUP BY estado')
-      .all();
+    const rows = await Cliente.aggregate([
+      { $group: { _id: '$status', cantidad: { $sum: 1 } } },
+      { $project: { estado: '$_id', cantidad: 1, _id: 0 } }
+    ]);
 
-    return rows.map((row) => ({
-      estado: row.estado || 'Sin estado',
-      cantidad: row.cantidad
-    }));
+    return rows.map(r => ({ estado: r.estado || 'Sin estado', cantidad: r.cantidad }));
   }
 
-  async obtenerMembresiasProximasVencer(dias, estado) {
+  async obtenerMembresiasProximasVencer(dias = 7, estado) {
     const hoy = new Date();
     const limite = new Date(hoy.getTime() + dias * 24 * 60 * 60 * 1000);
+    const q = { membershipEndDate: { $gte: hoy, $lte: limite } };
+    if (estado) q.membershipStatus = estado;
 
-    const rows = db
-      .prepare(`
-        SELECT * FROM clientes
-        WHERE membresia_fecha_vencimiento IS NOT NULL
-          AND membresia_fecha_vencimiento BETWEEN ? AND ?
-          AND (membresia_estado = ? OR ? IS NULL)
-        ORDER BY membresia_fecha_vencimiento ASC
-      `)
-      .all(toIso(hoy), toIso(limite), estado || null, estado || null);
-
-    return rows.map((row) => ({
-      clienteId: row.cliente_id,
-      nombre: row.nombre,
-      email: row.email,
-      estado: row.membresia_estado,
-      fechaVencimiento: row.membresia_fecha_vencimiento
-    }));
+    const rows = await Cliente.find(q).sort({ membershipEndDate: 1 }).limit(100).lean();
+    return rows.map(r => ({ clienteId: r.idMember, nombre: r.name, email: r.email, estado: r.membershipStatus, fechaVencimiento: r.membershipEndDate }));
   }
 
-  async obtenerAnalisisChurn(periodo) {
-    const desde = new Date(Date.now() - periodo * 24 * 60 * 60 * 1000);
+  async obtenerAnalisisChurn(periodoDays = 30) {
+    const desde = new Date(Date.now() - periodoDays * 24 * 60 * 60 * 1000);
+    const rows = await Cliente.aggregate([
+      { $match: { lastUpdate: { $gte: desde } } },
+      { $group: { _id: '$status', cantidad: { $sum: 1 } } },
+      { $project: { estado: '$_id', cantidad: 1, _id: 0 } }
+    ]);
 
-    const rows = db
-      .prepare(`
-        SELECT estado, COUNT(*) as cantidad
-        FROM clientes
-        WHERE updated_at >= ?
-        GROUP BY estado
-      `)
-      .all(toIso(desde));
-
-    return rows.map((row) => ({
-      estado: row.estado || 'Sin estado',
-      cantidad: row.cantidad
-    }));
+    return rows.map(r => ({ estado: r.estado || 'Sin estado', cantidad: r.cantidad }));
   }
 }
 

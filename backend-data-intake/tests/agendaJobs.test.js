@@ -30,6 +30,10 @@ describe('Agenda jobs registration', () => {
       processSyncTask
     }));
 
+    // Prevent actual extractAllApis from running when testing API_EXTRACTS handler
+    const extractAllApisStub = jestMock.fn().mockResolvedValue(true);
+    jest.doMock('../src/index', () => ({ extractAllApis: extractAllApisStub }));
+
     const { registerAgendaJobs, JOB_NAMES } = require('../src/workers/agendaJobs');
     const registered = registerAgendaJobs();
     expect(registered).toBe(true);

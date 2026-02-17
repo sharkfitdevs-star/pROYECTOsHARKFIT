@@ -6,25 +6,30 @@ jest.mock('axios', () => ({
 }));
 
 const axios = require('axios');
-const { extractAndSync } = require('../src/index');
 
 describe('api-web extractor (configs/api-web.json)', () => {
   beforeEach(() => {
     jest.resetModules();
+    // prevent real DB calls from repositories
+    jest.doMock('../src/db/repositories', () => ({
+      createSyncLog: jest.fn().mockResolvedValue({ syncId: 'stub-sync' }),
+      updateSyncLog: jest.fn().mockResolvedValue(true)
+    }));
+
     process.env.WEB_BASE_URL = 'https://example.com';
     process.env.WEB_API_TOKEN = 'fake-token';
   });
 
   afterEach(() => {
+    jest.dontMock('../src/db/repositories');
     delete process.env.WEB_BASE_URL;
     delete process.env.WEB_API_TOKEN;
   });
 
   test('extractAndSync processes api-web endpoints using axios mock', async () => {
-    const sales = { items: [{ id: 's1', amount: 100 }] };
-    const prospects = { items: [{ id: 'p1', name: 'Lead Uno' }] };
-    const access_logs = { records: [{ id: 'a1', location: 'Main' }] };
-    const contacts = { items: [{ id: 'c1', name: 'Contacto' }] };
+    // reset modules + re-require axios so mocks are fresh
+    jest.resetModules();
+    const axios = require('axios');
 
     // axios.create should return a client with request/get methods
     axios.create.mockReturnValue({
@@ -42,8 +47,17 @@ describe('api-web extractor (configs/api-web.json)', () => {
         if (u.includes('/contacts')) return Promise.resolve({ data: contacts });
         return Promise.resolve({ data: {} });
       }),
-      post: jest.fn().mockResolvedValue({ data: {} })
+      post: jest.fn().mockResolvedValue({ data: {} }),
+      // minimal defaults shape used by UniversalExtractor._createHttpClient
+      defaults: { headers: { common: {} } }
     });
+
+    // require after mocks/resetModules so internal requires use the mocks
+    const { extractAndSync } = require('../src/index');
+    const sales = { items: [{ id: 's1', amount: 100 }] };
+    const prospects = { items: [{ id: 'p1', name: 'Lead Uno' }] };
+    const access_logs = { records: [{ id: 'a1', location: 'Main' }] };
+    const contacts = { items: [{ id: 'c1', name: 'Contacto' }] };
 
     const result = await extractAndSync('api-web');
     expect(result).toBeTruthy();

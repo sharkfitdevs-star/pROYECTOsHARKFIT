@@ -42,7 +42,7 @@ app.use(helmet({
 
 // ✅ CORS MEJORADO: Validación dinámica contra whitelist
 if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
-  console.error('❌ FATAL: CORS_ORIGIN no configurado en PRODUCCIÓN');
+  logger.error('❌ FATAL: CORS_ORIGIN no configurado en PRODUCCIÓN');
   process.exit(1);
 }
 
@@ -56,7 +56,7 @@ const corsOptions = {
     if (!origin || corsOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`❌ CORS BLOCKED: ${origin}`);
+      logger.warn(`CORS BLOCKED: ${origin}`);
       callback(new Error('CORS no permitido'));
     }
   },
@@ -104,6 +104,7 @@ const alertasRoutes = require('./routes/alertasNew');
 const reportesRoutes = require('./routes/reportesNew');
 const importRoutes = require('./routes/import');
 const webhooksRoutes = require('./routes/webhooks');
+const evoRoutes = require('./routes/evo');
 const syncRoutes = require('./routes/syncNew');
 const auditLogRoutes = require('./routes/auditLog');
 
@@ -118,6 +119,7 @@ app.use('/api/reportes', reportesRoutes);
 app.use('/api/import', importRoutes);
 
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/evo', evoRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 
@@ -136,6 +138,7 @@ app.get('/', (req, res) => {
       alertas: '/api/alertas',
       reportes: '/api/reportes',
       webhooks: '/api/webhooks',
+      evo: '/api/evo',
       sync: '/api/sync'
     }
   });

@@ -10,6 +10,7 @@
     "prestart": "node verify-config.js",
     "create-owner": "node create-owner.js",
     "test": "jest --coverage",
+    "migrate:sqlite-to-mongo": "echo \"DEPRECATED: sqlite migration removed; use web/API ingestion\"",
     "seed": "node src/scripts/seedData.js",
     "evo-proxy": "node src/evo-w12-proxy.js",
     "evo-add-credentials": "node scripts/add-evo-credentials.js",
