@@ -1,0 +1,38 @@
+{
+  "id": "api-evo",
+  "name": "EVO W12 API (extractor)",
+  "type": "rest",
+  "description": "Extractor genérico para EVO W12 — usado por extractAllApis y por la UI /evo",
+  "baseURL": "${EVO_BASE_URL}",
+  "auth": {
+    "type": "basic",
+    "username": "${EVO_DNS}",
+    "password": "${EVO_TOKEN}"
+  },
+  "endpoints": [
+    {
+      "path": "/api/v2/sales?take=100",
+      "dataPath": "items",
+      "fields": "*",
+      "dataType": "ventas"
+    },
+    {
+      "path": "/api/v1/prospects?take=100",
+      "dataPath": "items",
+      "fields": "*",
+      "dataType": "prospectos"
+    },
+    {
+      "path": "/api/v1/entries?take=100",
+      "dataPath": "items",
+      "fields": "*",
+      "dataType": "accesos"
+    },
+    {
+      "path": "/api/v1/contacts?take=100",
+      "dataPath": "items",
+      "fields": "*",
+      "dataType": "contacts"
+    }
+  ]
+}
