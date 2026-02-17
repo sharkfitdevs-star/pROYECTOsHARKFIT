@@ -19,31 +19,32 @@
  */
 
 require('dotenv').config();
-const Database = require('better-sqlite3');
+let Database; // lazy require so tests can import module without native dependency
+let db = null;
 const axios = require('axios');
 const crypto = require('crypto');
 const path = require('path');
+const { queueSyncTask } = require('./workers/api-worker');
+
+function ensureDb() {
+  if (db) return db;
+  Database = Database || require('better-sqlite3');
+  db = new Database(DB_PATH, { verbose: console.log, fileMustExist: false });
+  db.pragma('foreign_keys = ON');
+  db.pragma('journal_mode = WAL');
+  return db;
+}
 
 // =============================================================================
 // CONFIGURATION & CONSTANTS
 // =============================================================================
 
-const EVO_BASE_URL = 'https://evo-integracao-api.w12app.com.br'; // Critical Rule 1
+const EVO_BASE_URL = process.env.EVO_BASE_URL;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 32 bytes (256 bits)
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../../db.sqlite3');
 
 // Global Concurrency Lock (Critical Rule 6)
 let GLOBAL_SYNC_LOCK = false;
-
-// Initialize SQLite connection
-const db = new Database(DB_PATH, {
-    verbose: console.log, // Optional: log SQL queries
-    fileMustExist: false  // Create if doesn't exist
-});
-
-// Enable foreign keys and WAL mode for better concurrency
-db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
 
 // =============================================================================
 // SECURITY UTILITIES (AES-256-GCM)
@@ -90,6 +91,8 @@ function generateUUID() {
 // =============================================================================
 
 function initializeSchema() {
+    // Lazy-init DB (allows importing module in tests without native sqlite)
+    ensureDb();
     // Create tables if they don't exist (idempotent)
     
     db.exec(`
@@ -348,6 +351,30 @@ async function syncTenant(integration) {
 
     console.log(`[Sync] Starting for Tenant: ${tenant_id} (DNS: ${dns})`);
 
+    // If Agenda is enabled, enqueue a sync task instead of running inline
+    if (String(process.env.AGENDA_ENABLED).toLowerCase() === 'true') {
+        try {
+            await queueSyncTask('EVO', 'full-sync', { integrationId, tenant_id });
+            // Avoid touching the SQLite `db` during the enqueue path so the module
+            // remains import-safe for tests (no native `better-sqlite3` required).
+            if (db) {
+                try {
+                    repository.logSyncJob(tenant_id, 'FULL_SYNC', 'QUEUED');
+                } catch (logErr) {
+                    console.warn('[Sync] Skipping DB log in enqueue path:', logErr.message);
+                }
+            } else {
+                console.log('[Sync] DB unavailable — skipped local log (enqueue-only mode)');
+            }
+
+            console.log(`[Sync] ✅ Enqueued FULL_SYNC for tenant ${tenant_id}`);
+            return;
+        } catch (err) {
+            console.error('[Sync] Error encolando job:', err.message);
+            // Fall through to attempt local sync if enqueueing fails
+        }
+    }
+
     // Start SQLite transaction
     const transaction = db.transaction(() => {
         try {
@@ -496,44 +523,50 @@ function gracefulShutdown(signal) {
     }, 1000);
 }
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+// Only attach signal handlers and start loop when executed as a script
+if (require.main === module) {
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// =============================================================================
-// STARTUP
-// =============================================================================
+    // =============================================================================
+    // STARTUP
+    // =============================================================================
 
-console.log('\n' + '='.repeat(80));
-console.log('  EVO W12 INTEGRATION PROXY SERVER (SQLite Edition)');
-console.log('  Vendify - Sales Management System');
-console.log('='.repeat(80));
-console.log(`  Database: ${DB_PATH}`);
-console.log(`  EVO API: ${EVO_BASE_URL}`);
-console.log(`  Started: ${new Date().toISOString()}`);
-console.log('='.repeat(80) + '\n');
+    console.log('\n' + '='.repeat(80));
+    console.log('  EVO W12 INTEGRATION PROXY SERVER (SQLite Edition)');
+    console.log('  Vendify - Sales Management System');
+    console.log('='.repeat(80));
+    console.log(`  Database: ${DB_PATH}`);
+    console.log(`  EVO API: ${EVO_BASE_URL}`);
+    console.log(`  Started: ${new Date().toISOString()}`);
+    console.log('='.repeat(80) + '\n');
 
-// Initialize database schema
-initializeSchema();
+    // Initialize database schema
+    initializeSchema();
 
-// Validate encryption key
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
-    console.error('❌ ERROR: ENCRYPTION_KEY must be 32 bytes (64 hex characters)');
-    console.error('Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-    process.exit(1);
+    // Validate encryption key (only for CLI execution)
+    if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+        console.error('❌ ERROR: ENCRYPTION_KEY must be 32 bytes (64 hex characters)');
+        console.error('Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+        process.exit(1);
+    }
+
+    // Run immediately on start
+    console.log('[System] 🏃 Running initial sync...\n');
+    runIntegrations().catch(err => {
+        console.error('[System] Fatal error during initial sync:', err);
+    });
+
+    // Schedule periodic syncs (e.g., every 15 minutes)
+    const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MINUTES || '15') * 60 * 1000;
+    console.log(`[System] ⏰ Scheduled sync every ${SYNC_INTERVAL_MS / 60000} minutes\n`);
+
+    setInterval(() => {
+        runIntegrations().catch(err => {
+            console.error('[System] Error during scheduled sync:', err);
+        });
+    }, SYNC_INTERVAL_MS);
 }
 
-// Run immediately on start
-console.log('[System] 🏃 Running initial sync...\n');
-runIntegrations().catch(err => {
-    console.error('[System] Fatal error during initial sync:', err);
-});
-
-// Schedule periodic syncs (e.g., every 15 minutes)
-const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MINUTES || '15') * 60 * 1000;
-console.log(`[System] ⏰ Scheduled sync every ${SYNC_INTERVAL_MS / 60000} minutes\n`);
-
-setInterval(() => {
-    runIntegrations().catch(err => {
-        console.error('[System] Error during scheduled sync:', err);
-    });
-}, SYNC_INTERVAL_MS);
+// Exported API (so tests can import the sync functions without starting the worker)
+module.exports = { syncTenant, runIntegrations };
