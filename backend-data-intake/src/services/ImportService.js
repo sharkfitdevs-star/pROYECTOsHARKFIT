@@ -26,7 +26,7 @@ class ImportService {
    */
   async processExcelFile(file, mapeo, entidad = 'clientes') {
     const syncId = uuidv4();
-    const baseLog = createSyncLog({
+    const baseLog = await createSyncLog({
       syncId,
       fuente: 'Excel',
       estatus: 'Procesando',
@@ -74,7 +74,7 @@ class ImportService {
 
       // Registrar en syncLog
       const finalizado = new Date();
-      updateSyncLog(syncId, {
+      await updateSyncLog(syncId, {
         estatus: errores.length === 0 ? 'Exitoso' : 'Parcial',
         registosProcesados: procesados,
         registosInseridos: inseridos,
@@ -103,7 +103,7 @@ class ImportService {
       };
     } catch (error) {
       logger.error('❌ Error en importación Excel:', error);
-      updateSyncLog(syncId, {
+      await updateSyncLog(syncId, {
         estatus: 'Fallido',
         errores: [{ error: error.message }],
         finalizado: new Date()
@@ -124,17 +124,17 @@ class ImportService {
   async processCSVFile(file, mapeo, entidad = 'clientes', delimitador = ',') {
     const syncId = uuidv4();
 
+    const baseLog = await createSyncLog({
+      syncId,
+      fuente: 'CSV',
+      estatus: 'Procesando',
+      iniciado: new Date()
+    });
+
     return new Promise((resolve, reject) => {
       const registros = [];
       const errores = [];
       let procesados = 0;
-
-      const baseLog = createSyncLog({
-        syncId,
-        fuente: 'CSV',
-        estatus: 'Procesando',
-        iniciado: new Date()
-      });
 
       fs.createReadStream(file.path)
         .pipe(csv({ separator: delimitador }))
@@ -167,7 +167,7 @@ class ImportService {
             }
 
             const finalizado = new Date();
-            updateSyncLog(syncId, {
+            await updateSyncLog(syncId, {
               estatus: errores.length === 0 ? 'Exitoso' : 'Parcial',
               registosProcesados: procesados,
               registosInseridos: inseridos,
@@ -263,7 +263,7 @@ class ImportService {
     for (const reg of registros) {
       try {
         // Buscar duplicado por email, RFC o clienteId
-        const resultado = upsertCliente({
+        const resultado = await upsertCliente({
           ...reg,
           clienteId: reg.clienteId || uuidv4(),
           syncedAt: new Date(),
@@ -295,10 +295,11 @@ class ImportService {
     for (const reg of registros) {
       try {
         // Buscar cliente por email o clienteId
-        const cliente = findClienteByIdentifiers({
+        let cliente = await findClienteByIdentifiers({
           email: reg.emailCliente,
           clienteId: reg.clienteId
-        }) || findClienteByEmail(reg.emailCliente);
+        });
+        if (!cliente) cliente = await findClienteByEmail(reg.emailCliente);
 
         if (!cliente) {
           logger.warn('Cliente no encontrado para venta:', reg);
@@ -306,7 +307,7 @@ class ImportService {
         }
 
         // Buscar venta existente
-        const resultado = upsertVenta({
+        const resultado = await upsertVenta({
           ...reg,
           clienteId: cliente.id,
           ventaId: reg.ventaId || uuidv4(),

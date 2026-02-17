@@ -6,16 +6,17 @@
   position: relative;
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* Background animado */
 .auth-background {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f8fafc;
   z-index: 0;
 }
 
@@ -24,21 +25,61 @@
   position: absolute;
   inset: 0;
   background-image: 
-    radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(138, 43, 226, 0.3) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 50%);
   animation: pulse 15s ease-in-out infinite;
 }
 
 .auth-background-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(3px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }
+}
+
+/* Header Morado Principal */
+.auth-header-wrapper {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  background: linear-gradient(135deg, #c2185b 0%, #e91e63 50%, #d81b60 100%);
+  padding: 2.5rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.auth-header-content {
+  width: 100%;
+  max-width: 450px;
+  text-align: center;
+}
+
+.auth-header-wrapper .auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.auth-header-wrapper .logo-icon {
+  font-size: 2.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.auth-header-wrapper .auth-logo h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Card de autenticación */
@@ -48,18 +89,21 @@
   width: 100%;
   max-width: 450px;
   padding: 2rem;
+  margin-top: -1.5rem;
 }
 
 .auth-card {
   background: white;
-  border-radius: 20px;
-  padding: 3rem 2.5rem;
+  border-radius: 16px 16px 20px 20px;
+  padding: 2rem 2.5rem 3rem;
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
   box-shadow: 
-    0 20px 60px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+    0 10px 30px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.04);
   animation: slideUp 0.5s ease-out;
+  border: 1px solid #e2e8f0;
+  border-top: none;
 }
 
 @keyframes slideUp {
@@ -73,18 +117,17 @@
   }
 }
 
-/* Header del formulario */
-.auth-header {
+/* Inner card content */
+.auth-card-inner {
   text-align: center;
   margin-bottom: 2rem;
   position: relative;
-  padding-top: 2.5rem;
 }
 
 /* Botón Atrás */
 .btn-back {
   position: absolute;
-  top: 0;
+  top: -2rem;
   left: 0;
   display: inline-flex;
   align-items: center;
@@ -111,12 +154,17 @@
   transform: translateX(-1px);
 }
 
-.auth-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+.auth-card-inner h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.5rem 0;
+}
+
+.auth-subtitle {
+  color: #718096;
+  font-size: 0.95rem;
+  margin: 0 0 1.5rem 0;
 }
 
 .logo-icon {
@@ -131,19 +179,6 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin: 0;
-}
-
-.auth-header h2 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 0.5rem 0;
-}
-
-.auth-subtitle {
-  color: #718096;
-  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -171,9 +206,9 @@
 }
 
 .alert-error {
-  background: #fff5f5;
-  color: #c53030;
-  border: 1px solid #feb2b2;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #94a3b8;
 }
 
 .alert-success {
@@ -221,8 +256,8 @@
 }
 
 .form-group input.error {
-  border-color: #fc8181;
-  background: #fff5f5;
+  border-color: #94a3b8;
+  background: #f1f5f9;
 }
 
 .form-group input:disabled {
@@ -232,7 +267,7 @@
 }
 
 .error-message {
-  color: #e53e3e;
+  color: #64748b;
   font-size: 0.85rem;
   display: flex;
   align-items: center;
@@ -437,15 +472,15 @@
   justify-content: center;
   min-height: 100vh;
   gap: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #f8fafc;
+  color: #2d3748;
 }
 
 .spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 4px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

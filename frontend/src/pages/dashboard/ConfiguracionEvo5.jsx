@@ -18,13 +18,13 @@ export default function ConfiguracionEvo5() {
   const secretos = [
     {
       nombre: 'EVO5_API_KEY',
-      valor: '4F09A73D-6626-42A1-9D4E-7A1C5FB6B7BC',
+      valor: process.env.REACT_APP_EVO_API_KEY || '[Cargar desde .env]',  // ✅ NUNCA hardcodear
       descripcion: 'Token de autenticación de la API de Evo5',
       requerido: true
     },
     {
       nombre: 'EVO5_BASE_URL',
-      valor: 'https://evo-integracao-api.w12app.com.br/api',
+      valor: process.env.REACT_APP_EVO_BASE_URL || 'https://evo-integracao-api.w12app.com.br/api',
       descripcion: 'URL base de la API de Evo5 (w12app)',
       requerido: false
     },

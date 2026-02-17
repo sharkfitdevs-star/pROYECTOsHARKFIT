@@ -2,7 +2,7 @@
 
 **Continuación de:** EVO5_MIDDLEWARE_ARQUITECTURA_COMPLETA.md
 
-**Nota 2026:** El proyecto actual usa SQLite; las referencias a PostgreSQL/Mongo en este documento son historicas.
+**Nota 2026:** Referencias a SQLite son históricas; la ingestión y microservicios usan MongoDB.
 
 ---
 

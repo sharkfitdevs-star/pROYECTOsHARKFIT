@@ -1,6 +1,8 @@
-# 🔄 EVO W12 Integration Proxy - SQLite Edition
+# ⚠️ LEGACY: EVO W12 Proxy (SQLite) — Deprecated
 
-Middleware de sincronización segura entre la API de **EVO W12** y la base de datos **SQLite** de Vendify.
+Esta documentación describe la versión *legacy* del proxy basada en **SQLite**. El proxy ya está migrado a MongoDB — consulte `QUICKSTART-EVO.md` para la guía actual.
+
+(Archivo retenido por compatibilidad histórica; no usar en despliegues nuevos.)
 
 ## 📋 Características
 
@@ -20,7 +22,7 @@ Middleware de sincronización segura entre la API de **EVO W12** y la base de da
 
 ```bash
 cd backend-data-intake
-npm install better-sqlite3 axios dotenv
+# LEGACY: SQLite instructions removed — see QUICKSTART-EVO.md (MongoDB)
 ```
 
 ### 2. Generar Encryption Key
@@ -39,7 +41,7 @@ cp .env.example .env
 
 Editar `.env`:
 ```env
-DATABASE_PATH=../../backend/db.sqlite3
+# LEGACY: DATABASE_PATH (SQLite) — use MONGODB_URI for MongoDB in .env
 ENCRYPTION_KEY=tu_clave_de_64_caracteres_aqui
 SYNC_INTERVAL_MINUTES=15
 ```
@@ -56,7 +58,7 @@ node scripts/add-evo-credentials.js
 
 ```sql
 -- Conectar a db.sqlite3
-sqlite3 ../../backend/db.sqlite3
+# LEGACY: sqlite3 steps removed — use `mongosh --uri "$MONGODB_URI"` (historical reference)
 
 -- Insertar credenciales (usa el script encrypt-token.js para encriptar)
 INSERT INTO api_integrations (

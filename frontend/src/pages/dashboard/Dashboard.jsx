@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import ExportarDatos from './ExportarDatos'
 import '../../styles/Dashboard.css'
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   const sections = {
     overview: {
@@ -60,6 +63,10 @@ export default function Dashboard() {
           <p className="subtitle">Se cargarán los componentes de alertas aquí</p>
         </div>
       )
+    },
+    exportar: {
+      title: '📥 Exportar Datos',
+      content: () => <ExportarDatos />
     }
   }
 
@@ -70,7 +77,7 @@ export default function Dashboard() {
       <header className="dashboard-header">
         <div className="header-content">
           <h1>📊 SharkFit Dashboard</h1>
-          <p>Bienvenido, {user?.name || 'Usuario'}</p>
+          <p>Bienvenido, {user?.firstName || user?.username || 'Usuario'}</p>
         </div>
         <div className="header-actions">
           <button className="btn-icon" title="Notificaciones">
@@ -81,9 +88,9 @@ export default function Dashboard() {
           <div className="user-menu">
             <button className="btn-user" title="Mi perfil">
               <span className="user-avatar">
-                {user?.name?.charAt(0).toUpperCase() || '👤'}
+                {(user?.firstName || user?.username)?.charAt(0).toUpperCase() || '👤'}
               </span>
-              <span className="user-name">{user?.name || 'Usuario'}</span>
+              <span className="user-name">{user?.firstName || user?.username || 'Usuario'}</span>
             </button>
           </div>
         </div>
@@ -116,15 +123,34 @@ export default function Dashboard() {
             >
               🚨 Alertas
             </button>
+
+            {/* Línea separadora */}
+            <div style={{ height: '1px', background: '#93509e', margin: '15px 0', opacity: 0.5 }}></div>
+
+            {/* Sección de administración */}
+            <button
+              className={`nav-item ${activeSection === 'exportar' ? 'active' : ''}`}
+              onClick={() => setActiveSection('exportar')}
+              title="Exportar datos en múltiples formatos e integración con APIs"
+            >
+              📥 Exportar datos
+            </button>
+            <button
+              className={`nav-item`}
+              onClick={() => navigate('/admin')}
+              title="Panel de administración"
+            >
+              ⚙️ Admin
+            </button>
           </nav>
 
           <div className="sidebar-footer">
             <div className="user-info">
               <div className="user-avatar-small">
-                {user?.name?.charAt(0).toUpperCase() || '👤'}
+                {(user?.firstName || user?.username)?.charAt(0).toUpperCase() || '👤'}
               </div>
               <div className="user-details">
-                <p className="user-name-small">{user?.name || 'Usuario'}</p>
+                <p className="user-name-small">{user?.firstName || user?.username || 'Usuario'}</p>
                 <p className="user-role">{user?.role || 'Staff'}</p>
               </div>
             </div>

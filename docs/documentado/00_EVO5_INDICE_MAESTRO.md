@@ -5,7 +5,7 @@
 **Versión:** 5.0 - Layered Architecture  
 **Aprobado:** ✅ Opción 2 (Confirma "si")
 
-**Nota 2026:** El proyecto actual usa SQLite. Las referencias a PostgreSQL en esta documentación son históricas.
+**Nota 2026:** Referencias a SQLite son históricas; la ingestión y microservicios usan MongoDB. (SQLite conservado sólo como referencia legacy).
 
 ---
 

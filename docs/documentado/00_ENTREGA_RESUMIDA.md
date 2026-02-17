@@ -4,7 +4,7 @@
 **Status:** 🟢 Arquitectura de Producción Lista  
 **Tiempo de lectura:** 2-3 horas (todas las partes)
 
-**Nota 2026:** El proyecto actual funciona con SQLite. Las secciones PostgreSQL son referencia historica y no aplican al entorno actual.
+**Nota 2026:** Referencias a SQLite son históricas; la arquitectura actual migra la ingestión a MongoDB.
 
 ---
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import UserMenu from '../UserMenu';
 import { createPageUrl } from '@/utils';
-import { Menu, X, LayoutDashboard, Users, Calendar, ShoppingCart, DollarSign, BarChart3, Settings, MessageSquare, RefreshCw, UserCheck, CalendarCheck, Upload, ClipboardCheck, ListChecks, BarChart2, ChevronDown, ChevronRight, Code, AlertCircle, Target, GitBranch, LogOut, Briefcase, Monitor, Bell, TrendingUp } from 'lucide-react';
 import { User } from '@/entities/User';
 import { PermissionProvider } from '@/components/PermissionContext';
 
@@ -20,6 +20,20 @@ export default function Layout({ children, currentPageName }) {
     'Proyección': true,
     'Configuración': true
   });
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
   const location = useLocation();
 
   useEffect(() => {
@@ -273,23 +287,64 @@ export default function Layout({ children, currentPageName }) {
                 onClick={() => setIsSidebarOpen(false)}
                 className="lg:hidden p-1 rounded-lg hover:bg-gray-100"
               >
-                <X className="w-5 h-5" />
+                ✕
               </button>
             </div>
 
             {/* User Info */}
+
             {user && (
-              <div className="mb-6 px-2 pb-4 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
-                <p className="text-xs text-blue-600 font-medium mt-1">{user.role}</p>
+              <div className="mb-6 px-2 pb-4 border-b border-gray-200 relative" ref={userMenuRef}>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-700 text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  aria-haspopup="true"
+                  aria-expanded={showUserMenu ? 'true' : 'false'}
+                >
+                  <span className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600 text-lg font-bold uppercase">
+                    {user.fullName ? user.fullName[0] : 'U'}
+                  </span>
+                  <span className="text-base font-medium">{user.fullName || user.username}</span>
+                </button>
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                      onClick={async () => {
+                        await User.logout();
+                        window.location.href = '/login';
+                      }}
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+// Hook para mostrar/ocultar el menú de usuario
+const [showUserMenu, setShowUserMenu] = useState(false);
 
             {/* Navigation */}
             <nav className="space-y-1">
               {menuSections.map((section) => {
-                const SectionIcon = section.icon;
+                // Emoji map para items
+                const emojiMap = {
+                  'Inicio': '🏠',
+                  'Dashboard Comercial': '📊',
+                  'Dashboard Financiero': '💰',
+                  'Costos': '💵',
+                  'Prospectos': '👥',
+                  'Agenda': '📅',
+                  'Ventas': '🛒',
+                  'Retención': '↩️',
+                  'Checklist': '✅',
+                  'Panel de Trabajo': '💼',
+                  'Proyección': '📈',
+                  'Configuración': '⚙️',
+                  'Cerrar Sesión': '🚪'
+                };
+                
+                const emoji = emojiMap[section.title] || '•';
                 
                 // Si es un item simple (single: true)
                 if (section.single) {
@@ -304,7 +359,7 @@ export default function Layout({ children, currentPageName }) {
                         }}
                         className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       >
-                        <SectionIcon className="w-5 h-5 mr-3 text-red-600" />
+                        <span className="w-5 h-5 mr-3">{emoji}</span>
                         {section.title}
                       </button>
                     );
@@ -321,7 +376,7 @@ export default function Layout({ children, currentPageName }) {
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
-                      <SectionIcon className={`w-5 h-5 mr-3 ${active ? 'text-blue-700' : 'text-gray-500'}`} />
+                      <span className={`w-5 h-5 mr-3 ${active ? 'text-blue-700' : 'text-gray-500'}`}>{emoji}</span>
                       {section.title}
                     </Link>
                   );
@@ -343,22 +398,18 @@ export default function Layout({ children, currentPageName }) {
                       }`}
                     >
                       <div className="flex items-center">
-                        <SectionIcon className={`w-5 h-5 mr-3 ${hasActiveChild ? 'text-blue-700' : 'text-gray-500'}`} />
+                        <span className={`w-5 h-5 mr-3 ${hasActiveChild ? 'text-blue-700' : 'text-gray-500'}`}>{emoji}</span>
                         {section.title}
                       </div>
-                      {isCollapsed ? (
-                        <ChevronRight className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
+                      <span>{isCollapsed ? '▶️' : '▼'}</span>
                     </button>
 
                     {/* Items de la sección */}
                     {!isCollapsed && section.items && (
                       <div className="ml-4 mt-1 space-y-1">
                         {section.items.map((item) => {
-                          const ItemIcon = item.icon;
                           const active = isActive(item.href);
+                          const itemEmoji = emojiMap[item.name] || '📋';
                           return (
                             <Link
                               key={item.name}
@@ -369,7 +420,7 @@ export default function Layout({ children, currentPageName }) {
                                   : 'text-gray-600 hover:bg-gray-50'
                               }`}
                             >
-                              <ItemIcon className={`w-4 h-4 mr-3 ${active ? 'text-blue-700' : 'text-gray-400'}`} />
+                              <span className={`w-4 h-4 mr-3 ${active ? 'text-blue-700' : 'text-gray-400'}`}>{itemEmoji}</span>
                               {item.name}
                             </Link>
                           );
@@ -392,10 +443,13 @@ export default function Layout({ children, currentPageName }) {
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="p-2 rounded-lg hover:bg-gray-100"
               >
-                <Menu className="w-5 h-5" />
+                ☰
               </button>
               <h1 className="text-sm sm:text-lg font-semibold text-gray-800 truncate max-w-[60vw]">{currentPageName}</h1>
-              <div className="w-9"></div> {/* Spacer for centering */}
+              {/* User menu top right */}
+              {user && (
+                <UserMenu user={user} onLogout={() => setUser(null)} />
+              )}
             </div>
           </header>
 

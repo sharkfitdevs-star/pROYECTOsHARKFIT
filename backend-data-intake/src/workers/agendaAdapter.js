@@ -59,4 +59,4 @@ function createQueue(name) {
   };
 }
 
-module.exports = { createQueue };
+module.exports = { createQueue, getAgenda };

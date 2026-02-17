@@ -17,6 +17,7 @@ export default function Home() {
   return (
     <div className="home-container">
       <div className="home-content">
+        <p className="welcome-message">¡Hola!, ¡bienvenido de nuevo!</p>
         <div className="hero-title">
           <h1>Shark app</h1>
           <div className="hero-icon" aria-hidden="true">🦈</div>

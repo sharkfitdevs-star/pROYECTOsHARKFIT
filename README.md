@@ -3,7 +3,7 @@
 This workspace contains the Sharkfit dashboard frontend, Django backend, landing page, and the EVO data intake service, plus documentation and Docker files.
 
 ## What is here
-- backend/: Django REST API (SQLite)
+- backend/: Django REST API (legacy SQLite / local DB)
 - frontend/: React + Vite dashboard
 - landing/: React marketing site
 - backend-data-intake/: Node.js EVO intake and proxy tools

@@ -11,7 +11,7 @@
     "create-owner": "node create-owner.js",
     "test": "jest --coverage",
     "seed": "node src/scripts/seedData.js",
-    "evo-proxy": "node src/evo-w12-proxy-sqlite.js",
+    "evo-proxy": "node src/evo-w12-proxy.js",
     "evo-add-credentials": "node scripts/add-evo-credentials.js",
     "evo-encrypt-token": "node scripts/encrypt-token.js",
     "setup": "node scripts/setup-universal-api.js",
@@ -58,7 +58,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
-    "supertest": "^6.3.3"
+    "supertest": "^6.3.3",
+    "mongodb-memory-server": "^8.12.0"
   },
   "optionalDependencies": {
     "@sendgrid/mail": "^7.7.0",

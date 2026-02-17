@@ -16,12 +16,14 @@ import VerifyEmail from './pages/auth/VerifyEmail'
 import Account from './pages/auth/Account'
 import Dashboard from './pages/dashboard/Dashboard'
 import DashboardEVO from './components/DashboardEVO'
+import Toaster from './components/ui/toaster'
 
 function App() {
   return (
     <Router>
       <AuthProvider>
         <div className="app-container">
+          <Toaster />
           <Routes>
             {/* Rutas públicas */}
             <Route path="/" element={<Home />} />

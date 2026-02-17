@@ -73,7 +73,7 @@ cd ..\backend-data-intake
 
 npm install
 copy .env.example .env
-# Editar .env (SQLite no requiere URI)
+# Editar .env (MongoDB: configurar MONGODB_URI). SQLite references are legacy.
 npm run dev
 ```
 
@@ -244,7 +244,7 @@ POST /api/sources/api/save
 
 **Verificar en SQLite:**
 ```bash
-sqlite3 ../../backend/db.sqlite3 "SELECT * FROM clientes LIMIT 5;"
+# LEGACY: SQLite query removed — use `mongosh --uri "$MONGODB_URI"` and consult `clientes` collection
 ```
 
 ### **Test 2: Configurar EVO (simulación)**

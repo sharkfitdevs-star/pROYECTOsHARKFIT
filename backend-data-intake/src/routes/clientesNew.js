@@ -48,6 +48,23 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/clientes/export
+ * Exportar clientes (migración a cola: encola export y devuelve jobId)
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const { format = 'csv', ...filters } = req.query;
+    const { queueExportTask } = require('../workers/api-worker');
+
+    const job = await queueExportTask('clientes', format, filters);
+    return res.status(200).json({ success: true, queued: true, jobId: job?.id || null });
+  } catch (error) {
+    console.error('Error en export clientes:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/clientes/:id
  * Obtener cliente por ID
  */
@@ -184,5 +201,6 @@ router.get('/stats/resumen', async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

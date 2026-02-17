@@ -1,50 +1,37 @@
-# 🚀 EVO W12 Proxy - Inicio Rápido (5 minutos)
+# 🚀 EVO W12 Proxy - Inicio Rápido (MongoDB)
 
-## ⚡ Instalación Express
+## Requisitos previos
+- MongoDB disponible (local o Atlas)
+- `MONGODB_URI` configurada en `.env`
+- Node 18+
 
-### Paso 1: Instalar Dependencia
+## 1) Configurar variables
 ```bash
 cd backend-data-intake
-npm install better-sqlite3
+cp .env.example .env
+# editar .env -> ajustar MONGODB_URI y ENCRYPTION_KEY
 ```
 
-### Paso 2: Generar Clave de Encriptación
+## 2) Generar ENCRYPTION_KEY
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-**Copia el resultado** (64 caracteres hex)
-
-### Paso 3: Configurar .env
-```bash
-cp .env.example .env
+# pegar el valor (64 hex chars) en ENCRYPTION_KEY
 ```
 
-Editar `.env` y agregar:
-```env
-DATABASE_PATH=../../backend/db.sqlite3
-ENCRYPTION_KEY=<pega_aqui_la_clave_del_paso_2>
-SYNC_INTERVAL_MINUTES=15
-```
-
-### Paso 4: Agregar Credenciales EVO
+## 3) Agregar credenciales EVO (ahora en MongoDB)
 ```bash
 npm run evo-add-credentials
 ```
 
-**Te preguntará:**
-- Tenant ID: `gym-vendify-001`
-- EVO DNS: `tu-dns-evo`
-- EVO API Token: `tu-token-evo`
-
-### Paso 5: Iniciar Proxy
+## 4) Iniciar proxy (Mongo-backed)
 ```bash
 npm run evo-proxy
 ```
 
-**Deberías ver:**
+Salida esperada en consola:
 ```
 ================================================================================
-  EVO W12 INTEGRATION PROXY SERVER (SQLite Edition)
+  EVO W12 INTEGRATION PROXY SERVER (MongoDB)
 ================================================================================
 [System] 🚀 Starting sync cycle...
 [Sync] ✅ Upserted 120 prospects.
@@ -55,105 +42,39 @@ npm run evo-proxy
 
 ---
 
-## 📊 Ver Datos Sincronizados
+## 📊 Ver datos sincronizados (Mongo)
 
-### Opción 1: SQLite CLI
-```bash
-sqlite3 ../../backend/db.sqlite3
-
-# Mostrar prospectos
-SELECT COUNT(*) FROM prospects;
-
-# Mostrar ventas
-SELECT * FROM sales ORDER BY sale_date DESC LIMIT 10;
-
-# Logs de sincronización
-SELECT * FROM sync_queue ORDER BY created_at DESC LIMIT 10;
+### Usando mongosh
+```js
+use sharkfit
+db.clientes.countDocuments()
+db.ventas.find().sort({ saleDate: -1 }).limit(10).pretty()
+db.sync_logs.find().sort({ iniciado: -1 }).limit(10)
 ```
 
-### Opción 2: Desde Django
-```bash
-cd ../backend
-python manage.py shell
-```
-
-```python
-from django.db import connection
-
-cursor = connection.cursor()
-cursor.execute("SELECT COUNT(*) FROM prospects")
-print(f"Total prospectos: {cursor.fetchone()[0]}")
-
-cursor.execute("SELECT * FROM sales ORDER BY sale_date DESC LIMIT 5")
-for sale in cursor.fetchall():
-    print(sale)
-```
+### Desde la app (Mongoose)
+- Colecciones: `clientes`, `ventas`, `access_logs`, `sync_logs`, `api_integrations`
 
 ---
 
-## 🔧 Scripts Útiles
+## 🔧 Scripts útiles
 
 | Script | Comando | Descripción |
 |--------|---------|-------------|
-| Iniciar Proxy | `npm run evo-proxy` | Ejecuta sincronización continua |
-| Agregar Credenciales | `npm run evo-add-credentials` | Setup interactivo |
-| Encriptar Token | `npm run evo-encrypt-token` | Solo encriptación manual |
+| Iniciar Proxy | `npm run evo-proxy` | Ejecuta sincronización continua (Mongo) |
+| Agregar Credenciales | `npm run evo-add-credentials` | Inserta credenciales en `api_integrations` (Mongo) |
+| Encriptar Token | `npm run evo-encrypt-token` | Helper para AES-GCM |
 
 ---
 
-## ⚠️ Troubleshooting Rápido
-
-### "ENCRYPTION_KEY must be 32 bytes"
-```bash
-# Regenerar clave
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Actualizar .env
-```
-
-### "No active integrations found"
-```bash
-# Verificar tabla
-sqlite3 ../../backend/db.sqlite3
-SELECT * FROM api_integrations;
-
-# Si vacío, ejecutar:
-npm run evo-add-credentials
-```
-
-### "AUTH_DECRYPTION_FAILURE"
-```bash
-# Token o IV corrupto, re-agregar credenciales
-npm run evo-add-credentials
-```
-
-### "FOREIGN KEY constraint failed"
-El proxy crea automáticamente "stub members". Si persiste:
-```sql
-PRAGMA foreign_keys = OFF;
--- Hacer operación
-PRAGMA foreign_keys = ON;
-```
-
----
-
-## 🎯 Próximos Pasos
-
-1. ✅ **Proxy funcionando** → Ver logs en consola
-2. ✅ **Datos sincronizados** → Verificar tablas en SQLite
-3. ✅ **Django accediendo datos** → Ver modelos en admin
-4. 📈 **Crear visualizaciones** → Dashboard React con estos datos
+## ⚠️ Troubleshooting
+- Asegúrate de que `MONGODB_URI` es accesible desde el entorno
+- `AUTH_DECRYPTION_FAILURE` → revisar `ENCRYPTION_KEY` y re-encriptar token
 
 ---
 
 ## 📚 Más Información
+- `src/evo-w12-proxy.js` — implementación Mongo-backed
+- `src/db/evoRepository.js` — abstracción del repositorio (async / Mongoose)
+- Tests: incluye integraciones en `tests/*.mongo.test.js` (mongodb-memory-server)
 
-- **Documentación completa**: `README-EVO-SQLITE.md`
-- **Código fuente**: `src/evo-w12-proxy-sqlite.js`
-- **Scripts helpers**: `scripts/`
-
----
-
-**¿Problemas?** Revisa `sync_queue` para ver errores detallados:
-```sql
-SELECT * FROM sync_queue WHERE status = 'FAILED' ORDER BY created_at DESC;
-```

@@ -11,12 +11,19 @@ const { logger } = require('../utils/logger');
 class BidirectionalSyncService {
   constructor() {
     this.evoClient = axios.create({
-      baseURL: process.env.EVO_API_URL || 'https://evo-integracao-api.w12app.com.br',
+      baseURL: process.env.EVO_API_URL,
       headers: {
         'Authorization': `Bearer ${process.env.EVO_API_TOKEN}`
       },
       timeout: 15000
     });
+
+    if (!process.env.EVO_API_URL) {
+      throw new Error('❌ EVO_API_URL no configurado en variables de entorno');
+    }
+    if (!process.env.EVO_API_TOKEN) {
+      throw new Error('❌ EVO_API_TOKEN no configurado en variables de entorno');
+    }
 
     this.isRunning = false;
     this.streams = [];

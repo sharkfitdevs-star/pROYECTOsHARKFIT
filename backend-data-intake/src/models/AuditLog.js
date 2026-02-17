@@ -27,4 +27,8 @@ const auditLogSchema = new mongoose.Schema({
   collection: 'audit_logs'
 });
 
+// Índices adicionales para búsquedas rápidas
+// `createdAt` ya tiene `index: true` en el campo — evitar índice duplicado
+auditLogSchema.index({ userId: 1, action: 1, createdAt: -1 });
+
 module.exports = mongoose.model('AuditLog', auditLogSchema);

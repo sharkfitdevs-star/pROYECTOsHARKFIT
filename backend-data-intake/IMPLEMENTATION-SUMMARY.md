@@ -1,4 +1,4 @@
-# 📦 Sistema de Integración EVO W12 - SQLite Edition
+# 📦 Sistema de Integración EVO W12 (MongoDB)
 
 ## ✅ Implementación Completada
 
@@ -12,7 +12,7 @@ He creado un **sistema completo de sincronización** entre la API de EVO W12 y t
 ```
 backend-data-intake/
 ├── src/
-│   └── evo-w12-proxy-sqlite.js          ← Proxy principal (500+ líneas)
+│   └── evo-w12-proxy.js                 ← Proxy principal (MongoDB)
 ├── scripts/
 │   ├── encrypt-token.js                 ← Utilitario de encriptación
 │   ├── add-evo-credentials.js           ← Setup interactivo
@@ -32,18 +32,18 @@ backend-data-intake/
 - **Encryption Key Management**: Generación segura + validación
 - **No Hardcoded Secrets**: Todo en .env o base de datos encriptada
 
-### ✅ Base de Datos (SQLite)
-- **Auto Schema Creation**: Crea tablas automáticamente
-- **7 Tablas Completas**:
+### ✅ Base de Datos (MongoDB)
+- **Modelo de datos**: Colecciones Mongoose gestionadas por los microservicios
+- **Colecciones clave**:
   - `api_integrations` → Credenciales encriptadas
-  - `members` → Miembros del gimnasio
+  - `clientes` / `members` → Miembros del gimnasio
   - `prospects` → Prospectos/leads
-  - `sales` → Ventas realizadas
+  - `ventas` → Ventas realizadas
   - `access_logs` → Registros de acceso
-  - `sync_queue` → Logs de sincronización
-- **Indexes Optimizados**: Performance garantizado
-- **Foreign Keys**: Integridad referencial activada
-- **WAL Mode**: Lecturas concurrentes (Django + Proxy simultáneos)
+  - `sync_logs` → Logs de sincronización
+- **Indexes Optimizados**: Índices recomendados en MongoDB
+- **Distribuido y escalable**: Replica sets / sharding para producción
+- **Nota**: las referencias a SQLite en este documento son históricas; la ingestión y microservicios ahora usan MongoDB.
 
 ### ✅ Sincronización
 - **Endpoints EVO W12**:
@@ -80,9 +80,9 @@ backend-data-intake/
 ### Plan A: Setup Rápido (5 minutos) ⚡
 
 ```bash
-# 1. Instalar dependencia
+# 1. Preparar conexión MongoDB
 cd backend-data-intake
-npm install better-sqlite3
+# Editar .env y ajustar MONGODB_URI (ver .env.example)
 
 # 2. Generar encryption key
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -90,7 +90,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 # 3. Configurar .env
 cp .env.example .env
-# Editar .env: agregar ENCRYPTION_KEY y DATABASE_PATH
+# Editar .env: agregar ENCRYPTION_KEY y MONGODB_URI
 
 # 4. Agregar credenciales EVO (interactivo)
 npm run evo-add-credentials
@@ -103,15 +103,15 @@ npm run evo-proxy
 ### Plan B: Setup Manual (para expertos) 🛠️
 
 ```bash
-# 1. Instalar dependencia
-npm install better-sqlite3
+# 1. Preparar conexión MongoDB
+# Asegúrate que MONGODB_URI está configurada en .env
 
 # 2. Encriptar token manualmente
 ENCRYPTION_KEY=tu_key node scripts/encrypt-token.js
 
-# 3. Insertar en SQLite
-sqlite3 ../../backend/db.sqlite3
-# Copiar/pegar INSERT de manual-setup.sql
+# 3. Insertar en MongoDB (opcional)
+mongosh --uri "$MONGODB_URI"
+# Usar `db.api_integrations.insertOne(...)` o el script helper `npm run evo-add-credentials`
 
 # 4. Iniciar proxy
 npm run evo-proxy
@@ -129,7 +129,7 @@ npm run evo-proxy
 **Output esperado:**
 ```
 ================================================================================
-  EVO W12 INTEGRATION PROXY SERVER (SQLite Edition)
+  EVO W12 INTEGRATION PROXY SERVER (MongoDB)
 ================================================================================
 [Database] Schema initialized successfully
 [System] 🚀 Starting sync cycle...
@@ -140,22 +140,13 @@ npm run evo-proxy
 [System] ✅ Sync cycle completed in 4.82s
 ```
 
-### ✅ Checkpoint 2: Datos en SQLite
+### ✅ Checkpoint 2: Datos en MongoDB
 ```bash
-sqlite3 ../../backend/db.sqlite3
-```
-
-```sql
--- Contar registros
-SELECT 
-    'Prospects' as tabla, COUNT(*) as total FROM prospects
-UNION ALL
-SELECT 'Sales', COUNT(*) FROM sales
-UNION ALL
-SELECT 'Entries', COUNT(*) FROM access_logs;
-
--- Ver logs de sincronización
-SELECT * FROM sync_queue ORDER BY created_at DESC LIMIT 5;
+mongosh --uri "$MONGODB_URI"
+# Ejemplos rápidos:
+db.prospects.countDocuments()
+db.ventas.find().sort({ saleDate: -1 }).limit(10).pretty()
+db.sync_logs.find().sort({ iniciado: -1 }).limit(5).pretty()
 ```
 
 ### ✅ Checkpoint 3: Django Accede Datos
@@ -203,9 +194,9 @@ print("Última venta:", cursor.fetchone())
                                │
                                ▼
                     ┌──────────────────────┐
-                    │   db.sqlite3         │ ◄─────────┐
-                    │  • Tablas Django     │           │
-                    │  • Tablas EVO Proxy  │           │
+                    │   MongoDB (primary)  │ ◄─────────┐
+                    │  • Collections (Django / Proxy) │  │
+                    │  • api_integrations / ventas    │  │
                     └──────────────────────┘           │
                                ▲                        │
                                │                        │
@@ -271,7 +262,7 @@ print("Última venta:", cursor.fetchone())
 ## 📈 Próximos Pasos Recomendados
 
 ### ✅ Fase 1: Validación (HOY)
-1. Instalar `better-sqlite3`
+1. Preparar conexión MongoDB (no native SQLite dependency required)
 2. Configurar credenciales EVO
 3. Ejecutar primera sincronización
 4. Verificar datos en SQLite

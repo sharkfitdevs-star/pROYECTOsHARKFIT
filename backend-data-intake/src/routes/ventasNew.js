@@ -41,6 +41,23 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/ventas/export
+ * Exportar ventas (migración a cola)
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const { format = 'csv', ...filters } = req.query;
+    const { queueExportTask } = require('../workers/api-worker');
+
+    const job = await queueExportTask('ventas', format, filters);
+    return res.status(200).json({ success: true, queued: true, jobId: job?.id || null });
+  } catch (error) {
+    console.error('Error export ventas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/ventas/:id
  * Obtener venta por ID
  */
@@ -181,5 +198,6 @@ router.get('/stats/resumen', async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

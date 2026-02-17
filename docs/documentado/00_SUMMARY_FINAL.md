@@ -4,7 +4,7 @@
 **Fecha:** February 11, 2024  
 **Versión:** 5.0 Production-Ready  
 
-**Nota 2026:** La implementación actual del proyecto usa SQLite. Las referencias a PostgreSQL en este documento son históricas y no aplican al entorno actual.
+**Nota 2026:** Referencias a SQLite son históricas. La ingestión y los microservicios usan MongoDB; consulta `MONGODB_SYNC_BIDIRECCIONAL.md` para detalles.
 
 ---
 

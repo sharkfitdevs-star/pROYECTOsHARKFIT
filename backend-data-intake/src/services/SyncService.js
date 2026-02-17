@@ -28,7 +28,7 @@ class SyncService {
    */
   async sincronizarDesdeAPI(sourceId, config, modo = 'incremental', entidades = ['clientes', 'ventas']) {
     const syncId = uuidv4();
-    createSyncLog({
+    await createSyncLog({
       syncId,
       fuente: config.tipo || 'API',
       estatus: 'Procesando',
@@ -71,11 +71,11 @@ class SyncService {
 
       // Actualizar syncLog
       const finalizado = new Date();
-      const existingLog = findSyncLogById(syncId);
+      const existingLog = await findSyncLogById(syncId);
       const duracionMs = existingLog?.iniciado
         ? finalizado - new Date(existingLog.iniciado)
         : null;
-      updateSyncLog(syncId, {
+      await updateSyncLog(syncId, {
         estatus: 'Exitoso',
         cambios,
         finalizado,
@@ -93,8 +93,8 @@ class SyncService {
       logger.error(`❌ Error sincronizando`, error, { syncId });
 
       const proximoIntento = new Date(Date.now() + 5 * 60 * 1000);
-      const existingLog = findSyncLogById(syncId);
-      updateSyncLog(syncId, {
+      const existingLog = await findSyncLogById(syncId);
+      await updateSyncLog(syncId, {
         estatus: 'Fallido',
         errores: [{ error: error.message }],
         finalizado: new Date(),
@@ -141,7 +141,7 @@ class SyncService {
       }
 
       // Registrar en syncLog
-      createSyncLog({
+      await createSyncLog({
         syncId,
         fuente,
         estatus: 'Exitoso',
@@ -155,7 +155,7 @@ class SyncService {
     } catch (error) {
       logger.error('Error procesando webhook:', error, { syncId });
 
-      createSyncLog({
+      await createSyncLog({
         syncId,
         fuente,
         estatus: 'Fallido',
@@ -212,7 +212,7 @@ class SyncService {
       
       // Si es incremental, agregar filtro por fecha
       if (modo === 'incremental') {
-        const ultimaSync = getLastSuccessfulSyncBySource(config.tipo);
+        const ultimaSync = await getLastSuccessfulSyncBySource(config.tipo);
 
         if (ultimaSync?.finalizado) {
           const fecha = new Date(ultimaSync.finalizado).toISOString().split('T')[0];
@@ -232,7 +232,7 @@ class SyncService {
           const dato = this._mapearDato(datoRaw, config.mapeo?.clientes);
 
           // Buscar cliente existente
-          const resultado = upsertCliente({
+          const resultado = await upsertCliente({
             ...dato,
             clienteId: dato.clienteId || uuidv4(),
             syncedAt: new Date(),
@@ -266,7 +266,7 @@ class SyncService {
       let endpoint = config.endpoints?.ventas || '/ventas';
       
       if (modo === 'incremental') {
-        const ultimaSync = getLastSuccessfulSyncBySource(config.tipo);
+        const ultimaSync = await getLastSuccessfulSyncBySource(config.tipo);
 
         if (ultimaSync?.finalizado) {
           const fecha = new Date(ultimaSync.finalizado).toISOString().split('T')[0];
@@ -285,12 +285,12 @@ class SyncService {
           const dato = this._mapearDato(datoRaw, config.mapeo?.ventas);
 
           // Buscar cliente por email
-          const cliente = findClienteByEmail(dato.emailCliente || datoRaw.emailCliente);
+          const cliente = await findClienteByEmail(dato.emailCliente || datoRaw.emailCliente);
 
           if (!cliente) continue;
 
           // Buscar venta existente
-          const resultado = upsertVenta({
+          const resultado = await upsertVenta({
             ...dato,
             clienteId: cliente.id,
             ventaId: dato.ventaId || uuidv4(),
@@ -334,7 +334,7 @@ class SyncService {
    */
   async _procesarClienteWebhook(dato, syncId) {
     try {
-      upsertCliente({
+      await upsertCliente({
         ...dato,
         eventoId: dato.id,
         clienteId: dato.clienteId || uuidv4(),
@@ -354,10 +354,10 @@ class SyncService {
    */
   async _procesarVentaWebhook(dato, syncId) {
     try {
-      const cliente = findClienteByIdentifiers({ eventoId: dato.clienteId });
+      const cliente = await findClienteByIdentifiers({ eventoId: dato.clienteId });
       if (!cliente) throw new Error('Cliente no encontrado');
 
-      upsertVenta({
+      await upsertVenta({
         ...dato,
         eventoVentaId: dato.id,
         clienteId: cliente.id,
@@ -378,14 +378,14 @@ class SyncService {
    */
   async _procesarLeadWebhook(dato, syncId) {
     try {
-      upsertLead({
+      const resultado = await upsertLead({
         ...dato,
         eventoId: dato.id,
         leadId: dato.leadId || uuidv4(),
         syncedAt: new Date(),
         fuente: 'webhook'
       });
-      logger.info('✅ Lead procesado desde webhook:', { leadId: lead.leadId });
+      logger.info('✅ Lead procesado desde webhook:', { leadId: dato.leadId || resultado.id });
     } catch (error) {
       logger.error('Error procesando lead webhook:', error);
       throw error;

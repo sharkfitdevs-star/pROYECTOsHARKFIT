@@ -16,7 +16,7 @@
 }
 
 .listar-clientes-error {
-  color: #ef4444;
+  color: #64748b;
 }
 
 .header {
@@ -180,8 +180,8 @@
 }
 
 .btn-icon.btn-danger:hover {
-  background: #ffebee;
-  color: #c62828;
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .sin-datos {

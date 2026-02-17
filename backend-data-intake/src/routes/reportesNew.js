@@ -75,17 +75,21 @@ router.post('/', async (req, res) => {
   try {
     const nuevoReporte = new Reporte({
       ...req.body,
+      idReport: `rep-${Date.now()}-${Math.floor(Math.random()*1000)}`,
       status: 'generando'
     });
     await nuevoReporte.save();
-    
-    // TODO: Generar reporte en background
-    // Por ahora solo lo creamos
-    
-    res.status(201).json({
-      success: true,
-      data: nuevoReporte
-    });
+
+    // If Agenda/Workers enabled, enqueue generation. Otherwise keep existing behavior.
+    const { queueReportTask } = require('../workers/api-worker');
+    try {
+      const job = await queueReportTask(nuevoReporte.idReport);
+      return res.status(201).json({ success: true, data: nuevoReporte, queued: true, jobId: job?.id || null });
+    } catch (err) {
+      // Fallback: return created report but indicate not queued
+      console.warn('No se pudo encolar report (fallback):', err.message);
+      return res.status(201).json({ success: true, data: nuevoReporte, queued: false });
+    }
   } catch (error) {
     console.error('Error creating reporte:', error);
     res.status(500).json({

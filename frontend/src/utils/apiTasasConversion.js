@@ -1,19 +1,39 @@
-import { Leads_Diarios } from '@/entities/Leads_Diarios';
-import { Prospectos } from '@/entities/Prospectos';
-import { Agendamientos } from '@/entities/Agendamientos';
-import { Ventas } from '@/entities/Ventas';
-
 /**
  * Calcula tasas de conversión del embudo comercial
  * @param {Object} filtros - Filtros opcionales { fecha_inicio, fecha_fin, sede }
  * @returns {Object} Tasas de agendamiento, asistencia y conversión
  */
+
+// Datos de ejemplo para demo
+const generarDatosEjemplo = () => ({
+  leads: [
+    { id: 1, fecha: '2025-02-01', sede: { nombre_sede: 'Sede Principal' }, leads_totales: 150 },
+    { id: 2, fecha: '2025-02-02', sede: { nombre_sede: 'Sede Secundaria' }, leads_totales: 120 },
+    { id: 3, fecha: '2025-02-03', sede: { nombre_sede: 'Sede Principal' }, leads_totales: 180 }
+  ],
+  prospectos: [
+    { id: 1, fecha_ingreso: '2025-02-01', sede: { nombre_sede: 'Sede Principal' }, nombre: 'Prospecto 1' },
+    { id: 2, fecha_ingreso: '2025-02-02', sede: { nombre_sede: 'Sede Secundaria' }, nombre: 'Prospecto 2' },
+    { id: 3, fecha_ingreso: '2025-02-03', sede: { nombre_sede: 'Sede Principal' }, nombre: 'Prospecto 3' }
+  ],
+  agendamientos: [
+    { id: 1, fecha_hora: '2025-02-01', sede: { nombre_sede: 'Sede Principal' }, resultado_asistencia: 'Asistió' },
+    { id: 2, fecha_hora: '2025-02-02', sede: { nombre_sede: 'Sede Secundaria' }, resultado_asistencia: 'No asistió' },
+    { id: 3, fecha_hora: '2025-02-03', sede: { nombre_sede: 'Sede Principal' }, resultado_asistencia: 'Asistió' }
+  ],
+  ventas: [
+    { id: 1, fecha_venta: '2025-02-01', sede: { nombre_sede: 'Sede Principal' } },
+    { id: 2, fecha_venta: '2025-02-03', sede: { nombre_sede: 'Sede Principal' } }
+  ]
+});
+
 export async function obtenerTasasConversion(filtros = {}) {
   try {
     const { fecha_inicio, fecha_fin, sede } = filtros;
+    const datos = generarDatosEjemplo();
 
     // 1. Obtener total de leads
-    let leads = await Leads_Diarios.list('-fecha');
+    let leads = datos.leads;
     
     if (sede) {
       leads = leads.filter(l => l.sede?.nombre_sede === sede);
@@ -28,7 +48,7 @@ export async function obtenerTasasConversion(filtros = {}) {
     const totalLeads = leads.reduce((sum, l) => sum + (l.leads_totales || 0), 0);
 
     // 2. Obtener prospectos agendados (usando fecha_ingreso)
-    let prospectos = await Prospectos.list('-fecha_ingreso');
+    let prospectos = datos.prospectos;
     
     if (sede) {
       prospectos = prospectos.filter(p => p.sede?.nombre_sede === sede);
@@ -43,7 +63,7 @@ export async function obtenerTasasConversion(filtros = {}) {
     const totalAgendados = prospectos.length;
 
     // 3. Obtener agendamientos que asistieron
-    let agendamientos = await Agendamientos.list('-fecha_hora');
+    let agendamientos = datos.agendamientos;
     
     if (sede) {
       agendamientos = agendamientos.filter(a => a.sede?.nombre_sede === sede);
@@ -58,7 +78,7 @@ export async function obtenerTasasConversion(filtros = {}) {
     const totalAsistieron = agendamientos.filter(a => a.resultado_asistencia === 'Asistió').length;
 
     // 4. Obtener ventas cerradas
-    let ventas = await Ventas.list('-fecha_venta');
+    let ventas = datos.ventas;
     
     if (sede) {
       ventas = ventas.filter(v => v.sede?.nombre_sede === sede);

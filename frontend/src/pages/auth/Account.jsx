@@ -69,7 +69,7 @@ export default function Account() {
           <div className="demo-credentials">
             <p className="demo-title">Usuario</p>
             <p className="demo-text">
-              {user?.name || 'Usuario'}<br />
+              {user?.firstName || user?.username || 'Usuario'}<br />
               {user?.email || ''}<br />
               Rol: {user?.role || 'staff'}
             </p>

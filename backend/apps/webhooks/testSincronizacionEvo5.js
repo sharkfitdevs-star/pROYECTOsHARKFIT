@@ -18,10 +18,11 @@ export default async function(ctx) {
     };
     
     // --- CONFIGURACIÓN INICIAL ---
+    // ✅ NUNCA hardcodear credenciales. Usar variables de entorno:
     const config = {
-        baseUrl: "https://evo-integracao.w12app.com.br/api/v1",
-        dns: "sharkfitchile",
-        token: "4F09A73D-6626-42A1-9D4E-7A1C5FB6B7BC"
+        baseUrl: process.env.EVO_BASE_URL || "https://evo-integracao.w12app.com.br/api/v1",
+        dns: process.env.EVO_DNS || "[CARGAR_DEL_ENV]",
+        token: process.env.EVO_TOKEN || "[CARGAR_DEL_ENV]"
     };
     
     console.log('🔍 Usando configuración:', config);

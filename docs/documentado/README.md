@@ -25,7 +25,7 @@ Bienvenido a la documentación completa de la solución de integración EVO5. Es
 |-----------|-----------|
 | **Runtime** | Node.js 18+ |
 | **Framework** | Express 4.18 |
-| **Base de datos** | SQLite (proxy local) |
+| **Base de datos** | MongoDB (proxy + microservicios); `SQLite` referencias históricas |
 | **Procesamiento Excel** | ExcelJS |
 | **Procesamiento CSV** | csv-parser |
 | **HTTP Client** | Axios |

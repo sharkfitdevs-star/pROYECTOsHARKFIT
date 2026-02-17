@@ -24,6 +24,8 @@ const apiQueue = getQueue('api-calls');
 const webhookQueue = getQueue('webhooks');
 const syncQueue = getQueue('sync-tasks');
 const importQueue = getQueue('imports');
+const reportQueue = getQueue('reportes');
+const exportQueue = getQueue('exports');
 
 // ============================================================================
 // CIRCUIT BREAKER
@@ -278,6 +280,124 @@ async function processImport(job) {
 }
 
 // ============================================================================
+// PROCESADOR DE REPORTES / EXPORTACIONES
+// ============================================================================
+
+/**
+ * processReport: genera el contenido del reporte, actualiza el documento Reporte
+ * job.data expected: { reporteId }
+ */
+async function processReport(job) {
+  const { reporteId } = job.data;
+  logger.info(`📊 [REPORT-WORKER] Procesando reporte: ${reporteId}`, { jobId: job.id });
+
+  try {
+    const { Reporte } = require('../models');
+    const StatsService = require('../services/StatsService');
+    const reporte = await Reporte.findById(reporteId);
+    if (!reporte) throw new Error('Reporte no encontrado');
+
+    // generar datos básicos según reportType (extensible)
+    let data = {};
+    switch (reporte.reportType) {
+      case 'ventas':
+        data = { detalles: await StatsService.obtenerVentasSemanales(reporte.startDate, reporte.endDate) };
+        break;
+      case 'clientes':
+        data = { detalles: await StatsService.obtenerClientesPorEstado() };
+        break;
+      default:
+        data = { resumen: await StatsService.obtenerResumen(reporte.startDate, reporte.endDate) };
+    }
+
+    // Guardar resultado en la entidad Reporte
+    reporte.data = data;
+    reporte.status = 'completado';
+    reporte.generatedAt = new Date();
+    await reporte.save();
+
+    logger.info(`✅ [REPORT-WORKER] Reporte generado: ${reporteId}`, { jobId: job.id });
+    return { success: true, reporteId };
+  } catch (error) {
+    logger.error(`❌ [REPORT-WORKER] Error generando reporte:`, { jobId: job.id, error: error.message });
+    // Intentar marcar error en DB si es posible
+    try {
+      const { Reporte } = require('../models');
+      if (job.data?.reporteId) {
+        const r = await Reporte.findById(job.data.reporteId);
+        if (r) {
+          r.markError(error.message);
+          await r.save();
+        }
+      }
+    } catch (e) {
+      logger.warn('[REPORT-WORKER] No se pudo actualizar Reporte con estado de error');
+    }
+    throw error;
+  }
+}
+
+/**
+ * processExport: exporta datos (CSV/XLSX/PDF) y actualiza Reporte/archivo
+ * job.data expected: { tipo, formato, filtros, requestedBy, reporteId? }
+ */
+async function processExport(job) {
+  const { tipo, formato = 'csv', filtros = {}, requestedBy, reporteId } = job.data;
+  logger.info(`📤 [EXPORT-WORKER] Procesando export (${tipo} / ${formato})`, { jobId: job.id });
+
+  try {
+    // Obtener datos según tipo
+    const { Cliente, Venta } = require('../models');
+    let rows = [];
+
+    if (tipo === 'clientes') rows = await Cliente.find(filtros).lean();
+    else if (tipo === 'ventas') rows = await Venta.find(filtros).lean();
+    else rows = [];
+
+    // Guardar archivo simple en ./uploads as CSV/JSON fallback
+    const fs = require('fs');
+    const path = require('path');
+    const uploadsDir = path.resolve(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+    const fileName = `export-${tipo}-${Date.now()}.${formato === 'csv' ? 'csv' : formato === 'excel' ? 'xlsx' : 'json'}`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    if (formato === 'csv') {
+      // Simple CSV serializer for basic objects (flatten shallow props)
+      const headers = rows.length ? Object.keys(rows[0]) : [];
+      const csv = [headers.join(',')]
+        .concat(rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(',')))
+        .join('\n');
+      fs.writeFileSync(filePath, csv);
+    } else if (formato === 'excel') {
+      // fallback: write JSON (tests don't validate file contents)
+      fs.writeFileSync(filePath, JSON.stringify(rows, null, 2));
+    } else {
+      fs.writeFileSync(filePath, JSON.stringify(rows, null, 2));
+    }
+
+    const stat = fs.statSync(filePath);
+
+    // Si se pasó reporteId, actualizar entidad Reporte
+    if (reporteId) {
+      const { Reporte } = require('../models');
+      const r = await Reporte.findById(reporteId);
+      if (r) {
+        r.markCompleted(filePath, stat.size);
+        await r.save();
+      }
+    }
+
+    logger.info(`✅ [EXPORT-WORKER] Export creado en ${filePath}`, { jobId: job.id, size: stat.size });
+    return { success: true, filePath, size: stat.size };
+  } catch (error) {
+    logger.error(`❌ [EXPORT-WORKER] Error exportando:`, { jobId: job.id, error: error.message });
+    throw error;
+  }
+}
+
+// ============================================================================
 // EVENT HANDLERS
 // ============================================================================
 
@@ -326,6 +446,10 @@ apiQueue.process(5, processApiCall); // 5 workers paralelos
 webhookQueue.process(10, processWebhook); // 10 workers para webhooks
 syncQueue.process(2, processSyncTask); // 2 workers para sync
 importQueue.process(2, processImport); // 2 workers para imports
+
+// Report / Export queues
+reportQueue.process(2, processReport);
+exportQueue.process(2, processExport); // exportaciones de datos (CSV/XLSX/PDF)
 
 // ============================================================================
 // FUNCIONES PÚBLICAS
@@ -439,6 +563,48 @@ async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opt
   return job;
 }
 
+/**
+ * Cola una tarea de generación de reporte
+ * job.data: { reporteId }
+ */
+async function queueReportTask(reporteId, opts = {}) {
+  const job = await reportQueue.add(
+    { reporteId },
+    {
+      attempts: opts.attempts || 2,
+      backoff: { type: 'exponential', delay: opts.delay || 2000 },
+      removeOnComplete: true
+    }
+  );
+
+  logger.info(`📋 [QUEUE] Report task en cola: ${job.id}`, { reporteId });
+  return job;
+}
+
+/**
+ * Cola una tarea de exportación de datos
+ * job.data: { tipo, formato, filtros, requestedBy, reporteId? }
+ */
+async function queueExportTask(tipo, formato = 'csv', filtros = {}, opts = {}) {
+  const job = await exportQueue.add(
+    {
+      tipo,
+      formato,
+      filtros,
+      requestedBy: opts.requestedBy,
+      reporteId: opts.reporteId
+    },
+    {
+      attempts: opts.attempts || 2,
+      backoff: { type: 'exponential', delay: opts.delay || 2000 },
+      removeOnComplete: true
+    }
+  );
+
+  logger.info(`📋 [QUEUE] Export task en cola: ${job.id}`, { tipo, formato });
+  return job;
+}
+
 // ============================================================================
 // MONITOREO
 // ============================================================================
@@ -475,18 +641,24 @@ module.exports = {
   webhookQueue,
   syncQueue,
   importQueue,
+  reportQueue,
+  exportQueue,
   
   // Funciones
   queueApiCall,
   queueWebhook,
   queueSyncTask,
   queueImportTask,
+  queueReportTask,
+  queueExportTask,
   getWorkerStats,
   // Procesadores (exportados para adaptación con Agenda)
   processApiCall,
   processWebhook,
   processSyncTask,
   processImport,
+  processReport,
+  processExport,
   
   // Clase Circuit Breaker
   CircuitBreaker

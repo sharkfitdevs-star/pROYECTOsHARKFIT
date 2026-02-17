@@ -18,15 +18,15 @@ class SyncService {
    */
   async sincronizarDesdeAPI(sourceId, config, modo = 'incremental', entidades = ['clientes', 'ventas']) {
     const syncLog = new SyncLog({
-      syncType: 'full',
-      status: 'iniciado',
-      config: {
-        source: config.tipo || 'API',
-        filters: { modo, entidades },
-        batchSize: 100
-      }
+      sync_id: uuidv4(),
+      tenant_id: config.tenantId || 'default',
+      fuente: config.tipo || 'API',
+      tipo: modo === 'full' ? 'full' : 'incremental',
+      estado: 'iniciado',
+      filtros: { modo, entidades },
+      iniciado_en: new Date()
     });
-    
+
     await syncLog.save();
 
     try {
@@ -92,14 +92,15 @@ class SyncService {
    */
   async procesarWebhook(evento, dato, fuente = 'API') {
     const syncLog = new SyncLog({
-      syncType: 'manual',
-      status: 'iniciado',
-      config: {
-        source: fuente,
-        filters: { evento }
-      }
+      sync_id: uuidv4(),
+      tenant_id: 'default',
+      fuente: fuente,
+      tipo: 'manual',
+      estado: 'iniciado',
+      filtros: { evento },
+      iniciado_en: new Date()
     });
-    
+
     await syncLog.save();
 
     try {
@@ -181,21 +182,22 @@ class SyncService {
    */
   async obtenerLogs(filtros = {}) {
     const query = {};
-    
-    if (filtros.syncType) {
-      query.syncType = filtros.syncType;
+
+    // Mapear filtros al schema de MongoModels
+    if (filtros.syncType || filtros.tipo) {
+      query.tipo = filtros.syncType || filtros.tipo;
     }
-    
-    if (filtros.status) {
-      query.status = filtros.status;
+
+    if (filtros.status || filtros.estado) {
+      query.estado = filtros.status || filtros.estado;
     }
-    
+
     if (filtros.desde) {
-      query.startedAt = { $gte: new Date(filtros.desde) };
+      query.iniciado_en = { $gte: new Date(filtros.desde) };
     }
 
     const logs = await SyncLog.find(query)
-      .sort({ startedAt: -1 })
+      .sort({ iniciado_en: -1 })
       .limit(filtros.limit || 50);
 
     return logs;
@@ -216,12 +218,12 @@ class SyncService {
       // Si es incremental, agregar filtro por fecha
       if (modo === 'incremental') {
         const ultimaSync = await SyncLog.findOne({
-          'config.source': config.tipo,
-          status: 'completado'
-        }).sort({ completedAt: -1 });
+          fuente: config.tipo,
+          estado: 'completado'
+        }).sort({ completado_en: -1 });
 
-        if (ultimaSync?.completedAt) {
-          const fecha = ultimaSync.completedAt.toISOString().split('T')[0];
+        if (ultimaSync?.completado_en) {
+          const fecha = ultimaSync.completado_en.toISOString().split('T')[0];
           endpoint += `?updatedAt=${fecha}`;
         }
       }
@@ -292,12 +294,12 @@ class SyncService {
       
       if (modo === 'incremental') {
         const ultimaSync = await SyncLog.findOne({
-          'config.source': config.tipo,
-          status: 'completado'
-        }).sort({ completedAt: -1 });
+          fuente: config.tipo,
+          estado: 'completado'
+        }).sort({ completado_en: -1 });
 
-        if (ultimaSync?.completedAt) {
-          const fecha = ultimaSync.completedAt.toISOString().split('T')[0];
+        if (ultimaSync?.completado_en) {
+          const fecha = ultimaSync.completado_en.toISOString().split('T')[0];
           endpoint += `?updatedAt=${fecha}`;
         }
       }

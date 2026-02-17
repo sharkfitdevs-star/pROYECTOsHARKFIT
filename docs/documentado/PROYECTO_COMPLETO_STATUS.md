@@ -33,8 +33,8 @@
                        │ Queries SQL
                        ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    SQLITE DATABASE                          │
-│  Archivo local: backend/db.sqlite3                          │
+│                    LOCAL DATABASE (legacy SQLite)           │
+│  Archivo histórico: backend/db.sqlite3 (use MongoDB para ingestión) │
 └─────────────────────────────────────────────────────────────┘
 ```
 

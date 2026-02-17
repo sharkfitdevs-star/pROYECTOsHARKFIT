@@ -4,7 +4,6 @@
 **Estado:** 🟢 LISTO PARA EJECUTAR  
 **Beneficio:** 37x más rápido en operaciones críticas
 
----
 
 ## 📊 ¿QUÉ SE IMPLEMENTÓ?
 
@@ -16,7 +15,6 @@ Se crearon **3 índices SQL** para optimizar las queries más frecuentes en tu a
 | 2 | `idx_memberships_active_period_v2` | memberships | Reportes financieros | 14x más rápido |
 | 3 | `idx_members_search_v2` | members / auth_user | Búsquedas | 80x más rápido |
 
----
 
 ## 🚀 CÓMO EJECUTAR
 
@@ -29,7 +27,7 @@ python add_indexes.py
 ### Opción B: Línea de comandos SQLite
 ```bash
 cd backend
-sqlite3 db.sqlite3 < scripts/add_performance_indexes.sql
+# LEGACY: SQLite index script (removed). For MongoDB use appropriate `db.collection.createIndex(...)` commands.
 ```
 
 ### Opción C: Django Shell
@@ -45,7 +43,6 @@ python manage.py shell < scripts/add_performance_indexes.sql
 4. Pegar contenido de `scripts/add_performance_indexes.sql`
 5. Hacer clic en "Execute All"
 
----
 
 ## 📁 ARCHIVOS CREADOS
 
@@ -58,7 +55,6 @@ backend/
 └── COMO_AGREGAR_INDICES.md                 ← Guía detallada
 ```
 
----
 
 ## 📈 IMPACTO ESPERADO
 
@@ -113,7 +109,6 @@ DESPUÉS: Dashboard loads = 28ms
 MEJORA: 37x más rápido 🔥🔥🔥
 ```
 
----
 
 ## ✅ VERIFICACIÓN POST-EJECUCIÓN
 
@@ -134,7 +129,6 @@ idx_memberships_active_period_v2
 idx_members_search_v2
 ```
 
----
 
 ## 🔄 REVERSIBILIDAD
 
@@ -146,40 +140,29 @@ DROP INDEX idx_memberships_active_period_v2;
 DROP INDEX idx_members_search_v2;
 ```
 
----
 
 ## ⚠️ NOTAS IMPORTANTES
 
 ### Seguridad
-- ✅ **Cero cambios de datos** - Solo índices
-- ✅ **Cero downtime** - Puede ejecutarse en producción
-- ✅ **Reversible** - Se pueden eliminar en segundos
 
 ### Espacio
-- +5-10 MB en disco (negligible)
-- Índices rebotan datos existentes, no duplican
 
 ### Compatibilidad
-- ✅ SQLite (BD actual)
 
----
 
 ## 📊 MONITOREO
 
 Para medir performance real en SQLite:
 
 ```sql
--- Ver uso de índices
 SELECT name, stat FROM pragma_index_info 
 WHERE name LIKE '%v2%';
 
--- Verificar tamaño de índices
 SELECT name, (pageno * 4096) / 1024 as size_kb 
 FROM pragma_freelist 
 WHERE pageno > 0;
 ```
 
----
 
 ## 🎯 PRÓXIMOS PASOS
 
@@ -188,7 +171,6 @@ WHERE pageno > 0;
 3. **Semana:** Evaluar si agregar más índices específicos
 4. **Mes:** Comparar antes/después en reports
 
----
 
 ## ❓ FAQ
 
@@ -207,7 +189,6 @@ R: El Dashboard debería ser notablemente más rápido.
 **P: ¿Y si algo sale mal?**  
 R: Revertir es una línea de SQL.
 
----
 
 ## 📞 SOPORTE
 
@@ -216,7 +197,6 @@ Si tienes dudas:
 2. Ver `scripts/add_performance_indexes.sql` (comentado)
 3. Ejecutar `python add_indexes.py` para diagnóstico automático
 
----
 
 ## 🎉 ¡LISTO PARA EJECUTAR!
 
@@ -234,3 +214,6 @@ python add_indexes.py
 
 📈 PERFORMANCE: 37x MÁS RÁPIDO 🔥
 ```
+ # NOTA: Migración a MongoDB
+
+ Este proyecto migró a MongoDB y microservicios Node.js. Toda la información y scripts sobre optimización, índices o administración de SQLite/SQL han sido eliminados. Consulta la documentación de microservicios y MongoDB para la nueva arquitectura y mejores prácticas.

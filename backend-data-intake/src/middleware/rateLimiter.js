@@ -44,17 +44,19 @@ const webhookRateLimiter = rateLimit({
 });
 
 /**
- * Rate limiter para login (10 intentos por 15 min)
+ * Rate limiter para login (3 intentos por 15 min) - MEJORADO
+ * ✅ Reducido de 10 a 3 para prevenir credential stuffing
  */
 const authLoginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 3,  // ← REDUCIDO de 10
   message: {
-    exito: false,
-    error: 'Demasiados intentos de inicio de sesión'
+    error: true,
+    message: 'Demasiados intentos de inicio de sesión. Intente en 15 minutos.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production'  // Desactivar en dev
 });
 
 /**

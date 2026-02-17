@@ -10,20 +10,40 @@ require("dotenv").config();
 
 const { logger } = require("./utils/logger");
 const { errorHandler } = require("./middleware/errorHandler");
+const { connectDB } = require("./db/mongodb");  // ← AGREGADO
+const { seedOwner } = require("./utils/seedOwner");  // ← AGREGADO
 const authRoutes = require("./routes/auth");
 const importRoutes = require("./routes/import");
 const sourcesRoutes = require("./routes/sources");
 const statsRoutes = require("./routes/stats");
 const syncRoutes = require("./routes/sync");
 const webhooksRoutes = require("./routes/webhooks");
+const apiSetupRoutes = require("./routes/apiSetup");
+const healthRoutes = require("./routes/health");  // ← NUEVO
+const { extractAllApis } = require("./index");
+const { getHealthCheckService } = require("./services/HealthCheckService");  // ← NUEVO
+
+const initializeEventServices = () => {
+  require("./services/EmailEventService");
+  require("./services/NotificationEventService");
+  require("./services/AuditLogEventService");
+  require("./services/AnalyticsEventService");
+  require("./services/WebhookEventService");
+};
+
+// Función ersatz para índices (no cargar MongoModels para evitar duplicados)
+const createOptimizedIndexes = async () => {
+  console.log('⏭️  Índices MongoDB se crearán automáticamente');
+};
 
 // ============================================
 // CONFIGURACIÓN
 // ============================================
-const EVO_BASE_URL = process.env.EVO_BASE_URL || "https://evo-integracao-api.w12app.com.br";
+const EVO_BASE_URL = process.env.EVO_BASE_URL;
 const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || "http://localhost:8000/api";
 const PORT = process.env.PORT || 3001;
 const POLL_MS = Number(process.env.POLL_MS || 10000);
+const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
@@ -38,7 +58,7 @@ console.log(`
 `);
 
 // ============================================
-// SESIONES EN MEMORIA (para producción: Redis)
+// SESIONES EN MEMORIA
 // ============================================
 const sessions = new Map();
 
@@ -208,6 +228,8 @@ app.use("/api/sources", sourcesRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/webhooks", webhooksRoutes);
+app.use("/api/setup", apiSetupRoutes);
+app.use("/api/health", healthRoutes);  // ← NUEVO: Health checks
 
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
@@ -400,18 +422,70 @@ io.on("connection", (socket) => {
 // ============================================
 // START SERVER
 // ============================================
-server.listen(PORT, () => {
-  console.log(`\n✅ Servidor listo en: http://localhost:${PORT}`);
-  console.log(`\n📝 API Endpoints:`);
-  console.log(`   POST   /login              { dns, token, django_token } → sessionToken`);
-  console.log(`   GET    /api/snapshot       (requiere header x-session-token)`);
-  console.log(`   POST   /api/sync           (fuerza sincronización inmediata)`);
-  console.log(`   GET    /health             (checkeo de salud del servicio)`);
-  console.log(`\n🔌 WebSocket (Socket.IO):`);
-  console.log(`   Evento: evo:snapshot       (datos cada ${POLL_MS}ms)`);
-  console.log(`   Evento: sync:request       (sincronización manual)`);
-  console.log(`\n`);
-});
+const startServer = async () => {
+  try {
+    // Conectar a MongoDB primero
+    await connectDB();
+    console.log('✅ MongoDB conectado');
+
+    try {
+      initializeEventServices();
+      console.log('✅ Event services inicializados');
+    } catch (eventError) {
+      console.warn('⚠️ Error inicializando servicios de eventos:', eventError?.message || eventError);
+    }
+    
+    // Crear índices optimizados
+    await createOptimizedIndexes();
+    console.log('✅ Índices MongoDB creados');
+    
+    // Crear seed owner si es necesario
+    await seedOwner();
+    
+    // Inicializar health checks periódicos
+    const healthService = getHealthCheckService();
+    healthService.startPeriodicChecks();
+    console.log('✅ Health checks iniciados');
+    
+    server.listen(PORT, () => {
+      console.log(`\n✅ Servidor listo en: http://localhost:${PORT}`);
+      console.log(`\n📝 API Endpoints:`);
+      console.log(`   POST   /login              { dns, token, django_token } → sessionToken`);
+      console.log(`   GET    /api/snapshot       (requiere header x-session-token)`);
+      console.log(`   POST   /api/sync           (fuerza sincronización inmediata)`);
+      console.log(`   GET    /api/health         (checkeo de salud del servicio)`);
+      console.log(`   GET    /api/health/evo     (verificar EVO específicamente)`);
+      console.log(`   POST   /api/webhooks/evo   (recibir webhooks de EVO)`);
+      console.log(`   POST   /api/webhooks/w12   (recibir webhooks de W12)`);
+      console.log(`\n🔌 WebSocket (Socket.IO):`);
+      console.log(`   Evento: evo:snapshot       (datos cada ${POLL_MS}ms)`);
+      console.log(`   Evento: sync:request       (sincronización manual)`);
+      console.log(`\n`);
+    });
+  } catch (error) {
+    console.error('❌ Error iniciando servidor:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+// ============================================
+// AUTO-SYNC APIs EXTERNAS
+// ============================================
+if (EXTERNAL_API_SYNC_MINUTES > 0) {
+  const intervalMs = EXTERNAL_API_SYNC_MINUTES * 60 * 1000;
+  logger.info(`⏱️ Auto-sync APIs externas cada ${EXTERNAL_API_SYNC_MINUTES} min`);
+
+  setInterval(async () => {
+    try {
+      await extractAllApis();
+      logger.info('✅ Auto-sync APIs externas completado');
+    } catch (error) {
+      logger.error('❌ Error auto-sync APIs externas:', error);
+    }
+  }, intervalMs);
+}
 
 app.use(errorHandler);
 

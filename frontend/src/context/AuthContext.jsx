@@ -1,68 +1,55 @@
 /**
  * CONTEXT: Autenticación y Gestión de Sesión
- * Maneja login, logout, registro y estado del usuario autenticado
+ * ✅ SEGURIDAD MEJORADA:
+ * - Access token en memoria (15 min) + httpOnly cookie refresh token
+ * - Sin localStorage para tokens (previene XSS)
+ * - Auto-refresh mediante interceptor de axios
  */
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { setAccessToken, clearAccessToken, refreshAccessToken } from '../api/axios';
+import UsuariosService from '../api/services/usuariosService';
 
 const AuthContext = createContext(null);
 
+
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Verificar sesión al cargar usando refresh token (cookie)
+  // Cargar usuario actual desde el microservicio si hay token
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const newToken = await refreshAccessToken();
-
-      if (!newToken) {
+    const fetchUser = async () => {
+      try {
+        setLoading(true);
+        const userData = await UsuariosService.getCurrentUser();
+        setUser(userData.user || userData);
+      } catch (e) {
+        setUser(null);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // Obtener usuario actual
-      const response = await api.get('/auth/me');
-      setUser(response.data.user);
-    } catch (error) {
-      console.error('❌ Error verificando autenticación:', error);
-      clearAccessToken();
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    fetchUser();
+  }, []);
 
   const login = async (identifier, password) => {
     try {
       setError(null);
       setLoading(true);
-
-      const isEmail = identifier.includes('@');
-      const payload = isEmail
-        ? { email: identifier, password }
-        : { username: identifier, password };
-
-      const response = await api.post('/auth/login', payload);
-
-      const { accessToken, user } = response.data;
-
-      if (accessToken && user) {
-        setAccessToken(accessToken);
-        setUser(user);
-        navigate('/dashboard');
+      const result = await UsuariosService.login(identifier, password);
+      if (result.user) {
+        setUser(result.user);
+      } else if (result) {
+        setUser(result);
       }
-
-      return { success: true, message: response.data?.message };
+      navigate('/dashboard');
+      return { success: true, message: 'Sesión iniciada correctamente' };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al iniciar sesión';
+      const errorMessage = error?.response?.data?.message || 'Error al iniciar sesión';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -74,22 +61,16 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-
-      const response = await api.post('/auth/register', userData);
-
-      const { accessToken, user } = response.data;
-
-      setAccessToken(accessToken);
-
-      // Actualizar estado
-      setUser(user);
-
-      // Redirigir al dashboard
+      const result = await UsuariosService.register(userData);
+      if (result.user) {
+        setUser(result.user);
+      } else if (result) {
+        setUser(result);
+      }
       navigate('/dashboard');
-
-      return { success: true };
+      return { success: true, message: 'Cuenta creada correctamente' };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al registrarse';
+      const errorMessage = error?.response?.data?.message || 'Error al registrarse';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -99,19 +80,18 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
-    } catch (error) {
-      // Ignorar errores en logout
-    } finally {
-      clearAccessToken();
-      setUser(null);
-      navigate('/login');
+      await UsuariosService.logout();
+    } catch (e) {
+      // Ignorar error de logout
     }
+    setUser(null);
+    navigate('/login');
   };
 
   const updateUser = (updatedData) => {
     const updatedUser = { ...user, ...updatedData };
     setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   const value = {

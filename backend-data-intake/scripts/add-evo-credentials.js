@@ -8,10 +8,11 @@
  */
 
 require('dotenv').config();
-const Database = require('better-sqlite3');
 const path = require('path');
 const readline = require('readline');
 const { encryptToken, generateEncryptionKey } = require('./encrypt-token');
+const { connectDB, disconnectDB } = require('../src/db/mongodb');
+const ApiIntegration = require('../src/models/ApiIntegration');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -33,68 +34,29 @@ async function main() {
     console.log('║         EVO W12 CREDENTIALS SETUP - Vendify                  ║');
     console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
-    // Get database path
-    const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../../backend/db.sqlite3');
-    console.log(`📁 Database path: ${dbPath}\n`);
-
-    // Check encryption key
-    let encryptionKey = process.env.ENCRYPTION_KEY;
-
+    // Require ENCRYPTION_KEY and MONGODB_URI
+    const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-        console.log('⚠️  No ENCRYPTION_KEY found in .env file\n');
-        
-        const generate = await question('Generate a new encryption key? (y/n): ');
-        
-        if (generate.toLowerCase() === 'y') {
-            encryptionKey = generateEncryptionKey();
-            console.log('\n✅ Generated encryption key. Add this to your .env file:\n');
-            console.log('─'.repeat(64));
-            console.log(`ENCRYPTION_KEY=${encryptionKey}`);
-            console.log('─'.repeat(64));
-            console.log('\n⚠️  Press Enter after you\'ve saved it to .env...');
-            await question('');
-        } else {
-            console.log('\n❌ Cannot proceed without encryption key');
-            rl.close();
-            return;
-        }
+      console.error('❌ ENCRYPTION_KEY not configured in .env. Generate one and retry.');
+      process.exit(1);
     }
 
-    // Connect to database
-    let db;
-    try {
-        db = new Database(dbPath);
-        db.pragma('foreign_keys = ON');
-        console.log('✅ Connected to database\n');
-    } catch (err) {
-        console.log(`❌ Failed to connect to database: ${err.message}`);
-        console.log('Make sure the database file exists and is accessible.\n');
-        rl.close();
-        return;
+    if (!process.env.MONGODB_URI) {
+      console.error('❌ MONGODB_URI not configured. This script now writes to MongoDB only.');
+      process.exit(1);
     }
 
-    // Ensure table exists
+    // Connect to MongoDB
     try {
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS api_integrations (
-                id TEXT PRIMARY KEY,
-                tenant_id TEXT NOT NULL,
-                dns TEXT NOT NULL,
-                encrypted_token TEXT NOT NULL,
-                encryption_iv TEXT NOT NULL,
-                status TEXT DEFAULT 'active',
-                last_sync_at TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            );
-        `);
-        console.log('✅ Table api_integrations ready\n');
+      await connectDB();
+      console.log('✅ Connected to MongoDB\n');
     } catch (err) {
-        console.log(`❌ Failed to create table: ${err.message}\n`);
-        db.close();
-        rl.close();
-        return;
+      console.error('❌ Failed to connect to MongoDB:', err.message || err);
+      process.exit(1);
     }
+
+    // Using MongoDB — collection schema enforced by Mongoose models (no SQL schema creation needed)
+    // (Legacy SQLite schema creation removed.)
 
     // Collect integration details
     console.log('═══════════════════════════════════════════════════════════════\n');
@@ -106,32 +68,29 @@ async function main() {
 
     if (!tenantId || !dns || !token) {
         console.log('\n❌ All fields are required');
-        db.close();
+        await disconnectDB();
         rl.close();
         return;
     }
 
-    // Check if tenant already exists
-    const existing = db.prepare('SELECT * FROM api_integrations WHERE tenant_id = ?').get(tenantId);
-    
+    // Check if tenant already exists (Mongo)
+    const existing = await ApiIntegration.findOne({ tenantId }).lean();
     if (existing) {
-        console.log(`\n⚠️  Tenant ${tenantId} already exists!`);
-        console.log(`   Current DNS: ${existing.dns}`);
-        console.log(`   Status: ${existing.status}`);
-        console.log(`   Last sync: ${existing.last_sync_at || 'Never'}\n`);
-        
-        const overwrite = await question('Overwrite existing credentials? (y/n): ');
-        
-        if (overwrite.toLowerCase() !== 'y') {
-            console.log('\n❌ Operation cancelled');
-            db.close();
-            rl.close();
-            return;
-        }
+      console.log(`\n⚠️  Tenant ${tenantId} already exists!`);
+      console.log(`   Current DNS: ${existing.dns}`);
+      console.log(`   Status: ${existing.status}`);
+      console.log(`   Last sync: ${existing.lastSyncAt || 'Never'}\n`);
 
-        // Delete existing
-        db.prepare('DELETE FROM api_integrations WHERE tenant_id = ?').run(tenantId);
-        console.log('✅ Deleted existing credentials\n');
+      const overwrite = await question('Overwrite existing credentials? (y/n): ');
+      if (overwrite.toLowerCase() !== 'y') {
+        console.log('\n❌ Operation cancelled');
+        await disconnectDB();
+        rl.close();
+        return;
+      }
+
+      await ApiIntegration.deleteOne({ tenantId });
+      console.log('✅ Deleted existing credentials\n');
     }
 
     // Encrypt token
@@ -140,26 +99,45 @@ async function main() {
 
     if (!encrypted.success) {
         console.log(`❌ Encryption failed: ${encrypted.error}\n`);
-        db.close();
+        await disconnectDB();
         rl.close();
         return;
     }
 
-    // Insert into database
+    // Insert into database — prefer MongoDB when available
     try {
-        db.prepare(`
-            INSERT INTO api_integrations (
-                id, tenant_id, dns, encrypted_token, encryption_iv, status
-            ) VALUES (?, ?, ?, ?, ?, 'active')
-        `).run(
-            generateUUID(),
-            tenantId,
-            dns,
-            encrypted.encryptedToken,
-            encrypted.iv
-        );
+        if (process.env.MONGODB_URI) {
+            // Use Mongoose ApiIntegration model
+            const { connectDB, disconnectDB } = require('../src/db/mongodb');
+            const ApiIntegration = require('../src/models/ApiIntegration');
+            await connectDB();
 
-        console.log('✅ Credentials successfully saved!\n');
+            await ApiIntegration.create({
+                tenantId,
+                dns,
+                encryptedToken: encrypted.encryptedToken,
+                encryptionIv: encrypted.iv,
+                status: 'active'
+            });
+
+            console.log('✅ Credentials successfully saved to MongoDB!\n');
+            await disconnectDB();
+        } else {
+            db.prepare(`
+                INSERT INTO api_integrations (
+                    id, tenant_id, dns, encrypted_token, encryption_iv, status
+                ) VALUES (?, ?, ?, ?, ?, 'active')
+            `).run(
+                generateUUID(),
+                tenantId,
+                dns,
+                encrypted.encryptedToken,
+                encrypted.iv
+            );
+
+            console.log('✅ Credentials successfully saved to SQLite!\n');
+        }
+
         console.log('═══════════════════════════════════════════════════════════════\n');
         console.log('📋 Summary:\n');
         console.log(`   Tenant ID: ${tenantId}`);
@@ -170,33 +148,31 @@ async function main() {
         
         console.log('🚀 Next steps:\n');
         console.log('   1. Start the proxy server:');
-        console.log('      node src/evo-w12-proxy-sqlite.js\n');
-        console.log('   2. Check sync logs in the sync_queue table\n');
-        console.log('   3. Verify data in prospects, sales, access_logs tables\n');
+        console.log('      npm run evo-proxy\n');
+        console.log('   2. Check sync logs in the sync_queue / sync_logs collection\n');
+        console.log('   3. Verify data in prospects, ventas, access_logs collections\n');
 
     } catch (err) {
         console.log(`❌ Failed to save credentials: ${err.message}\n`);
     }
 
-    // Show all active integrations
-    const allActive = db.prepare('SELECT tenant_id, dns, status, last_sync_at FROM api_integrations WHERE status = "active"').all();
-    
-    if (allActive.length > 1) {
-        console.log('📊 All active integrations:\n');
-        console.log('─'.repeat(80));
-        console.log('TENANT ID                DNS              STATUS    LAST SYNC');
-        console.log('─'.repeat(80));
-        
-        allActive.forEach(integration => {
-            const lastSync = integration.last_sync_at || 'Never';
-            console.log(`${integration.tenant_id.padEnd(24)} ${integration.dns.padEnd(16)} ${integration.status.padEnd(9)} ${lastSync}`);
-        });
-        
-        console.log('─'.repeat(80));
-        console.log('');
+    // Show all active integrations (Mongo)
+    const allActive = await ApiIntegration.find({ status: 'active' }).select('tenantId dns status lastSyncAt').lean();
+
+    if (allActive.length > 0) {
+      console.log('📊 All active integrations:\n');
+      console.log('─'.repeat(80));
+      console.log('TENANT ID                DNS              STATUS    LAST SYNC');
+      console.log('─'.repeat(80));
+      allActive.forEach(integration => {
+        const lastSync = integration.lastSyncAt || 'Never';
+        console.log(`${integration.tenantId.padEnd(24)} ${integration.dns.padEnd(16)} ${integration.status.padEnd(9)} ${lastSync}`);
+      });
+      console.log('─'.repeat(80));
+      console.log('');
     }
 
-    db.close();
+    await disconnectDB();
     rl.close();
     console.log('✅ Done!\n');
 }

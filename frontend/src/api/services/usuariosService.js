@@ -1,3 +1,4 @@
+// ...existing code...
 /**
  * Service: Autenticación de Usuarios
  * Login, logout, perfil, etc
@@ -8,6 +9,21 @@ import { API_ENDPOINTS } from '../endpoints'
 import { setAccessToken, clearAccessToken, refreshAccessToken } from '../axios'
 
 class UsuariosService {
+    /**
+     * Registrar usuario
+     */
+    async register(userData) {
+      try {
+        const response = await client.post(API_ENDPOINTS.AUTH.REGISTER || '/auth/register', userData);
+        if (response.data.accessToken) {
+          setAccessToken(response.data.accessToken);
+        }
+        return response.data;
+      } catch (error) {
+        console.error('Error en registro:', error);
+        throw error;
+      }
+    }
   /**
    * Login con email y password
    */

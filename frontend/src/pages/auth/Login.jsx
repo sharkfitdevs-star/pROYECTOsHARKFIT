@@ -128,14 +128,16 @@ export default function Login() {
       }
 
       if (result.success) {
-        // La redirección se maneja en el contexto
-        console.log('✅ Autenticación exitosa');
+        console.log('✅ Autenticación exitosa, redirigiendo...');
         if (result.message) {
           setInfoMessage(result.message);
         }
+      } else {
+        // Si hay error en el resultado, ya está manejado por el context
+        console.error('❌ Autenticación falló:', result.error);
       }
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('❌ Error inesperado:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -164,10 +166,20 @@ export default function Login() {
         <div className="auth-background-overlay"></div>
       </div>
 
+      {/* Header Morado Principal */}
+      <div className="auth-header-wrapper">
+        <div className="auth-header-content">
+          <div className="auth-logo">
+            <span className="logo-icon">🦈</span>
+            <h1>SharkFit</h1>
+          </div>
+        </div>
+      </div>
+
       <div className="auth-content">
         <div className="auth-card">
-          {/* Logo y Header */}
-          <div className="auth-header">
+          {/* Contenido de la tarjeta */}
+          <div className="auth-card-inner">
             <button 
               type="button" 
               onClick={handleBack}
@@ -176,10 +188,6 @@ export default function Login() {
             >
               ← Atrás
             </button>
-            <div className="auth-logo">
-              <span className="logo-icon">🦈</span>
-              <h1>SharkFit</h1>
-            </div>
             <h2>{isLogin ? 'Bienvenido de vuelta' : 'Crear cuenta'}</h2>
             <p className="auth-subtitle">
               {isLogin 

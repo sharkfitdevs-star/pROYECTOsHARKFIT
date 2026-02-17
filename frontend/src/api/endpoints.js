@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
     REFRESH: '/auth/refresh',
+    REGISTER: '/auth/register',
   },
 
   // Usuarios

@@ -129,7 +129,7 @@ npm start
 ### 🔌 Backend (`backend/`)
 - **Django REST API:** Estructura lista para modelos/vistas
 - **8 apps:** Core, Usuarios, Clientes, Ventas, Agendamientos, Alertas, Reportes, Webhooks
-- **SQLite:** Base de datos local (`db.sqlite3`)
+- **Base de datos (legacy SQLite / MongoDB):** El sistema mantiene referencias históricas a SQLite; la ingestión y nuevos microservicios usan MongoDB.
 - **CORS configurado:** Para conectar con frontend
 
 ### 📊 Data Intake (`backend-data-intake/`)

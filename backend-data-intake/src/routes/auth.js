@@ -11,11 +11,14 @@ const router = express.Router();
 const { Usuario, Session, EmailToken } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 const { authLoginRateLimiter, authPasswordRateLimiter } = require('../middleware/rateLimiter');
+const { validateRequest, schemas } = require('../middleware/validation');  // ✅ NUEVO
 const { signAccessToken, generateRefreshToken, hashToken } = require('../utils/authTokens');
 const { logAudit } = require('../utils/audit');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
+const { emit } = require('../events/EventBus');
+const eventTypes = require('../events/eventTypes');
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'change-me';
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
 const REFRESH_COOKIE_NAME = process.env.JWT_REFRESH_COOKIE || 'refreshToken';
 const REQUIRE_EMAIL_VERIFICATION = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const ALLOW_PUBLIC_REGISTER = process.env.ALLOW_PUBLIC_REGISTER === 'true';
@@ -26,6 +29,12 @@ const getClientMeta = (req) => ({
   ip: req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip,
   userAgent: req.headers['user-agent'] || 'unknown'
 });
+
+const emitEvent = (type, data) => {
+  emit(type, data).catch((error) => {
+    console.warn('[EVENT BUS] Error emit:', error?.message || error);
+  });
+};
 
 const setRefreshCookie = (res, token, maxAgeMs) => {
   // ✅ Validar sameSite: solo valores permitidos
@@ -121,30 +130,18 @@ const requireAdminOrOwner = async (req, res, next) => {
  * POST /api/auth/register
  * Registrar staff (solo admin/owner si no es publico)
  */
-router.post('/register', async (req, res, next) => {
-  const { username, email, password, firstName, lastName, role } = req.body;
 
-  if (!username || !email || !password || !firstName || !lastName) {
-    return res.status(400).json({
-      error: true,
-      message: 'Todos los campos son requeridos'
-    });
-  }
-
-  if (password.length < 8) {
-    return res.status(400).json({
-      error: true,
-      message: 'La contraseña debe tener al menos 8 caracteres'
-    });
-  }
-
+// Middleware para validar si el registro es público o requiere admin
+async function checkRegisterPermission(req, res, next) {
   const existingUsers = await Usuario.countDocuments();
   if (existingUsers > 0 && !ALLOW_PUBLIC_REGISTER) {
     return requireAdminOrOwner(req, res, next);
   }
-
   next();
-}, async (req, res) => {
+}
+
+// Handler principal de registro
+async function handleRegister(req, res) {
   try {
     const { username, email, password, firstName, lastName, role } = req.body;
 
@@ -175,6 +172,15 @@ router.post('/register', async (req, res, next) => {
     });
 
     await nuevoUsuario.save();
+
+    emitEvent(eventTypes.USER.CREATED, {
+      userId: nuevoUsuario._id.toString(),
+      email: nuevoUsuario.email,
+      firstName: nuevoUsuario.firstName,
+      lastName: nuevoUsuario.lastName,
+      role: normalizedRole,
+      signupSource: 'web'
+    });
 
     if (REQUIRE_EMAIL_VERIFICATION) {
       const token = await createEmailToken(nuevoUsuario._id, 'verify_email', 60 * 24);
@@ -230,21 +236,33 @@ router.post('/register', async (req, res, next) => {
       message: 'Error al registrar usuario'
     });
   }
-});
+}
+
+router.post('/register',
+  validateRequest(schemas.register),
+  checkRegisterPermission,
+  handleRegister
+);
+
+// Exponer helper requireAdminOrOwner para rutas que lo necesitan (p. ej. auditLog)
+module.exports = router;
+module.exports.requireAdminOrOwner = requireAdminOrOwner;
 
 /**
  * POST /api/auth/login
  */
-router.post('/login', authLoginRateLimiter, async (req, res) => {
+// ✅ NOTA: Endpoints de debugging (/test-*, /login-debug) REMOVIDOS por seguridad
+
+/**
+ * POST /api/auth/login
+ * ✅ MEJORADO: Validación Joi + error messages genéricos (sin enumeration)
+ */
+router.post('/login',
+  authLoginRateLimiter,
+  validateRequest(schemas.login),  // ✅ NUEVO: Validación Joi
+  async (req, res) => {
   try {
     const { email, username, password } = req.body;
-
-    if (!password || (!email && !username)) {
-      return res.status(400).json({
-        error: true,
-        message: 'Email/usuario y password son requeridos'
-      });
-    }
 
     const usuario = await Usuario.findOne({
       $or: [
@@ -258,6 +276,14 @@ router.post('/login', authLoginRateLimiter, async (req, res) => {
         action: 'LOGIN_FAIL',
         meta: { reason: 'user_not_found' },
         ...getClientMeta(req)
+      });
+
+      emitEvent(eventTypes.AUTH.LOGIN_FAILED, {
+        email: (email || username || '').toLowerCase(),
+        reason: 'user_not_found',
+        ipAddress: getClientMeta(req).ip,
+        userAgent: getClientMeta(req).userAgent,
+        attempt: 1
       });
       return res.status(401).json({
         error: true,
@@ -316,6 +342,15 @@ router.post('/login', authLoginRateLimiter, async (req, res) => {
         ...getClientMeta(req)
       });
 
+      emitEvent(eventTypes.AUTH.LOGIN_FAILED, {
+        userId: usuario._id.toString(),
+        email: usuario.email,
+        reason: 'invalid_password',
+        ipAddress: getClientMeta(req).ip,
+        userAgent: getClientMeta(req).userAgent,
+        attempt: usuario.failedLoginAttempts || 1
+      });
+
       return res.status(401).json({
         error: true,
         message: 'Credenciales invalidas'
@@ -326,9 +361,15 @@ router.post('/login', authLoginRateLimiter, async (req, res) => {
     usuario.lastLogin = new Date();
     await usuario.save();
 
-    const accessToken = signAccessToken(usuario);
-    const refresh = generateRefreshToken();
+    console.log('✅ Password verificada correctamente');
 
+    const accessToken = signAccessToken(usuario);
+    console.log('✅ Access token generado');
+
+    const refresh = generateRefreshToken();
+    console.log('✅ Refresh token generado');
+
+    console.log('📝 Creando sesión...');
     await Session.create({
       userId: usuario._id,
       refreshTokenHash: refresh.tokenHash,
@@ -336,21 +377,41 @@ router.post('/login', authLoginRateLimiter, async (req, res) => {
       ip: getClientMeta(req).ip,
       expiresAt: refresh.expiresAt
     });
+    console.log('✅ Sesión creada');
 
+    console.log('🍪 Configurando cookie...');
     setRefreshCookie(res, refresh.token, refresh.expiresAt.getTime() - Date.now());
 
+    emitEvent(eventTypes.AUTH.LOGIN_SUCCESS, {
+      userId: usuario._id.toString(),
+      email: usuario.email,
+      firstName: usuario.firstName,
+      ipAddress: getClientMeta(req).ip,
+      userAgent: getClientMeta(req).userAgent,
+      method: 'password'
+    });
+    console.log('✅ Cookie configurada');
+
+    console.log('📊 Registrando login en audit...');
     await logAudit({
       userId: usuario._id,
       action: 'LOGIN_SUCCESS',
       ...getClientMeta(req)
     });
+    console.log('✅ Login registrado');
 
+    console.log('📤 Enviando respuesta...');
+    const userResponse = usuario.toJSON();
+    userResponse.name = usuario.fullName || usuario.firstName; // Agregar 'name' para el frontend
+    
     res.json({
       success: true,
       accessToken,
-      user: usuario.toJSON()
+      user: userResponse
     });
   } catch (error) {
+    console.error('❌ Error en login:', error.message);
+    console.error(error);
     res.status(500).json({
       error: true,
       message: 'Error al iniciar sesion'
@@ -384,6 +445,15 @@ router.post('/refresh', async (req, res) => {
         message: 'Sesion expirada'
       });
     }
+
+    // Invalidar el token anterior (prevención de reutilización)
+    await Session.updateMany({
+      userId: session.userId,
+      refreshTokenHash: { $ne: refreshHash },
+      revokedAt: { $exists: false }
+    }, {
+      $set: { revokedAt: new Date(), revocationReason: 'rotated' }
+    });
 
     const user = await Usuario.findById(session.userId);
     if (!user || !user.active || user.status === 'disabled') {
@@ -422,16 +492,25 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
+    let sessionUserId = null;
 
     if (refreshToken) {
       const refreshHash = hashToken(refreshToken);
-      await Session.findOneAndUpdate(
+      const session = await Session.findOneAndUpdate(
         { refreshTokenHash: refreshHash, revokedAt: { $exists: false } },
         { revokedAt: new Date() }
       );
+      sessionUserId = session?.userId?.toString() || null;
     }
 
     clearRefreshCookie(res);
+
+    emitEvent(eventTypes.AUTH.LOGOUT, {
+      userId: sessionUserId,
+      ipAddress: getClientMeta(req).ip,
+      userAgent: getClientMeta(req).userAgent,
+      timestamp: new Date().toISOString()
+    });
 
     res.json({
       success: true,
@@ -458,9 +537,12 @@ router.get('/me', requireAuth, async (req, res) => {
     });
   }
 
+  const userResponse = usuario.toJSON();
+  userResponse.name = usuario.fullName || usuario.firstName;
+  
   res.json({
     success: true,
-    user: usuario.toJSON()
+    user: userResponse
   });
 });
 
@@ -510,6 +592,15 @@ router.post('/verify-email', authPasswordRateLimiter, async (req, res) => {
       userId: user._id,
       action: 'EMAIL_VERIFIED',
       ...getClientMeta(req)
+    });
+
+    emitEvent(eventTypes.USER.EMAIL_VERIFIED, {
+      userId: user._id.toString(),
+      email: user.email,
+      firstName: user.firstName,
+      ipAddress: getClientMeta(req).ip,
+      userAgent: getClientMeta(req).userAgent,
+      timestamp: new Date().toISOString()
     });
 
     res.json({
@@ -620,6 +711,15 @@ router.post('/reset-password', authPasswordRateLimiter, async (req, res) => {
       ...getClientMeta(req)
     });
 
+    emitEvent(eventTypes.AUTH.PASSWORD_CHANGED, {
+      userId: user._id.toString(),
+      email: user.email,
+      method: 'reset',
+      ipAddress: getClientMeta(req).ip,
+      userAgent: getClientMeta(req).userAgent,
+      timestamp: new Date().toISOString()
+    });
+
     res.json({
       success: true,
       message: 'Contraseña actualizada'
@@ -679,6 +779,15 @@ router.post('/change-password', requireAuth, async (req, res) => {
       userId: user._id,
       action: 'PASSWORD_CHANGE',
       ...getClientMeta(req)
+    });
+
+    emitEvent(eventTypes.AUTH.PASSWORD_CHANGED, {
+      userId: user._id.toString(),
+      email: user.email,
+      method: 'change',
+      ipAddress: getClientMeta(req).ip,
+      userAgent: getClientMeta(req).userAgent,
+      timestamp: new Date().toISOString()
     });
 
     res.json({

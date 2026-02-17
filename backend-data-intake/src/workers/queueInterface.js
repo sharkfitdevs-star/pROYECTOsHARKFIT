@@ -52,6 +52,11 @@ class InMemoryQueue {
 }
 
 function getQueue(name) {
+  // In tests we always use the InMemoryQueue to avoid starting Agenda/Mongo
+  if (process.env.NODE_ENV === 'test') {
+    return new InMemoryQueue(name);
+  }
+
   if (String(process.env.AGENDA_ENABLED).toLowerCase() === 'true') {
     try {
       return createAgendaQueue(name);

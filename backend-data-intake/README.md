@@ -350,7 +350,7 @@ Ver [STAGE_4_COMPLETADO.md](../docs/documentado/STAGE_4_COMPLETADO.md) para:
 - Diagrama de arquitectura
 - Flujos de sincronización
 - Configuración avanzada
-- SQLite (actual) y Redis (opcional)
+legacy SQLite (historical) / MongoDB for ingestion
 - Webhooks de EVO5
 
 ## 📌 Checklist de Activación

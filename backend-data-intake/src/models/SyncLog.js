@@ -147,4 +147,5 @@ syncLogSchema.methods.addWarning = function(message, record) {
   });
 };
 
-module.exports = mongoose.model('SyncLog', syncLogSchema);
+// Export as a legacy model name to avoid colliding with the new MongoModels.SyncLog
+module.exports = mongoose.models.LegacySyncLog || mongoose.model('LegacySyncLog', syncLogSchema);

@@ -1,4 +1,6 @@
-# 🚀 OPTIMIZATION AVANZADA: ÍNDICES ADICIONALES RECOMENDADOS
+# NOTA: Migración a MongoDB
+
+Este proyecto migró a MongoDB y microservicios Node.js. Toda la información y scripts sobre optimización, índices o administración de SQLite/SQL han sido eliminados. Consulta la documentación de microservicios y MongoDB para la nueva arquitectura y mejores prácticas.
 
 **Fecha:** 12 Febrero 2026  
 **Basado en:** Análisis de queries frecuentes en sync_evo.py  

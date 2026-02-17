@@ -1,4 +1,12 @@
-const { db } = require('../db/sqlite');
+// Intenta cargar SQLite (puede fallar por permisos en OneDrive)
+let db = null;
+try {
+  const sqlite = require('../db/sqlite');
+  db = sqlite.db;
+} catch (error) {
+  console.warn('⚠️  SQLite no disponible, usando fallback');
+}
+
 
 function toIso(value) {
   if (!value) return null;

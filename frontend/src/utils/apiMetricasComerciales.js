@@ -1,19 +1,68 @@
-import { Leads_Diarios } from '@/entities/Leads_Diarios';
-import { Agendamientos } from '@/entities/Agendamientos';
-import { Ventas } from '@/entities/Ventas';
-import { Prospectos } from '@/entities/Prospectos';
-
 /**
  * Calcula métricas comerciales agregadas del negocio
  * @param {Object} filtros - Filtros opcionales { fecha_inicio, fecha_fin, sede }
  * @returns {Object} Métricas comerciales agregadas y evolución mensual
  */
+
+// Datos de ejemplo para demo
+const generarDatosComerciales = () => ({
+  leads: [
+    { id: 1, fecha: '2025-02-01', sede: { nombre_sede: 'Sede Principal' }, leads_totales: 150 },
+    { id: 2, fecha: '2025-02-02', sede: { nombre_sede: 'Sede Secundaria' }, leads_totales: 120 },
+    { id: 3, fecha: '2025-02-03', sede: { nombre_sede: 'Sede Principal' }, leads_totales: 180 }
+  ],
+  agendamientos: [
+    {
+      id: 1,
+      fecha_hora: '2025-02-01',
+      sede: { nombre_sede: 'Sede Principal' },
+      resultado_asistencia: 'Asistió'
+    },
+    {
+      id: 2,
+      fecha_hora: '2025-02-02',
+      sede: { nombre_sede: 'Sede Secundaria' },
+      resultado_asistencia: 'No asistió'
+    },
+    {
+      id: 3,
+      fecha_hora: '2025-02-03',
+      sede: { nombre_sede: 'Sede Principal' },
+      resultado_asistencia: 'Asistió'
+    }
+  ],
+  ventas: [
+    {
+      id: 1,
+      fecha_venta: '2025-02-01',
+      monto: 5000,
+      sede: { nombre_sede: 'Sede Principal' },
+      tipo_venta: 'Online'
+    },
+    {
+      id: 2,
+      fecha_venta: '2025-02-02',
+      monto: 3000,
+      sede: { nombre_sede: 'Sede Secundaria' },
+      tipo_venta: 'En sede'
+    },
+    {
+      id: 3,
+      fecha_venta: '2025-02-03',
+      monto: 4500,
+      sede: { nombre_sede: 'Sede Principal' },
+      tipo_venta: 'Online'
+    }
+  ]
+});
+
 export async function obtenerMetricasComerciales(filtros = {}) {
   try {
     const { fecha_inicio, fecha_fin, sede } = filtros;
+    const datos = generarDatosComerciales();
 
     // 1. Obtener leads
-    let leads = await Leads_Diarios.list('-fecha');
+    let leads = datos.leads;
     
     if (sede) {
       leads = leads.filter(l => l.sede?.nombre_sede === sede);
@@ -28,7 +77,7 @@ export async function obtenerMetricasComerciales(filtros = {}) {
     const totalLeads = leads.reduce((sum, l) => sum + (l.leads_totales || 0), 0);
 
     // 2. Obtener agendamientos
-    let agendamientos = await Agendamientos.list('-fecha_hora');
+    let agendamientos = datos.agendamientos;
     
     if (sede) {
       agendamientos = agendamientos.filter(a => a.sede?.nombre_sede === sede);
@@ -46,7 +95,7 @@ export async function obtenerMetricasComerciales(filtros = {}) {
     const totalPendientes = agendamientos.filter(a => a.resultado_asistencia === 'Pendiente').length;
 
     // 3. Obtener ventas
-    let ventas = await Ventas.list('-fecha_venta');
+    let ventas = datos.ventas;
     
     if (sede) {
       ventas = ventas.filter(v => v.sede?.nombre_sede === sede);

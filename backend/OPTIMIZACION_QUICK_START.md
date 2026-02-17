@@ -1,4 +1,6 @@
-# 🚀 OPTIMIZACIÓN DE BD - RESUMEN COMPLETO
+# NOTA: Migración a MongoDB
+
+Este proyecto migró a MongoDB y microservicios Node.js. Toda la información y scripts sobre optimización, índices o administración de SQLite/SQL han sido eliminados. Consulta la documentación de microservicios y MongoDB para la nueva arquitectura y mejores prácticas.
 
 ## ✅ ¿QUÉ HE PREPARADO PARA TI?
 
@@ -209,7 +211,7 @@ Si tienes preguntas:
 
 1. Revisa EJEMPLOS_QUERIES_REALES.md
 2. Mira INDICES_AVANZADOS_RECOMENDADOS.md
-3. Ejecuta `sqlite3 db.sqlite3 ".indices"` (ver índices existentes)
+3. (LEGACY) SQLite indices removed — use MongoDB `db.collection.getIndexes()` for collections
 4. Ejecuta `.\measure_indexes.ps1` (medir performance)
 
 ---

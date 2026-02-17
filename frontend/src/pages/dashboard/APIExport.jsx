@@ -6,11 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Copy, Download, Play, Code } from 'lucide-react';
 import { obtenerMetricasClientes } from '@/utils/apiMetricasClientes';
 import { obtenerTasasConversion } from '@/utils/apiTasasConversion';
 import { obtenerMetricasComerciales } from '@/utils/apiMetricasComerciales';
-import { Sucursales } from '@/entities/Sucursales';
+
+// Datos mock de sedes
+const SEDES_MOCK = [
+  { id: 1, nombre_sede: 'Sede Principal', activo: true },
+  { id: 2, nombre_sede: 'Sede Secundaria', activo: true },
+  { id: 3, nombre_sede: 'Sede Centro', activo: true }
+];
 
 export default function APIExport() {
   const [sedes, setSedes] = useState([]);
@@ -44,8 +49,7 @@ export default function APIExport() {
   }, []);
 
   const cargarSedes = async () => {
-    const sedesData = await Sucursales.list('nombre_sede');
-    setSedes(sedesData.filter(s => s.activo));
+    setSedes(SEDES_MOCK.filter(s => s.activo));
   };
 
   const ejecutarMetricasClientes = async () => {
@@ -130,12 +134,10 @@ export default function APIExport() {
       <div className="mt-4">
         <div className="flex gap-2 mb-2">
           <Button size="sm" variant="outline" onClick={() => copiarJSON(data)}>
-            <Copy className="h-4 w-4 mr-2" />
-            Copiar JSON
+            📋 Copiar JSON
           </Button>
           <Button size="sm" variant="outline" onClick={() => descargarJSON(data, filename)}>
-            <Download className="h-4 w-4 mr-2" />
-            Descargar JSON
+            ⬇️ Descargar JSON
           </Button>
         </div>
         <pre className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-xs">
@@ -149,8 +151,7 @@ export default function APIExport() {
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
-          <Code className="h-4 w-4" />
-          Ejemplo de uso desde aplicación externa
+          💻 Ejemplo de uso desde aplicación externa
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -233,8 +234,7 @@ print(data)`}
               <FiltrosComunes filtros={filtrosClientes} setFiltros={setFiltrosClientes} />
               
               <Button onClick={ejecutarMetricasClientes} disabled={loading} className="w-full">
-                <Play className="h-4 w-4 mr-2" />
-                {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
+                ▶️ {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
               </Button>
 
               <ResultadoJSON data={resultadoClientes} filename="metricas-clientes" />
@@ -257,8 +257,7 @@ print(data)`}
               <FiltrosComunes filtros={filtrosTasas} setFiltros={setFiltrosTasas} />
               
               <Button onClick={ejecutarTasasConversion} disabled={loading} className="w-full">
-                <Play className="h-4 w-4 mr-2" />
-                {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
+                ▶️ {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
               </Button>
 
               <ResultadoJSON data={resultadoTasas} filename="tasas-conversion" />
@@ -281,8 +280,7 @@ print(data)`}
               <FiltrosComunes filtros={filtrosComerciales} setFiltros={setFiltrosComerciales} />
               
               <Button onClick={ejecutarMetricasComerciales} disabled={loading} className="w-full">
-                <Play className="h-4 w-4 mr-2" />
-                {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
+                ▶️ {loading ? 'Ejecutando...' : 'Ejecutar Consulta'}
               </Button>
 
               <ResultadoJSON data={resultadoComerciales} filename="metricas-comerciales" />

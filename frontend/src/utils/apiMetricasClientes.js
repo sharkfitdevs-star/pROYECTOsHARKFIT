@@ -1,16 +1,46 @@
-import { Ventas } from '@/entities/Ventas';
-
 /**
  * Calcula métricas de clientes únicos desde Ventas
  * @param {Object} filtros - Filtros opcionales { fecha_inicio, fecha_fin, sede }
  * @returns {Object} Métricas de clientes y clientes nuevos por mes
  */
+
+// Datos de ejemplo para demo
+const generarDatosVentas = () => [
+  {
+    id: 1,
+    fecha_venta: '2025-02-01',
+    monto: 5000,
+    sede: { nombre_sede: 'Sede Principal' },
+    prospecto: { nombre: 'Cliente 1', whatsapp: '+34612345678' },
+    plan: { nombre_plan: 'Plan Premium', tipo_item: 'Plan' },
+    fecha_fin_plan: '2025-08-01'
+  },
+  {
+    id: 2,
+    fecha_venta: '2025-02-02',
+    monto: 3000,
+    sede: { nombre_sede: 'Sede Secundaria' },
+    prospecto: { nombre: 'Cliente 2', whatsapp: '+34687654321' },
+    plan: { nombre_plan: 'Plan Basic', tipo_item: 'Plan' },
+    fecha_fin_plan: '2025-05-02'
+  },
+  {
+    id: 3,
+    fecha_venta: '2025-01-15',
+    monto: 4500,
+    sede: { nombre_sede: 'Sede Principal' },
+    prospecto: { nombre: 'Cliente 1', whatsapp: '+34612345678' },
+    plan: { nombre_plan: 'Plan Premium', tipo_item: 'Plan' },
+    fecha_fin_plan: '2024-12-15'
+  }
+];
+
 export async function obtenerMetricasClientes(filtros = {}) {
   try {
     const { fecha_inicio, fecha_fin, sede } = filtros;
 
     // Obtener todas las ventas
-    const todasVentas = await Ventas.list('-createdAt');
+    const todasVentas = generarDatosVentas();
     
     // Filtrar solo ventas de Plan/Programa
     const ventasPlanPrograma = todasVentas.filter(v => {

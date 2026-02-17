@@ -4,13 +4,13 @@ const sessionSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Usuario',
-    required: true,
-    index: true
+    required: true
+    // index: true
   },
   refreshTokenHash: {
     type: String,
-    required: true,
-    index: true
+    required: true
+    // index: true
   },
   userAgent: String,
   ip: String,
@@ -20,8 +20,8 @@ const sessionSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    required: true,
-    index: true
+    required: true
+    // index: true
   },
   revokedAt: Date,
   rotatedAt: Date,
@@ -31,6 +31,9 @@ const sessionSchema = new mongoose.Schema({
   collection: 'sessions'
 });
 
+
+// Índice TTL: elimina sesiones expiradas automáticamente
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 sessionSchema.index({ userId: 1, expiresAt: 1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

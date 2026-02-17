@@ -10,12 +10,13 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import APIIntegrationSetup from '../../components/APIIntegrationSetup';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 function ConfiguracionFuentesDatos() {
   // ==================== ESTADO ====================
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload', 'evo', 'historial'
+  const [activeTab, setActiveTab] = useState('upload'); // 'upload', 'evo', 'apis', 'historial'
   
   // Upload
   const [archivo, setArchivo] = useState(null);
@@ -301,6 +302,22 @@ function ConfiguracionFuentesDatos() {
           >
             🔌 Configurar EVO
           </button>
+
+          <button
+            onClick={() => setActiveTab('apis')}
+            style={{
+              padding: '10px 20px',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'apis' ? '3px solid #2563eb' : '3px solid transparent',
+              color: activeTab === 'apis' ? '#2563eb' : '#666',
+              fontWeight: activeTab === 'apis' ? 'bold' : 'normal',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            🔗 Conectar APIs
+          </button>
           
           <button
             onClick={() => setActiveTab('historial')}
@@ -581,6 +598,11 @@ function ConfiguracionFuentesDatos() {
             </div>
           )}
         </div>
+      )}
+
+      {/* CONTENIDO: APIs externas */}
+      {activeTab === 'apis' && (
+        <APIIntegrationSetup />
       )}
 
       {/* CONTENIDO: Historial */}

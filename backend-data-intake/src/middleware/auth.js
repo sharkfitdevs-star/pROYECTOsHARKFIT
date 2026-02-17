@@ -1,7 +1,20 @@
 const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'change-me';
+// ✅ VALIDACIÓN DE JWT_SECRET EN STARTUP
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+
+if (!ACCESS_TOKEN_SECRET) {
+  throw new Error(
+    '❌ FATAL: JWT_SECRET no configurado en .env\n' +
+    '📋 Generar con: openssl rand -hex 32\n' +
+    '📝 Guardar en .env: JWT_SECRET=<valor_generado>'
+  );
+}
+
+if (process.env.NODE_ENV === 'production' && ACCESS_TOKEN_SECRET === 'change-me') {
+  throw new Error('❌ FATAL: JWT_SECRET aún tiene valor default en PRODUCCIÓN');
+}
 
 const requireAuth = async (req, res, next) => {
   try {

@@ -13,10 +13,10 @@ export default function ConfigurarEvo5() {
   const [saved, setSaved] = useState(false);
   const [config, setConfig] = useState({
     nombre: 'default',
-    base_url: 'https://evo-integracao-api.w12app.com.br/api',
-    api_key: '4F09A73D-6626-42A1-9D4E-7A1C5FB6B7BC',
+    base_url: process.env.REACT_APP_EVO_BASE_URL || 'https://evo-integracao-api.w12app.com.br/api',
+    api_key: process.env.REACT_APP_EVO_API_KEY || '',  // ✅ NUNCA hardcodear
     gym_id: '1',
-    instance_id: 'sharkfitchile',
+    instance_id: process.env.REACT_APP_EVO_INSTANCE_ID || 'sharkfitchile',
     activo: true
   });
 

@@ -5,7 +5,18 @@ const Usuario = require('./Usuario');
 const Agendamiento = require('./Agendamiento');
 const Alerta = require('./Alerta');
 const Reporte = require('./Reporte');
-const SyncLog = require('./SyncLog');
+const ApiIntegration = require('./ApiIntegration');
+const AccessLog = require('./AccessLog');
+// Cargar MongoModels primero y usar su SyncLog cuando esté disponible.
+// Evita registrar el modelo legacy `SyncLog` que causa conflictos de esquema.
+const MongoModels = require('./MongoModels');
+let SyncLogModel;
+if (MongoModels && MongoModels.SyncLog) {
+  SyncLogModel = MongoModels.SyncLog;
+} else {
+  // Fallback: registrar el modelo legacy sólo si no existe la versión MongoModels
+  SyncLogModel = require('./SyncLog');
+}
 const Session = require('./Session');
 const EmailToken = require('./EmailToken');
 const AuditLog = require('./AuditLog');
@@ -17,8 +28,16 @@ module.exports = {
   Agendamiento,
   Alerta,
   Reporte,
-  SyncLog,
+  SyncLog: SyncLogModel,
   Session,
   EmailToken,
-  AuditLog
+  AuditLog,
+
+  // Mongo utility models/queries
+  Webhook: MongoModels.Webhook,
+  HealthCheck: MongoModels.HealthCheck,
+  ApiCallLog: MongoModels.ApiCallLog,
+  WorkerState: MongoModels.WorkerState,
+  createOptimizedIndexes: MongoModels.createOptimizedIndexes,
+  mongoQueries: MongoModels.queries
 };

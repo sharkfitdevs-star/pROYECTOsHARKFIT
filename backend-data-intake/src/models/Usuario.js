@@ -6,14 +6,12 @@ const usuarioSchema = new mongoose.Schema({
   username: { 
     type: String, 
     required: true, 
-    unique: true,
-    index: true 
+    unique: true
   },
   email: { 
     type: String, 
     required: true, 
-    unique: true,
-    index: true 
+    unique: true
   },
   password: {
     type: String,
@@ -44,29 +42,25 @@ const usuarioSchema = new mongoose.Schema({
       'recepcionista',
       'vendedor'
     ],
-    required: true,
-    index: true
+    required: true
   },
   permissions: [String],
   
   // Sucursal asociada
   idBranch: { 
-    type: String,
-    index: true 
+    type: String
   },
   branchName: String,
   
   // Estado
   active: {
     type: Boolean,
-    default: true,
-    index: true
+    default: true
   },
   status: {
     type: String,
     enum: ['pending_verification', 'active', 'disabled', 'locked'],
-    default: 'active',
-    index: true
+    default: 'active'
   },
   
   // Información de contacto
@@ -115,8 +109,7 @@ const usuarioSchema = new mongoose.Schema({
   // Origen de datos
   source: { 
     type: String, 
-    default: 'local',
-    index: true 
+    default: 'local'
   },
   externalId: String
 }, {
@@ -124,9 +117,15 @@ const usuarioSchema = new mongoose.Schema({
   collection: 'usuarios'
 });
 
-// Índices
-usuarioSchema.index({ role: 1, active: 1 });
-usuarioSchema.index({ idBranch: 1, active: 1 });
+
+// Índices para búsquedas rápidas y optimización
+// usuarioSchema.index({ role: 1, active: 1 });
+// usuarioSchema.index({ idBranch: 1, active: 1 });
+// usuarioSchema.index({ email: 1 }, { unique: true });
+// usuarioSchema.index({ username: 1 }, { unique: true });
+// usuarioSchema.index({ status: 1 });
+// TTL opcional para usuarios desactivados (ejemplo: 180 días)
+// usuarioSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 15552000, partialFilterExpression: { active: false } });
 
 // Middleware pre-save para normalizar datos y hashear contraseña
 usuarioSchema.pre('save', async function(next) {
