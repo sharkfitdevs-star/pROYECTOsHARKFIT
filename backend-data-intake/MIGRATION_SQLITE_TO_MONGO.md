@@ -36,6 +36,9 @@ Notas importantes
 Pruebas
 - Incluido test unitario para el importador (`tests/migration.import.test.js`) que usa `mongodb-memory-server`.
 
+Django → Mongo (API‑bridge)
+- Para minimizar cambios en Django, existe una guía y cliente para implementar un API‑bridge (consumir `/api/clientes`, `/api/ventas`, `/api/leads`). Ver: `MIGRATE_DJANGO_TO_MONGO_API_BRIDGE.md`.
+
 ¿Quieres que:
 - ejecute un `dry-run` localmente con tu `backend/db.sqlite3`, o
-- genere un script adicional para actualizar Django para leer desde Mongo (paso final)?
+- genere un PR que implemente el cliente Django + tests (API‑bridge)?
