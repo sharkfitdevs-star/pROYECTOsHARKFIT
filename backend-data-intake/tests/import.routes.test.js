@@ -29,7 +29,7 @@ describe('Import routes (enqueue behavior)', () => {
     expect(res.body.exito).toBe(true);
     expect(res.body.queued).toBe(true);
     expect(res.body.jobId).toBe('imp-job-1');
-    expect(queueImportTask).toHaveBeenCalledWith('excel', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes', expect.any(Object));
+    expect(queueImportTask).toHaveBeenCalledWith('excel', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes');
   });
 
   test('POST /api/import/csv enqueues CSV import job via queueImportTask', async () => {
