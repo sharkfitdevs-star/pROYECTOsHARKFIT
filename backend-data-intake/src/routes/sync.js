@@ -8,6 +8,7 @@ const router = express.Router();
 const SyncService = require('../services/SyncService');
 const { findSyncLogById, listSyncLogs } = require('../db/repositories');
 const { logger } = require('../utils/logger');
+const { queueSyncTask } = require('../workers/api-worker');
 
 /**
  * POST /api/sync/run
@@ -25,11 +26,13 @@ router.post('/run', async (req, res) => {
       endpoints: { clientes: '/clientes', ventas: '/ventas' }
     };
 
-    const resultado = await SyncService.sincronizarDesdeAPI(sourceId, config, modo, entidades);
+    // Enqueue manual sync via queueInterface (feature-flagged/portable)
+    const job = await queueSyncTask('API', 'manual-sync', { sourceId, modo, entidades, config });
 
     res.json({
       exito: true,
-      datos: resultado
+      queued: true,
+      jobId: job?.id || null
     });
   } catch (error) {
     logger.error('Error ejecutando sincronización:', error);
@@ -48,7 +51,7 @@ router.get('/status/:syncId', async (req, res) => {
   try {
     const { syncId } = req.params;
 
-    const syncLog = findSyncLogById(syncId);
+    const syncLog = await findSyncLogById(syncId);
 
     if (!syncLog) {
       return res.status(404).json({
@@ -90,12 +93,12 @@ router.get('/logs', async (req, res) => {
   try {
     const { sourceId, desde, hasta, limit = 20 } = req.query;
 
-    const logs = listSyncLogs({
+    const logs = (await listSyncLogs({
       sourceId,
       desde,
       hasta,
       limit: parseInt(limit)
-    }).map(({ errores, ...rest }) => rest);
+    })).map(({ errores, ...rest }) => rest);
 
     res.json({
       exito: true,
@@ -119,7 +122,7 @@ router.post('/retry/:syncId', async (req, res) => {
   try {
     const { syncId } = req.params;
 
-    const syncLog = findSyncLogById(syncId);
+    const syncLog = await findSyncLogById(syncId);
 
     if (!syncLog) {
       return res.status(404).json({

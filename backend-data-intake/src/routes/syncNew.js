@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const SyncService = require('../services/SyncServiceMongo');
 const { SyncLog } = require('../models');
+const { queueSyncTask } = require('../workers/api-worker');
 
 /**
  * POST /api/sync/start
@@ -36,11 +37,13 @@ router.post('/start', async (req, res) => {
       }
     };
     
-    const resultado = await SyncService.sincronizarDesdeAPI(sourceId, config, modo, entidades);
-    
+    // Enqueue sync via queueInterface. Worker will process the job.
+    const job = await queueSyncTask(config.tipo || 'API', 'manual-sync', { sourceId, modo, entidades, config });
+
     res.json({
       exito: true,
-      ...resultado
+      queued: true,
+      jobId: job?.id || null
     });
   } catch (error) {
     console.error('Error in sync start:', error);
@@ -60,8 +63,8 @@ router.get('/logs', async (req, res) => {
     const { tipo, estatus, limite = 50 } = req.query;
     
     const logs = await SyncService.obtenerLogs({
-      syncType: tipo,
-      status: estatus,
+      tipo: tipo,
+      estado: estatus,
       limit: parseInt(limite)
     });
     
@@ -86,10 +89,10 @@ router.get('/logs', async (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const ultimoSync = await SyncLog.findOne()
-      .sort({ startedAt: -1 });
+      .sort({ iniciado_en: -1 });
     
     const syncActivos = await SyncLog.countDocuments({
-      status: { $in: ['iniciado', 'en_proceso'] }
+      estado: { $in: ['iniciado', 'procesando'] }
     });
     
     res.json({
