@@ -1,0 +1,66 @@
+const jestMock = require('jest-mock');
+
+// Mock axios.create used by UniversalExtractor._createHttpClient
+jest.mock('axios', () => ({
+  create: jest.fn()
+}));
+
+const axios = require('axios');
+const { extractAndSync } = require('../src/index');
+
+describe('api-web extractor (configs/api-web.json)', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    process.env.WEB_BASE_URL = 'https://example.com';
+    process.env.WEB_API_TOKEN = 'fake-token';
+  });
+
+  afterEach(() => {
+    delete process.env.WEB_BASE_URL;
+    delete process.env.WEB_API_TOKEN;
+  });
+
+  test('extractAndSync processes api-web endpoints using axios mock', async () => {
+    const sales = { items: [{ id: 's1', amount: 100 }] };
+    const prospects = { items: [{ id: 'p1', name: 'Lead Uno' }] };
+    const access_logs = { records: [{ id: 'a1', location: 'Main' }] };
+    const contacts = { items: [{ id: 'c1', name: 'Contacto' }] };
+
+    // axios.create should return a client with request/get methods
+    axios.create.mockReturnValue({
+      request: jest.fn().mockImplementation(({ url }) => {
+        if (url.includes('/api/sales')) return Promise.resolve({ data: sales });
+        if (url.includes('/api/prospects')) return Promise.resolve({ data: prospects });
+        if (url.includes('/access-logs')) return Promise.resolve({ data: access_logs });
+        if (url.includes('/contacts')) return Promise.resolve({ data: contacts });
+        return Promise.resolve({ data: {} });
+      }),
+      get: jest.fn().mockImplementation((u) => {
+        if (u.includes('/api/sales')) return Promise.resolve({ data: sales });
+        if (u.includes('/api/prospects')) return Promise.resolve({ data: prospects });
+        if (u.includes('/access-logs')) return Promise.resolve({ data: access_logs });
+        if (u.includes('/contacts')) return Promise.resolve({ data: contacts });
+        return Promise.resolve({ data: {} });
+      }),
+      post: jest.fn().mockResolvedValue({ data: {} })
+    });
+
+    const result = await extractAndSync('api-web');
+    expect(result).toBeTruthy();
+    expect(result.results).toBeDefined();
+
+    // Verify each configured endpoint reported success and record counts
+    const salesKey = '/api/sales';
+    const prospectsKey = '/api/prospects';
+    const accessKey = '/access-logs';
+
+    expect(result.results[salesKey].success).toBe(true);
+    expect(result.results[salesKey].records).toBe(1);
+
+    expect(result.results[prospectsKey].success).toBe(true);
+    expect(result.results[prospectsKey].records).toBe(1);
+
+    expect(result.results[accessKey].success).toBe(true);
+    expect(result.results[accessKey].records).toBe(1);
+  });
+});

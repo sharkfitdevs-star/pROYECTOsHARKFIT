@@ -6,6 +6,7 @@
 
 const JOB_NAMES = {
   API_CALLS: 'api-calls',
+  API_EXTRACTS: 'api-extracts',
   WEBHOOKS: 'webhooks',
   SYNC_TASKS: 'sync-tasks',
   REPORTS: 'reportes',
@@ -70,6 +71,27 @@ function registerAgendaJobs() {
       done(err);
     }
   });
+
+  // Job: API Extracts (runs extractAllApis to pull data from configured external APIs / web)
+  agenda.define(JOB_NAMES.API_EXTRACTS, { concurrency: 1 }, async (job, done) => {
+    try {
+      const { extractAllApis } = require('../index');
+      await extractAllApis();
+      done();
+    } catch (err) {
+      done(err);
+    }
+  });
+
+  // Auto-schedule API extract job if configured interval is present
+  try {
+    const minutes = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 0);
+    if (minutes > 0) {
+      agenda.every(`${minutes} minutes`, JOB_NAMES.API_EXTRACTS);
+    }
+  } catch (e) {
+    // noop - scheduling is best-effort
+  }
 
   return true;
 }

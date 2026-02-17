@@ -46,8 +46,8 @@ const PORT = process.env.PORT || 3001;
 const POLL_MS = Number(process.env.POLL_MS || 10000);
 const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
 
-console.log(`
-logger.info(`SHARKFIT DATA INTAKE - starting`, { EVO_BASE_URL, DJANGO_BASE_URL, PORT, POLL_MS });
+// Startup log
+logger.info('SHARKFIT DATA INTAKE - starting', { EVO_BASE_URL, DJANGO_BASE_URL, PORT, POLL_MS });
 
 // ============================================
 // SESIONES EN MEMORIA

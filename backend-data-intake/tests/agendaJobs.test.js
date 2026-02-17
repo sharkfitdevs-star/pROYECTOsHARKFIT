@@ -37,7 +37,7 @@ describe('Agenda jobs registration', () => {
     // Ensure define was called for the three jobs
     expect(defineMock).toHaveBeenCalled();
     const definedNames = defineMock.mock.calls.map(c => c[0]);
-    expect(definedNames).toEqual(expect.arrayContaining([JOB_NAMES.API_CALLS, JOB_NAMES.WEBHOOKS, JOB_NAMES.SYNC_TASKS]));
+    expect(definedNames).toEqual(expect.arrayContaining([JOB_NAMES.API_CALLS, JOB_NAMES.API_EXTRACTS, JOB_NAMES.WEBHOOKS, JOB_NAMES.SYNC_TASKS]));
 
     // Extract handler for API_CALLS and invoke it to ensure it calls processor
     const apiCallDefine = defineMock.mock.calls.find(c => c[0] === JOB_NAMES.API_CALLS);
@@ -48,5 +48,12 @@ describe('Agenda jobs registration', () => {
     const fakeJob = { attrs: { _id: 'job-1', data: { foo: 'bar' }, opts: {} } };
     await apiHandler(fakeJob, () => {});
     expect(processApiCall).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1', data: { foo: 'bar' } }));
+
+    // Ensure API_EXTRACTS handler was defined
+    const apiExtractDefine = defineMock.mock.calls.find(c => c[0] === JOB_NAMES.API_EXTRACTS);
+    expect(apiExtractDefine).toBeTruthy();
+    const apiExtractHandler = apiExtractDefine[2];
+    // invoking should not throw (handler calls extractAllApis internally)
+    await expect(apiExtractHandler({ attrs: {} }, () => {})).resolves.not.toThrow();
   });
 });
