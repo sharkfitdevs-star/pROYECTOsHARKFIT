@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { logger } = require('../utils/logger');
 
 let isConnected = false;
 
@@ -30,7 +31,7 @@ const diagnoseMongoError = (error) => {
 
 const connectDB = async () => {
   if (isConnected) {
-    console.log('📦 Ya conectado a MongoDB');
+    logger.info('📦 Ya conectado a MongoDB');
     return;
   }
 
@@ -41,29 +42,29 @@ const connectDB = async () => {
     await mongoose.connect(primaryUri, getMongoOptions());
 
     isConnected = true;
-    console.log('✅ MongoDB conectado exitosamente');
+    logger.info('✅ MongoDB conectado exitosamente');
     
     // Crear índices manualmente en background (no bloquea queries)
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📊 Creando índices en background...');
+      logger.info('📊 Creando índices en background...');
       mongoose.connection.collection('usuarios').createIndex({ username: 1, email: 1 });
     }
   } catch (error) {
     const hint = diagnoseMongoError(error);
-    console.error('❌ Error conectando a MongoDB:', error.message || error);
-    console.error(`💡 Diagnostico: ${hint}`);
+    logger.error('❌ Error conectando a MongoDB:', { message: error.message || error, hint });
+    logger.error(`💡 Diagnostico: ${hint}`);
 
     const hasFallback = fallbackUri && fallbackUri !== primaryUri;
     if (hasFallback) {
       try {
-        console.warn('↩️ Intentando conexion MongoDB de respaldo...');
+        logger.warn('↩️ Intentando conexion MongoDB de respaldo...');
         await mongoose.disconnect().catch(() => {});
         await mongoose.connect(fallbackUri, getMongoOptions());
         isConnected = true;
-        console.log('✅ MongoDB conectado usando URI de respaldo');
+        logger.info('✅ MongoDB conectado usando URI de respaldo');
         return;
       } catch (fallbackError) {
-        console.error('❌ Error conectando a MongoDB de respaldo:', fallbackError.message || fallbackError);
+        logger.error('❌ Error conectando a MongoDB de respaldo:', { error: fallbackError.message || fallbackError });
       }
     }
 
@@ -79,9 +80,9 @@ const disconnectDB = async () => {
   try {
     await mongoose.disconnect();
     isConnected = false;
-    console.log('🔌 MongoDB desconectado');
+    logger.info('🔌 MongoDB desconectado');
   } catch (error) {
-    console.error('❌ Error desconectando MongoDB:', error);
+    logger.error('❌ Error desconectando MongoDB:', error);
     throw error;
   }
 };

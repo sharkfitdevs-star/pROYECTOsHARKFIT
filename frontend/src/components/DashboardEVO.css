@@ -290,3 +290,20 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Source selector */
+.source-controls {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.data-source {
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+

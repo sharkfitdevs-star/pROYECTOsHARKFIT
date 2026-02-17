@@ -6,7 +6,8 @@
  *
  * This service synchronizes EVO W12 data into MongoDB collections via Mongoose.
  */
-console.warn('[DEPRECATION] use src/evo-w12-proxy.js (sqlite filename is legacy)');
+const { logger } = require('./utils/logger');
+logger.warn('[DEPRECATION] use src/evo-w12-proxy.js (sqlite filename is legacy)');
 
 require('dotenv').config();
 const axios = require('axios');
@@ -122,7 +123,7 @@ function createEvoClient(dns, token) {
 async function syncTenant(integration) {
     const { tenant_id, dns, encrypted_token, encryption_iv, id: integrationId } = integration;
 
-    console.log(`[Sync] Starting for Tenant: ${tenant_id} (DNS: ${dns})`);
+    logger.info(`[Sync] Starting for Tenant: ${tenant_id} (DNS: ${dns})`);
 
     // If Agenda is enabled, enqueue a sync task instead of running inline
     if (String(process.env.AGENDA_ENABLED).toLowerCase() === 'true') {
@@ -142,7 +143,7 @@ async function syncTenant(integration) {
             console.log(`[Sync] ✅ Enqueued FULL_SYNC for tenant ${tenant_id}`);
             return;
         } catch (err) {
-            console.error('[Sync] Error encolando job:', err.message);
+            logger.error('[Sync] Error encolando job:', { error: err.message });
             // Fall through to attempt local sync if enqueueing fails
         }
     }
@@ -158,18 +159,18 @@ async function syncTenant(integration) {
 
         // --- STEP A: PROSPECTS (/api/v1/prospects) ---
         // Critical Rule 3: Correct Endpoint
-        console.log(`[Sync] Fetching prospects for tenant ${tenant_id}...`);
+        logger.info(`[Sync] Fetching prospects for tenant ${tenant_id}...`);
         const prospectsRes = await api.get('/api/v1/prospects');
         const prospects = prospectsRes.data.list || prospectsRes.data || []; 
 
         for (const p of prospects) {
             await evoRepository.upsertProspect(tenant_id, p);
         }
-        console.log(`[Sync] ✅ Upserted ${prospects.length} prospects.`);
+        logger.info(`[Sync] ✅ Upserted ${prospects.length} prospects.`);
 
         // --- STEP B: SALES (/api/v2/sales) ---
         // Critical Rule 3: Correct Endpoint
-        console.log(`[Sync] Fetching sales for tenant ${tenant_id}...`);
+        logger.info(`[Sync] Fetching sales for tenant ${tenant_id}...`);
         const salesRes = await api.get('/api/v2/sales');
         const sales = salesRes.data.list || salesRes.data || [];
 
@@ -179,11 +180,11 @@ async function syncTenant(integration) {
                 await evoRepository.upsertSale(tenant_id, s, memberUuid);
             }
         }
-        console.log(`[Sync] ✅ Upserted ${sales.length} sales.`);
+        logger.info(`[Sync] ✅ Upserted ${sales.length} sales.`);
 
         // --- STEP C: ENTRIES (/api/v1/entries) ---
         // Critical Rule 3: Correct Endpoint
-        console.log(`[Sync] Fetching entries for tenant ${tenant_id}...`);
+        logger.info(`[Sync] Fetching entries for tenant ${tenant_id}...`);
         const entriesRes = await api.get('/api/v1/entries');
         const entries = entriesRes.data.list || entriesRes.data || [];
 
@@ -193,16 +194,16 @@ async function syncTenant(integration) {
                 await evoRepository.upsertEntry(tenant_id, e, memberUuid);
             }
         }
-        console.log(`[Sync] ✅ Upserted ${entries.length} entries.`);
+        logger.info(`[Sync] ✅ Upserted ${entries.length} entries.`);
 
         // Update last sync timestamp
         await evoRepository.updateLastSync(integrationId);
         await evoRepository.logSyncJob(tenant_id, 'FULL_SYNC', 'COMPLETED');
         
-        console.log(`[Sync] ✅ Completed successfully for tenant ${tenant_id}`);
+        logger.info(`[Sync] ✅ Completed successfully for tenant ${tenant_id}`);
 
     } catch (err) {
-        console.error(`[Sync Error] ❌ Tenant ${tenant_id}:`, err.message);
+        logger.error(`[Sync Error] Tenant ${tenant_id}:`, { error: err.message });
         
         // Handle Axios Auth Errors specific to W12
         let errMsg = err.message;
@@ -233,13 +234,13 @@ async function runIntegrations() {
     try {
         const integrations = await evoRepository.getActiveIntegrations();
         
-        console.log(`\n${'='.repeat(80)}`);
-        console.log(`[System] 🚀 Starting sync cycle at ${new Date().toISOString()}`);
-        console.log(`[System] 📊 Found ${integrations.length} active integration(s)`);
-        console.log(`${'='.repeat(80)}\n`);
+        logger.info(`${'='.repeat(80)}`);
+        logger.info(`[System] 🚀 Starting sync cycle at ${new Date().toISOString()}`);
+        logger.info(`[System] 📊 Found ${integrations.length} active integration(s)`);
+        logger.info(`${'='.repeat(80)}`);
 
         if (integrations.length === 0) {
-            console.log('[System] ⚠️  No active integrations found. Add integrations to api_integrations collection.');
+            logger.warn('[System] No active integrations found. Add integrations to api_integrations collection.');
         }
 
         // Run sequentially to manage resources
@@ -248,12 +249,12 @@ async function runIntegrations() {
         }
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log(`\n${'='.repeat(80)}`);
-        console.log(`[System] ✅ Sync cycle completed in ${duration}s`);
-        console.log(`${'='.repeat(80)}\n`);
+        logger.info(`${'='.repeat(80)}`);
+        logger.info(`[System] ✅ Sync cycle completed in ${duration}s`);
+        logger.info(`${'='.repeat(80)}`);
 
     } catch (error) {
-        console.error('[System] ❌ Critical Worker Error:', error);
+        logger.error('[System] Critical Worker Error:', error);
     } finally {
         await evoRepository.releaseSyncLock();
     }
@@ -264,7 +265,7 @@ async function runIntegrations() {
 // =============================================================================
 
 function gracefulShutdown(signal) {
-    console.log(`\n[System] 🛑 Received ${signal}. Shutting down gracefully...`);
+    logger.info(`[System] Received ${signal}. Shutting down gracefully...`);
     
     // Wait for current sync to finish
     const checkLock = setInterval(async () => {
@@ -274,10 +275,10 @@ function gracefulShutdown(signal) {
         if (!lock || lock.locked !== true) {
             clearInterval(checkLock);
             await disconnectDB();
-            console.log('[System] ✅ Database connection closed.');
+            logger.info('[System] ✅ Database connection closed.');
             process.exit(0);
         } else {
-            console.log('[System] ⏳ Waiting for active sync to complete...');
+            logger.info('[System] Waiting for active sync to complete...');
         }
     }, 1000);
 }

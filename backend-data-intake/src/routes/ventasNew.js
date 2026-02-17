@@ -32,7 +32,8 @@ router.get('/', async (req, res) => {
       pages: Math.ceil(count / limit)
     });
   } catch (error) {
-    console.error('Error listing ventas:', error);
+    const { logger } = require('../utils/logger');
+    logger.error('Error listing ventas:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al listar ventas'
@@ -52,7 +53,7 @@ router.get('/export', async (req, res) => {
     const job = await queueExportTask('ventas', format, filters);
     return res.status(200).json({ success: true, queued: true, jobId: job?.id || null });
   } catch (error) {
-    console.error('Error export ventas:', error);
+    logger.error('Error export ventas:', { error });
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -77,7 +78,7 @@ router.get('/:id', async (req, res) => {
       data: venta
     });
   } catch (error) {
-    console.error('Error getting venta:', error);
+    logger.error('Error getting venta:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al obtener venta'
@@ -99,7 +100,7 @@ router.post('/', async (req, res) => {
       data: nuevaVenta
     });
   } catch (error) {
-    console.error('Error creating venta:', error);
+    logger.error('Error creating venta:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al crear venta'
@@ -131,7 +132,7 @@ router.put('/:id', async (req, res) => {
       data: venta
     });
   } catch (error) {
-    console.error('Error updating venta:', error);
+    logger.error('Error updating venta:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al actualizar venta'
@@ -159,7 +160,7 @@ router.delete('/:id', async (req, res) => {
       message: 'Venta eliminada'
     });
   } catch (error) {
-    console.error('Error deleting venta:', error);
+    logger.error('Error deleting venta:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al eliminar venta'
@@ -191,7 +192,7 @@ router.get('/stats/resumen', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting sales stats:', error);
+    logger.error('Error getting sales stats:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al obtener estadísticas'

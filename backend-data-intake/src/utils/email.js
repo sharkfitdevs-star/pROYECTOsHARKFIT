@@ -100,16 +100,16 @@ const sendWithMailgun = async ({ to, subject, html, text }) => {
 const sendWithConsole = ({ to, subject, html, text }) => {
   logger.warn('⚠️  EMAIL_PROVIDER=console - Email NO enviado (solo logs)');
   
-  console.log('\n' + '='.repeat(80));
-  console.log('📧 EMAIL SIMULADO (DESARROLLO)');
-  console.log('='.repeat(80));
-  console.log(`Para:     ${to}`);
-  console.log(`De:       ${EMAIL_FROM}`);
-  console.log(`Asunto:   ${subject}`);
-  console.log('-'.repeat(80));
-  console.log('Contenido:');
-  console.log(text || html.replace(/<[^>]*>/g, ''));
-  console.log('='.repeat(80) + '\n');
+  logger.info('\n' + '='.repeat(80));
+  logger.info('📧 EMAIL SIMULADO (DESARROLLO)');
+  logger.info('='.repeat(80));
+  logger.info(`Para:     ${to}`);
+  logger.info(`De:       ${EMAIL_FROM}`);
+  logger.info(`Asunto:   ${subject}`);
+  logger.info('-'.repeat(80));
+  logger.info('Contenido:');
+  logger.info(text || html.replace(/<[^>]*>/g, ''));
+  logger.info('='.repeat(80) + '\n');
 
   return true;
 };

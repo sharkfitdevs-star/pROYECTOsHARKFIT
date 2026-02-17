@@ -46,7 +46,8 @@ router.post('/start', async (req, res) => {
       jobId: job?.id || null
     });
   } catch (error) {
-    console.error('Error in sync start:', error);
+    const { logger } = require('../utils/logger');
+    logger.error('Error in sync start:', { error });
     res.status(500).json({
       exito: false,
       error: error.message
@@ -74,7 +75,7 @@ router.get('/logs', async (req, res) => {
       logs
     });
   } catch (error) {
-    console.error('Error getting sync logs:', error);
+    logger.error('Error getting sync logs:', { error });
     res.status(500).json({
       exito: false,
       error: error.message
@@ -101,7 +102,7 @@ router.get('/status', async (req, res) => {
       syncActivos
     });
   } catch (error) {
-    console.error('Error getting sync status:', error);
+    logger.error('Error getting sync status:', { error });
     res.status(500).json({
       exito: false,
       error: error.message

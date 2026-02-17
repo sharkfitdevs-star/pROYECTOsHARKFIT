@@ -61,7 +61,8 @@ function getQueue(name) {
     try {
       return createAgendaQueue(name);
     } catch (err) {
-      console.warn('AGENDA init failed, falling back to InMemoryQueue:', err.message);
+      const { logger } = require('../utils/logger');
+      logger.warn('AGENDA init failed, falling back to InMemoryQueue:', { error: err.message });
       return new InMemoryQueue(name);
     }
   }

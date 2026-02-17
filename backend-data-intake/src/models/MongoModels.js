@@ -10,6 +10,7 @@
 
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { logger } = require('../utils/logger');
 
 // ============================================================================
 // WEBHOOK MODEL (Crítico para idempotencia)
@@ -311,9 +312,9 @@ async function createOptimizedIndexes() {
       { expireAfterSeconds: 86400 } // 1 día
     );
 
-    console.log('✅ Índices MongoDB creados/actualizados');
+    logger.info('✅ Índices MongoDB creados/actualizados');
   } catch (error) {
-    console.error('❌ Error creando índices:', error.message);
+    logger.error('❌ Error creando índices:', { message: error.message });
   }
 }
 

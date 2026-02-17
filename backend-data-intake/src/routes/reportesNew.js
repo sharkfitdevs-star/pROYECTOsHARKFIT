@@ -31,7 +31,8 @@ router.get('/', async (req, res) => {
       pages: Math.ceil(count / limit)
     });
   } catch (error) {
-    console.error('Error listing reportes:', error);
+    const { logger } = require('../utils/logger');
+    logger.error('Error listing reportes:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al listar reportes'
@@ -59,7 +60,7 @@ router.get('/:id', async (req, res) => {
       data: reporte
     });
   } catch (error) {
-    console.error('Error getting reporte:', error);
+    logger.error('Error getting reporte:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al obtener reporte'
@@ -87,11 +88,11 @@ router.post('/', async (req, res) => {
       return res.status(201).json({ success: true, data: nuevoReporte, queued: true, jobId: job?.id || null });
     } catch (err) {
       // Fallback: return created report but indicate not queued
-      console.warn('No se pudo encolar report (fallback):', err.message);
+      logger.warn('No se pudo encolar report (fallback):', { error: err.message });
       return res.status(201).json({ success: true, data: nuevoReporte, queued: false });
     }
   } catch (error) {
-    console.error('Error creating reporte:', error);
+    logger.error('Error creating reporte:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al crear reporte'
@@ -119,7 +120,7 @@ router.delete('/:id', async (req, res) => {
       message: 'Reporte eliminado'
     });
   } catch (error) {
-    console.error('Error deleting reporte:', error);
+    logger.error('Error deleting reporte:', { error });
     res.status(500).json({
       error: true,
       message: 'Error al eliminar reporte'

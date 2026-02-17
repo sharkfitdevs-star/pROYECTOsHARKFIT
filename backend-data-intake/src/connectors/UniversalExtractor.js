@@ -32,10 +32,9 @@ class UniversalExtractor {
    * @returns {Promise<Object>} { success, data, source, duration, attempts }
    */
   async extract(endpoint) {
-    console.log(`\n${'═'.repeat(75)}`);
-    console.log(`🔍 EXTRAYENDO: ${endpoint}`);
-    console.log(`   Fuente: ${this.config.id} (${this.config.type})`);
-    console.log(`${'═'.repeat(75)}\n`);
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
+    logger.info(`🔍 EXTRAYENDO: ${endpoint}`, { source: this.config.id, type: this.config.type });
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
 
     const startTime = Date.now();
     const result = {
@@ -67,8 +66,6 @@ class UniversalExtractor {
           endpoint
         });
 
-        console.log(`   [${attemptNum}/${strategies.length}] ${strategy.name}`);
-
         // Ejecutar estrategia con timeout
         const data = await Promise.race([
           strategy.execute(),
@@ -85,16 +82,8 @@ class UniversalExtractor {
         // Cachear para fallback futuro
         this._cacheData(endpoint, data);
 
-        console.log(`   ✅ ÉXITO en ${result.duration}ms`);
-        console.log(`   📦 Registros extraídos: ${this._countRecords(data)}\n`);
-
-        logger.info(`✅ Extracción exitosa`, {
-          extractorId: this.extractorId,
-          endpoint,
-          strategy: strategy.name,
-          duration: result.duration,
-          records: this._countRecords(data)
-        });
+        logger.info(`✅ ÉXITO en ${result.duration}ms`, { extractorId: this.extractorId, endpoint, strategy: strategy.name, duration: result.duration });
+        logger.info(`📦 Registros extraídos: ${this._countRecords(data)}`);
 
         return result;
 
@@ -109,14 +98,7 @@ class UniversalExtractor {
           message: error.message
         });
 
-        console.log(`   ❌ ${errorDesc}\n`);
-
-        logger.warn(`⚠️ Intento ${attemptNum} falló`, {
-          extractorId: this.extractorId,
-          endpoint,
-          strategy: strategy.name,
-          error: errorDesc
-        });
+        logger.warn(`Intento ${attemptNum} falló: ${errorDesc}`, { extractorId: this.extractorId, endpoint, strategy: strategy.name });
 
         // Si hay más estrategias, continúa
         if (i < strategies.length - 1) {
@@ -472,7 +454,7 @@ class UniversalExtractor {
       attempts: result.attempts.length
     });
 
-    console.log('\n' + '═'.repeat(75));
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
     console.log(`❌ REPORTE DE FALLOS - ${endpoint.toUpperCase()}\n`);
 
     result.attempts.forEach((attempt, idx) => {

@@ -20,6 +20,7 @@ const syncRoutes = require("./routes/sync");
 const webhooksRoutes = require("./routes/webhooks");
 const apiSetupRoutes = require("./routes/apiSetup");
 const healthRoutes = require("./routes/health");  // ← NUEVO
+const evoRoutes = require("./routes/evo");
 const { extractAllApis } = require("./index");
 const { getHealthCheckService } = require("./services/HealthCheckService");  // ← NUEVO
 
@@ -46,16 +47,7 @@ const POLL_MS = Number(process.env.POLL_MS || 10000);
 const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
 
 console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║  🚀 SHARKFIT DATA INTAKE - STAGE 4                           ║
-║  Sincronizando EVO5 → Django en tiempo real                  ║
-╚═══════════════════════════════════════════════════════════════╝
-
-📍 EVO5 API:      ${EVO_BASE_URL}
-📍 Django API:    ${DJANGO_BASE_URL}
-📍 Puerto:        ${PORT}
-⏱️  Poll Interval: ${POLL_MS}ms
-`);
+logger.info(`SHARKFIT DATA INTAKE - starting`, { EVO_BASE_URL, DJANGO_BASE_URL, PORT, POLL_MS });
 
 // ============================================
 // SESIONES EN MEMORIA
@@ -226,6 +218,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/import", importRoutes);
 app.use("/api/sources", sourcesRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/evo", evoRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/setup", apiSetupRoutes);
@@ -361,7 +354,7 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log(`📱 Cliente conectado: ${socket.id}`);
+  logger.info(`Cliente conectado: ${socket.id}`);
 
   // Polling cada POLL_MS
   let timer = setInterval(async () => {
@@ -415,7 +408,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     clearInterval(timer);
-    console.log(`📴 Cliente desconectado: ${socket.id}`);
+    logger.info(`Cliente desconectado: ${socket.id}`);
   });
 });
 
@@ -426,18 +419,18 @@ const startServer = async () => {
   try {
     // Conectar a MongoDB primero
     await connectDB();
-    console.log('✅ MongoDB conectado');
+    logger.info('✅ MongoDB conectado');
 
     try {
       initializeEventServices();
-      console.log('✅ Event services inicializados');
+      logger.info('✅ Event services inicializados');
     } catch (eventError) {
       console.warn('⚠️ Error inicializando servicios de eventos:', eventError?.message || eventError);
     }
     
     // Crear índices optimizados
     await createOptimizedIndexes();
-    console.log('✅ Índices MongoDB creados');
+    logger.info('✅ Índices MongoDB creados');
     
     // Crear seed owner si es necesario
     await seedOwner();
@@ -445,22 +438,20 @@ const startServer = async () => {
     // Inicializar health checks periódicos
     const healthService = getHealthCheckService();
     healthService.startPeriodicChecks();
-    console.log('✅ Health checks iniciados');
+    logger.info('✅ Health checks iniciados');
     
     server.listen(PORT, () => {
-      console.log(`\n✅ Servidor listo en: http://localhost:${PORT}`);
-      console.log(`\n📝 API Endpoints:`);
-      console.log(`   POST   /login              { dns, token, django_token } → sessionToken`);
-      console.log(`   GET    /api/snapshot       (requiere header x-session-token)`);
-      console.log(`   POST   /api/sync           (fuerza sincronización inmediata)`);
-      console.log(`   GET    /api/health         (checkeo de salud del servicio)`);
-      console.log(`   GET    /api/health/evo     (verificar EVO específicamente)`);
-      console.log(`   POST   /api/webhooks/evo   (recibir webhooks de EVO)`);
-      console.log(`   POST   /api/webhooks/w12   (recibir webhooks de W12)`);
-      console.log(`\n🔌 WebSocket (Socket.IO):`);
-      console.log(`   Evento: evo:snapshot       (datos cada ${POLL_MS}ms)`);
-      console.log(`   Evento: sync:request       (sincronización manual)`);
-      console.log(`\n`);
+      logger.info(`Servidor listo en: http://localhost:${PORT}`);
+      logger.info('API Endpoints available');
+      logger.info('   POST   /login              { dns, token, django_token } → sessionToken');
+      logger.info('   GET    /api/snapshot       (requiere header x-session-token)');
+      logger.info('   GET    /api/evo/dashboard/stats  (extractor | mongodb | demo)');
+      logger.info('   POST   /api/sync           (fuerza sincronización inmediata)');
+      logger.info('   GET    /api/health         (checkeo de salud del servicio)');
+      logger.info('   GET    /api/health/evo     (verificar EVO específicamente)');
+      logger.info('   POST   /api/webhooks/evo   (recibir webhooks de EVO)');
+      logger.info('   POST   /api/webhooks/w12   (recibir webhooks de W12)');
+      logger.info('WebSocket (Socket.IO) events: evo:snapshot, sync:request');
     });
   } catch (error) {
     console.error('❌ Error iniciando servidor:', error);

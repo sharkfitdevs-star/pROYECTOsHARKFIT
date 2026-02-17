@@ -17,6 +17,7 @@ const { logAudit } = require('../utils/audit');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
 const { emit } = require('../events/EventBus');
 const eventTypes = require('../events/eventTypes');
+const { logger } = require('../utils/logger');
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
 const REFRESH_COOKIE_NAME = process.env.JWT_REFRESH_COOKIE || 'refreshToken';
@@ -32,7 +33,7 @@ const getClientMeta = (req) => ({
 
 const emitEvent = (type, data) => {
   emit(type, data).catch((error) => {
-    console.warn('[EVENT BUS] Error emit:', error?.message || error);
+    logger.warn('[EVENT BUS] Error emit', { error: error?.message || error });
   });
 };
 
@@ -54,16 +55,7 @@ const setRefreshCookie = (res, token, maxAgeMs) => {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(msg);
     }
-    console.warn('[AUTH COOKIE WARNING]', msg);
-  }
-
-  const cookieMaxAge = maxAgeMs || Number(process.env.REFRESH_COOKIE_MAX_AGE_MS || 1000 * 60 * 60 * 24 * 7);
-
-  res.cookie(REFRESH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure,
-    sameSite,
-    path: '/api/auth',
+    logger.warn('[AUTH COOKIE WARNING]', { warning: msg });
     maxAge: cookieMaxAge
   });
 };
@@ -194,7 +186,7 @@ async function handleRegister(req, res) {
       try {
         await sendVerificationEmail(nuevoUsuario, token);
       } catch (emailError) {
-        console.error('Error enviando email de verificación:', emailError);
+        logger.error('Error enviando email de verificación:', { error: emailError });
         // No fallar el registro si el email falla
       }
     }
@@ -361,15 +353,15 @@ router.post('/login',
     usuario.lastLogin = new Date();
     await usuario.save();
 
-    console.log('✅ Password verificada correctamente');
+    logger.info('✅ Password verificada correctamente');
 
     const accessToken = signAccessToken(usuario);
-    console.log('✅ Access token generado');
+    logger.info('✅ Access token generado');
 
     const refresh = generateRefreshToken();
-    console.log('✅ Refresh token generado');
+    logger.info('✅ Refresh token generado');
 
-    console.log('📝 Creando sesión...');
+    logger.info('📝 Creando sesión...');
     await Session.create({
       userId: usuario._id,
       refreshTokenHash: refresh.tokenHash,
@@ -377,9 +369,9 @@ router.post('/login',
       ip: getClientMeta(req).ip,
       expiresAt: refresh.expiresAt
     });
-    console.log('✅ Sesión creada');
+    logger.info('✅ Sesión creada');
 
-    console.log('🍪 Configurando cookie...');
+    logger.info('🍪 Configurando cookie...');
     setRefreshCookie(res, refresh.token, refresh.expiresAt.getTime() - Date.now());
 
     emitEvent(eventTypes.AUTH.LOGIN_SUCCESS, {
@@ -390,17 +382,17 @@ router.post('/login',
       userAgent: getClientMeta(req).userAgent,
       method: 'password'
     });
-    console.log('✅ Cookie configurada');
+    logger.info('✅ Cookie configurada');
 
-    console.log('📊 Registrando login en audit...');
+    logger.info('📊 Registrando login en audit...');
     await logAudit({
       userId: usuario._id,
       action: 'LOGIN_SUCCESS',
       ...getClientMeta(req)
     });
-    console.log('✅ Login registrado');
+    logger.info('✅ Login registrado');
 
-    console.log('📤 Enviando respuesta...');
+    logger.info('📤 Enviando respuesta...');
     const userResponse = usuario.toJSON();
     userResponse.name = usuario.fullName || usuario.firstName; // Agregar 'name' para el frontend
     
@@ -410,8 +402,7 @@ router.post('/login',
       user: userResponse
     });
   } catch (error) {
-    console.error('❌ Error en login:', error.message);
-    console.error(error);
+    logger.error('❌ Error en login:', { message: error.message, error });
     res.status(500).json({
       error: true,
       message: 'Error al iniciar sesion'

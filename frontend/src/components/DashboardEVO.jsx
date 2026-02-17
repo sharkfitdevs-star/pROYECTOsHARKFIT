@@ -15,13 +15,17 @@ export default function DashboardEVO() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [sourceMode, setSourceMode] = useState('auto'); // auto | extractor | db | demo
 
   // fetch con soporte AbortController y memoización
-  const fetchDashboardData = useCallback(async ({ signal } = {}) => {
+  const fetchDashboardData = useCallback(async ({ signal, mode } = {}) => {
     try {
       setLoading(true);
+      const params = { tenant: TENANT_ID };
+      if (mode && mode !== 'auto') params.mode = mode; 
+
       const response = await api.get('/evo/dashboard/stats/', {
-        params: { tenant: TENANT_ID },
+        params,
         signal
       });
       setStats(response.data || null);
@@ -42,14 +46,14 @@ export default function DashboardEVO() {
   useEffect(() => {
     const controller = new AbortController();
     // primera carga
-    fetchDashboardData({ signal: controller.signal });
+    fetchDashboardData({ signal: controller.signal, mode: sourceMode });
     // Actualizar cada 30 segundos
-    const interval = setInterval(() => fetchDashboardData(), 30000);
+    const interval = setInterval(() => fetchDashboardData({ mode: sourceMode }), 30000);
     return () => {
       controller.abort();
       clearInterval(interval);
     };
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, sourceMode]);
 
   if (loading && !stats) {
     return (
@@ -115,8 +119,20 @@ export default function DashboardEVO() {
           <p className="last-update" aria-live="polite" data-testid="last-update">
             Última actualización: {lastUpdate.toLocaleTimeString('es-CL')}
           </p>
+          <p className="data-source" aria-live="polite">Fuente: {stats?.source || 'mongodb / demo'}</p>
         </div>
-        <button onClick={() => fetchDashboardData()} className="refresh-btn" type="button" disabled={loading} aria-label="Actualizar datos" data-testid="refresh-btn">
+
+        <div className="source-controls">
+          <label htmlFor="source-mode">Fuente de datos:</label>
+          <select id="source-mode" value={sourceMode} onChange={(e) => setSourceMode(e.target.value)} disabled={loading}>
+            <option value="auto">Auto (extractor → Mongo → demo)</option>
+            <option value="extractor">Extractor (API / Excel / CSV)</option>
+            <option value="db">MongoDB</option>
+            <option value="demo">Demo</option>
+          </select>
+        </div>
+
+        <button onClick={() => fetchDashboardData({ mode: sourceMode })} className="refresh-btn" type="button" disabled={loading} aria-label="Actualizar datos" data-testid="refresh-btn">
           {loading ? '⏳ Cargando...' : '🔄 Actualizar'}
         </button>
       </header>

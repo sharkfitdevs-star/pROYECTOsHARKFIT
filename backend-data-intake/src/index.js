@@ -109,24 +109,20 @@ async function extractAndSync(configName = 'mongodb-main') {
     });
 
     // Mostrar resumen
-    console.log(`\n${'═'.repeat(75)}`);
-    console.log(`✅ SINCRONIZACIÓN COMPLETADA`);
-    console.log(`${'═'.repeat(75)}\n`);
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
+    logger.info('✅ SINCRONIZACIÓN COMPLETADA');
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
 
     for (const [endpoint, result] of Object.entries(results)) {
       if (result.success) {
-        console.log(`✅ ${endpoint}`);
-        console.log(`   Registros: ${result.records}`);
-        console.log(`   Strategy: ${result.strategy}`);
-        console.log(`   Duración: ${result.duration}ms\n`);
+        logger.info(`✅ ${endpoint}`, { records: result.records, strategy: result.strategy, duration: result.duration });
       } else {
-        console.log(`❌ ${endpoint}`);
-        console.log(`   Error: ${result.error}\n`);
+        logger.warn(`❌ ${endpoint}`, { error: result.error });
       }
     }
 
-    console.log(`Tiempo total: ${duration}ms`);
-    console.log(`${'═'.repeat(75)}\n`);
+    logger.info(`Tiempo total: ${duration}ms`);
+    logger.info('──────────────────────────────────────────────────────────────────────────────');
 
     return { syncId, success: true, results, duration };
 
@@ -151,7 +147,7 @@ async function extractAll() {
   const files = fs.readdirSync(configDir)
     .filter(f => f.endsWith('.json') && !f.startsWith('.'));
 
-  console.log(`\n📂 Encontradas ${files.length} configuraciones\n`);
+  logger.info(`📂 Encontradas ${files.length} configuraciones`);
 
   const allResults = {};
 
@@ -179,7 +175,7 @@ async function extractAllApis() {
   const files = fs.readdirSync(configDir)
     .filter(f => f.startsWith('api-') && f.endsWith('.json'));
 
-  console.log(`\n📂 Encontradas ${files.length} configuraciones de APIs externas\n`);
+  logger.info(`📂 Encontradas ${files.length} configuraciones de APIs externas`);
 
   const allResults = {};
 
