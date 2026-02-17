@@ -23,6 +23,7 @@ const { getQueue, InMemoryQueue } = require('./queueInterface');
 const apiQueue = getQueue('api-calls');
 const webhookQueue = getQueue('webhooks');
 const syncQueue = getQueue('sync-tasks');
+const importQueue = getQueue('imports');
 
 // ============================================================================
 // CIRCUIT BREAKER
@@ -249,6 +250,33 @@ async function processSyncTask(job) {
   }
 }
 
+/**
+ * Procesador de importaciones (Excel / CSV)
+ * job.data expected: { type: 'excel'|'csv', file: { path, originalname }, mapeo, entidad, delimitador }
+ */
+async function processImport(job) {
+  const { type, file, mapeo, entidad = 'clientes', delimitador } = job.data;
+  logger.info(`📥 [IMPORT-WORKER] Procesando import (${type}) - ${file?.originalname || file?.path}`, { jobId: job.id });
+
+  try {
+    const { ImportService } = require('../services/ImportService');
+
+    if (String(type).toLowerCase() === 'csv') {
+      const result = await ImportService.processCSVFile(file, mapeo, entidad, delimitador || ',');
+      logger.info(`✅ [IMPORT-WORKER] CSV import completado`, { jobId: job.id });
+      return result;
+    }
+
+    // Default to Excel
+    const result = await ImportService.processExcelFile(file, mapeo, entidad);
+    logger.info(`✅ [IMPORT-WORKER] Excel import completado`, { jobId: job.id });
+    return result;
+  } catch (error) {
+    logger.error(`❌ [IMPORT-WORKER] Error en import:`, { jobId: job.id, error: error.message });
+    throw error;
+  }
+}
+
 // ============================================================================
 // EVENT HANDLERS
 // ============================================================================
@@ -278,6 +306,18 @@ webhookQueue.on('completed', (job) => {
   logger.debug(`🟢 [WEBHOOK-QUEUE] Job completado: ${job.id}`);
 });
 
+// Import Queue
+importQueue.on('failed', (job, err) => {
+  logger.error(`🔴 [IMPORT-QUEUE] Job fallido: ${job.id}`, {
+    attempts: job.attemptsMade,
+    error: err.message
+  });
+});
+
+importQueue.on('completed', (job) => {
+  logger.debug(`🟢 [IMPORT-QUEUE] Job completado: ${job.id}`);
+});
+
 // ============================================================================
 // REGISTRAR PROCESADORES
 // ============================================================================
@@ -285,6 +325,7 @@ webhookQueue.on('completed', (job) => {
 apiQueue.process(5, processApiCall); // 5 workers paralelos
 webhookQueue.process(10, processWebhook); // 10 workers para webhooks
 syncQueue.process(2, processSyncTask); // 2 workers para sync
+importQueue.process(2, processImport); // 2 workers para imports
 
 // ============================================================================
 // FUNCIONES PÚBLICAS
@@ -374,6 +415,30 @@ async function queueSyncTask(sourceApi, endpoint, options = {}) {
   return job;
 }
 
+/**
+ * Cola una tarea de importación (Excel / CSV)
+ * job.data: { type, file, mapeo, entidad, delimitador }
+ */
+async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opts = {}) {
+  const job = await importQueue.add(
+    {
+      type,
+      file,
+      mapeo,
+      entidad,
+      delimitador: opts.delimitador
+    },
+    {
+      attempts: opts.attempts || 2,
+      backoff: { type: 'exponential', delay: opts.delay || 2000 },
+      removeOnComplete: true
+    }
+  );
+
+  logger.info(`📋 [QUEUE] Import task en cola: ${job.id}`, { type, file: file?.path || file?.originalname });
+  return job;
+}
+
 // ============================================================================
 // MONITOREO
 // ============================================================================
@@ -409,12 +474,19 @@ module.exports = {
   apiQueue,
   webhookQueue,
   syncQueue,
+  importQueue,
   
   // Funciones
   queueApiCall,
   queueWebhook,
   queueSyncTask,
+  queueImportTask,
   getWorkerStats,
+  // Procesadores (exportados para adaptación con Agenda)
+  processApiCall,
+  processWebhook,
+  processSyncTask,
+  processImport,
   
   // Clase Circuit Breaker
   CircuitBreaker

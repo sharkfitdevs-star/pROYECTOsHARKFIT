@@ -9,6 +9,7 @@ const multer = require('multer');
 const ImportService = require('../services/ImportService');
 const { listImportHistory } = require('../db/repositories');
 const { logger } = require('../utils/logger');
+const { queueImportTask } = require('../workers/api-worker');
 
 // Configurar multer para subida de archivos
 const upload = multer({
@@ -47,15 +48,13 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     // Parsear mapeo si es string JSON
     const mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
 
-    const resultado = await ImportService.processExcelFile(
-      req.file,
-      mapeoObj,
-      entidad
-    );
+    // Enqueue import job (worker will process file and update SyncLog)
+    const job = await queueImportTask('excel', { path: req.file.path, originalname: req.file.originalname }, mapeoObj, entidad);
 
     res.json({
       exito: true,
-      datos: resultado,
+      queued: true,
+      jobId: job?.id || null,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -83,16 +82,13 @@ router.post('/csv', upload.single('file'), async (req, res) => {
     const { mapeo, entidad = 'clientes', delimitador = ',' } = req.body;
     const mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
 
-    const resultado = await ImportService.processCSVFile(
-      req.file,
-      mapeoObj,
-      entidad,
-      delimitador
-    );
+    // Enqueue CSV import job
+    const job = await queueImportTask('csv', { path: req.file.path, originalname: req.file.originalname }, mapeoObj, entidad, { delimitador });
 
     res.json({
       exito: true,
-      datos: resultado,
+      queued: true,
+      jobId: job?.id || null,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -139,7 +135,7 @@ router.post('/preview', upload.single('file'), async (req, res) => {
  */
 router.get('/history', async (req, res) => {
   try {
-    const historial = listImportHistory(50).map((log) => ({
+    const historial = (await listImportHistory(50)).map((log) => ({
       syncId: log.syncId,
       fuente: log.fuente,
       registosProcesados: log.registosProcesados,
