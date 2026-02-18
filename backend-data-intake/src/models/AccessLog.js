@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const accessLogSchema = new Schema({
-  tenantId: { type: String, required: true, index: true },
+  // tenantId indexed via composite index declared below (tenantId + evoEntryId)
+  tenantId: { type: String, required: true },
   evoEntryId: { type: String, index: true },
   memberId: { type: String, index: true },
   accessTime: Date,

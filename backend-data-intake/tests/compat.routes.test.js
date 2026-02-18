@@ -23,6 +23,13 @@ describeIfMongo('API compatibility — fields expected by Django (contract)', ()
   });
 
   afterAll(async () => {
+    // Defensive cleanup for background timers
+    try {
+      const { getHealthCheckService } = require('../src/services/HealthCheckService');
+      const svc = getHealthCheckService && typeof getHealthCheckService === 'function' ? getHealthCheckService() : null;
+      if (svc && typeof svc.stopPeriodicChecks === 'function') svc.stopPeriodicChecks();
+    } catch (e) { /* noop */ }
+
     await mongoose.disconnect();
     if (mongod) await mongod.stop();
     process.env = originalEnv;

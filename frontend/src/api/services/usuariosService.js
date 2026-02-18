@@ -24,6 +24,19 @@ class UsuariosService {
         throw error;
       }
     }
+
+    /**
+     * Solicitar acceso (request access) — flujo: el usuario solicita; admin revisa
+     */
+    async requestAccess(payload) {
+      try {
+        const response = await client.post('/auth/request-access', payload);
+        return response.data;
+      } catch (error) {
+        console.error('Error en requestAccess:', error);
+        throw error;
+      }
+    }
   /**
    * Login con email y password
    */

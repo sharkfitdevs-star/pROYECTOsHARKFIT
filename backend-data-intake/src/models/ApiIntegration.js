@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const apiIntegrationSchema = new Schema({
-  tenantId: { type: String, required: true, index: true },
+  // tenantId indexed via schema.index(...) below (unique)
+  tenantId: { type: String, required: true },
   dns: { type: String, required: true },
   encryptedToken: { type: String },
   encryptionIv: { type: String },

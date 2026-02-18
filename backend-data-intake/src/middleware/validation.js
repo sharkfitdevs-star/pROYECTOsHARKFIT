@@ -19,9 +19,12 @@ const Joi = require('joi');
 const schemas = {
   // Register
   register: Joi.object({
-    username: Joi.string().alphanum().min(3).max(30).required()
+    // Permitir letras, números, puntos, guiones bajos y guiones (-) en username
+    username: Joi.string()
+      .pattern(/^[a-zA-Z0-9._-]{3,30}$/)
+      .required()
       .messages({
-        'string.alphanum': 'Usuario debe contener solo letras y números',
+        'string.pattern.base': 'Usuario solo puede contener letras, números, puntos, guiones o guiones bajos (3-30 caracteres)',
         'string.min': 'Usuario debe tener al menos 3 caracteres',
         'string.max': 'Usuario no puede exceder 30 caracteres'
       }),
@@ -63,6 +66,15 @@ const schemas = {
       .messages({
         'any.only': 'Las contraseñas no coinciden'
       })
+  }).unknown(false),
+
+  // Request access (admin approval)
+  requestAccess: Joi.object({
+    firstName: Joi.string().min(1).max(50).required(),
+    lastName: Joi.string().min(1).max(50).required(),
+    email: Joi.string().email().required(),
+    company: Joi.string().max(120).optional(),
+    message: Joi.string().max(500).optional()
   }).unknown(false)
 };
 

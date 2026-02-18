@@ -1,5 +1,4 @@
 /**
- * UTILS: Logger
  * Sistema de logging con Winston
  */
 

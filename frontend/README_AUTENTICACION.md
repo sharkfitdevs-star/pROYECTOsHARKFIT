@@ -166,6 +166,11 @@ Ya está creado en [.env](../.env):
 VITE_API_URL=http://localhost:8000/api
 ```
 
+Nota sobre registro de usuarios:
+- El registro desde la UI depende de una variable del backend (`ALLOW_PUBLIC_REGISTER`).
+- En desarrollo local puedes habilitarlo en `backend-data-intake/.env` (`ALLOW_PUBLIC_REGISTER=true`).
+- En producción debe permanecer deshabilitado; el primer usuario `owner` debe crearse con `npm run create-owner` (ver `backend-data-intake/COMO_CREAR_PRIMER_USUARIO.md`).
+
 ### 3. Iniciar frontend
 ```bash
 npm run dev

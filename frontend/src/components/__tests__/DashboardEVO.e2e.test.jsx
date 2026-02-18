@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react'
+import { render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import DashboardEVO from '../DashboardEVO';
 
@@ -34,9 +35,9 @@ describe('DashboardEVO (integration) — extractor → UI render', () => {
     // Source must show "extractor"
     expect(screen.getByText(/Fuente: extractor/i)).toBeInTheDocument();
 
-    // Verify totals and recent sale rendered
-    expect(screen.getByText(/Ventas/i)).toBeInTheDocument();
-    expect(await screen.findByText('2')).toBeInTheDocument();
+    // Verify totals and recent sale rendered (sales stat card)
+    const salesCard = screen.getByText('Ventas').closest('.stat-card.sales')
+    expect(within(salesCard).getByText('2')).toBeInTheDocument()
 
     // Recent sale id displayed in table
     expect(await screen.findByText('S1')).toBeInTheDocument();

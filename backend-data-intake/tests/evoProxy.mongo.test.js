@@ -30,6 +30,13 @@ describeIfMongo('evo-w12-proxy — Mongo integration (mongodb-memory-server)', (
   });
 
   afterAll(async () => {
+    // Defensive cleanup: stop any periodic health-check timers and clear Jest timers
+    try {
+      const { getHealthCheckService } = require('../src/services/HealthCheckService');
+      const svc = getHealthCheckService && typeof getHealthCheckService === 'function' ? getHealthCheckService() : null;
+      if (svc && typeof svc.stopPeriodicChecks === 'function') svc.stopPeriodicChecks();
+    } catch (e) { /* noop */ }
+
     await mongoose.disconnect();
     if (mongod) await mongod.stop();
     process.env = originalEnv;

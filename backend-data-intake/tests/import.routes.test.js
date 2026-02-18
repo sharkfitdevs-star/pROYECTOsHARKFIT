@@ -1,14 +1,70 @@
 const request = require('supertest');
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
+
+const UPLOAD_DIR = path.resolve(__dirname, '..', 'uploads');
 
 describe('Import routes (enqueue behavior)', () => {
   let originalEnv;
-  beforeEach(() => {
+
+  beforeEach(async () => {
     originalEnv = { ...process.env };
     jest.resetModules();
+
+    // Asegurar uploads vacía antes de cada test
+    try {
+      if (fs.existsSync(UPLOAD_DIR)) {
+        for (const f of fs.readdirSync(UPLOAD_DIR)) {
+          fs.rmSync(path.join(UPLOAD_DIR, f), { force: true });
+        }
+      }
+    } catch (err) {
+      // noop
+    }
+
+    // Si hay conexión mongoose activa, limpiar colecciones para evitar interferencia
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      const collections = Object.keys(mongoose.connection.collections);
+      for (const collName of collections) {
+        try {
+          await mongoose.connection.collections[collName].deleteMany({});
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = originalEnv;
+
+    // eliminar archivos subidos por multer
+    try {
+      if (fs.existsSync(UPLOAD_DIR)) {
+        for (const f of fs.readdirSync(UPLOAD_DIR)) {
+          fs.rmSync(path.join(UPLOAD_DIR, f), { force: true });
+        }
+      }
+    } catch (err) {
+      // noop
+    }
+  });
+
+  afterAll(async () => {
+    // Cierre/limpieza robusta de mongoose para evitar 'open handles'
+    try {
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        await mongoose.connection.dropDatabase();
+        await mongoose.disconnect();
+      }
+    } catch (err) {
+      // no bloquear el pipeline de tests
+    }
+
+    // Limpiar modelos registrados para prevenir warnings en ejecuciones siguientes
+    mongoose.models = {};
+    mongoose.modelSchemas = {};
   });
 
   test('POST /api/import/excel enqueues import job via queueImportTask', async () => {
