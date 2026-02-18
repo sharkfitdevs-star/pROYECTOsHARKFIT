@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -43,6 +44,38 @@ export default function DashboardEVO() {
     }
   }, []);
 
+  // Preparar datos para gráficos (defensivo + memoizado)
+  const recentSales = (stats && stats.recent_sales) || [];
+  const recentEntries = (stats && stats.recent_entries) || [];
+  const recentProspects = (stats && stats.recent_prospects) || [];
+
+  const salesByStatus = useMemo(() => {
+    return recentSales.reduce((acc, sale) => {
+      const status = (sale.status || 'unknown').toString();
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+  }, [recentSales]);
+
+  const pieData = useMemo(() => Object.entries(salesByStatus).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value
+  })), [salesByStatus]);
+
+  const salesChartData = useMemo(() => recentSales.slice(0, 10).reverse().map((sale, idx) => ({
+    name: `Venta ${idx + 1}`,
+    amount: parseFloat(sale.amount || 0),
+    date: sale.sale_date ? sale.sale_date.substring(0, 10) : 'N/A'
+  })), [recentSales]);
+
+  const entriesByBranch = useMemo(() => recentEntries.reduce((acc, entry) => {
+    const branch = `Branch ${entry.location}`;
+    acc[branch] = (acc[branch] || 0) + 1;
+    return acc;
+  }, {}), [recentEntries]);
+
+  const branchData = useMemo(() => Object.entries(entriesByBranch).map(([name, value]) => ({ name, accesos: value })), [entriesByBranch]);
+
   useEffect(() => {
     const controller = new AbortController();
     // primera carga
@@ -77,38 +110,6 @@ export default function DashboardEVO() {
   if (!stats) {
     return <div className="dashboard-empty">No hay datos disponibles</div>;
   }
-
-  // Preparar datos para gráficos (defensivo + memoizado)
-  const recentSales = stats.recent_sales || [];
-  const recentEntries = stats.recent_entries || [];
-  const recentProspects = stats.recent_prospects || [];
-
-  const salesByStatus = useMemo(() => {
-    return recentSales.reduce((acc, sale) => {
-      const status = (sale.status || 'unknown').toString();
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
-  }, [recentSales]);
-
-  const pieData = useMemo(() => Object.entries(salesByStatus).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value
-  })), [salesByStatus]);
-
-  const salesChartData = useMemo(() => recentSales.slice(0, 10).reverse().map((sale, idx) => ({
-    name: `Venta ${idx + 1}`,
-    amount: parseFloat(sale.amount || 0),
-    date: sale.sale_date ? sale.sale_date.substring(0, 10) : 'N/A'
-  })), [recentSales]);
-
-  const entriesByBranch = useMemo(() => recentEntries.reduce((acc, entry) => {
-    const branch = `Branch ${entry.location}`;
-    acc[branch] = (acc[branch] || 0) + 1;
-    return acc;
-  }, {}), [recentEntries]);
-
-  const branchData = useMemo(() => Object.entries(entriesByBranch).map(([name, value]) => ({ name, accesos: value })), [entriesByBranch]);
 
 
   return (
