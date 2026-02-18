@@ -257,8 +257,8 @@ export default function DashboardEVO() {
                     <td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8' }}>No hay prospectos recientes</td>
                   </tr>
                 ) : (
-                  (stats.recent_prospects || []).map((p) => (
-                    <tr key={p.id}>
+                  (stats.recent_prospects || []).map((p, idx) => (
+                    <tr key={p.id || p.evo_prospect_id || idx}>
                       <td>{p.evo_prospect_id}</td>
                       <td>{p.name}</td>
                       <td className="email">{p.email}</td>
@@ -289,8 +289,8 @@ export default function DashboardEVO() {
                     <td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8' }}>No hay ventas recientes</td>
                   </tr>
                 ) : (
-                  (stats.recent_sales || []).map((s) => (
-                    <tr key={s.id}>
+                  (stats.recent_sales || []).map((s, idx) => (
+                    <tr key={s.id || s.evo_sale_id || idx}>
                       <td>{s.evo_sale_id}</td>
                       <td className="amount">${parseFloat(s.amount || 0).toLocaleString('es-CL')}</td>
                       <td>
@@ -324,8 +324,8 @@ export default function DashboardEVO() {
                     <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No hay accesos recientes</td>
                   </tr>
                 ) : (
-                  (stats.recent_entries || []).map((e) => (
-                    <tr key={e.id}>
+                  (stats.recent_entries || []).map((e, idx) => (
+                    <tr key={e.id || e.member_id || idx}>
                       <td>{e.access_time ? new Date(e.access_time).toLocaleString('es-CL') : 'N/A'}</td>
                       <td>Branch {e.location}</td>
                       <td>{e.member_id || 'N/A'}</td>
