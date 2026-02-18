@@ -41,10 +41,39 @@ describe('import-json-to-mongo', () => {
     ]));
   });
 
+  afterEach(async () => {
+    // Limpia todas las colecciones entre tests para evitar interferencia
+    const collections = Object.keys(mongoose.connection.collections);
+    for (const collName of collections) {
+      try {
+        await mongoose.connection.collections[collName].deleteMany({});
+      } catch (err) {
+        // ignore if collection dropped
+      }
+    }
+  });
+
   afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+    // Cierre robusto de la conexión para evitar 'open handles'
+    try {
+      await mongoose.connection.dropDatabase();
+    } catch (err) {
+      // no bloquear el cierre por errores de limpieza
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.disconnect();
+    }
+
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
+
     fs.rmSync(tmpDir, { recursive: true, force: true });
+
+    // Limpiar modelos registrados en mongoose para evitar warnings en ejecuciones siguientes
+    mongoose.models = {};
+    mongoose.modelSchemas = {};
   });
 
   test('imports sample JSON into Mongo collections', async () => {

@@ -45,6 +45,7 @@ const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || "http://localhost:8000/ap
 const PORT = process.env.PORT || 3001;
 const POLL_MS = Number(process.env.POLL_MS || 10000);
 const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000); // 24h by default
 
 // Startup log
 logger.info('SHARKFIT DATA INTAKE - starting', { EVO_BASE_URL, DJANGO_BASE_URL, PORT, POLL_MS });
@@ -257,7 +258,8 @@ app.post("/login", async (req, res) => {
     });
 
     // Expirar sesión en 24 horas
-    setTimeout(() => sessions.delete(sessionToken), 24 * 60 * 60 * 1000);
+    const sessionTimer = setTimeout(() => sessions.delete(sessionToken), SESSION_TTL_MS);
+    if (sessionTimer && typeof sessionTimer.unref === 'function') sessionTimer.unref();
 
     return res.json({ ok: true, sessionToken, message: "Sesión iniciada correctamente" });
   } catch (e) {
@@ -435,10 +437,14 @@ const startServer = async () => {
     // Crear seed owner si es necesario
     await seedOwner();
     
-    // Inicializar health checks periódicos
+    // Inicializar health checks periódicos (skip en tests o si SKIP_HEALTH_CHECKS=true)
     const healthService = getHealthCheckService();
-    healthService.startPeriodicChecks();
-    logger.info('✅ Health checks iniciados');
+    if (process.env.NODE_ENV !== 'test' && String(process.env.SKIP_HEALTH_CHECKS).toLowerCase() !== 'true') {
+      healthService.startPeriodicChecks();
+      logger.info('✅ Health checks iniciados');
+    } else {
+      logger.info('⏭️ Health checks omitidos (entorno de test o SKIP_HEALTH_CHECKS)');
+    }
     
     server.listen(PORT, () => {
       logger.info(`Servidor listo en: http://localhost:${PORT}`);
@@ -464,7 +470,7 @@ startServer();
 // ============================================
 // AUTO-SYNC APIs EXTERNAS
 // ============================================
-if (EXTERNAL_API_SYNC_MINUTES > 0) {
+if (EXTERNAL_API_SYNC_MINUTES > 0 && process.env.NODE_ENV !== 'test') {
   const intervalMs = EXTERNAL_API_SYNC_MINUTES * 60 * 1000;
   logger.info(`⏱️ Auto-sync APIs externas cada ${EXTERNAL_API_SYNC_MINUTES} min`);
 
@@ -476,6 +482,8 @@ if (EXTERNAL_API_SYNC_MINUTES > 0) {
       logger.error('❌ Error auto-sync APIs externas:', error);
     }
   }, intervalMs);
+} else if (EXTERNAL_API_SYNC_MINUTES > 0) {
+  logger.info('⏭️ Auto-sync de APIs externas omitido en entorno de test');
 }
 
 app.use(errorHandler);

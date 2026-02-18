@@ -20,6 +20,7 @@ if (MongoModels && MongoModels.SyncLog) {
 const Session = require('./Session');
 const EmailToken = require('./EmailToken');
 const AuditLog = require('./AuditLog');
+const AccessRequest = require('./AccessRequest');
 
 module.exports = {
   Cliente,
@@ -32,6 +33,7 @@ module.exports = {
   Session,
   EmailToken,
   AuditLog,
+  AccessRequest,
 
   // Mongo utility models/queries
   Webhook: MongoModels.Webhook,

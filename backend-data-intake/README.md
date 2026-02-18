@@ -40,6 +40,10 @@ DJANGO_JWT_TOKEN=tu-token-jwt-aqui
 POLL_MS=10000
 ```
 
+Registro público (desarrollo vs producción):
+- En `development` puedes habilitar el registro desde la UI para pruebas locales usando `ALLOW_PUBLIC_REGISTER=true` en `.env`.
+- En **producción** mantén `ALLOW_PUBLIC_REGISTER=false` y crea el primer usuario `owner` mediante el seed (configurar `SEED_OWNER_PASSWORD`) o el script interactivo `npm run create-owner` (ver `COMO_CREAR_PRIMER_USUARIO.md`).
+
 ### 3. Obtener credenciales
 
 #### EVO5 Credentials
