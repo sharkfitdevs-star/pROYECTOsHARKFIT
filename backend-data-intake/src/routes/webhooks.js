@@ -13,7 +13,6 @@ const crypto = require('crypto');
 const router = express.Router();
 const { logger } = require('../utils/logger');
 const { webhookRateLimiter } = require('../middleware/rateLimiter');
-const { queueWebhook } = require('../workers/api-worker');
 
 // Intenta cargar Webhook del índice principal, si no existe crea un placeholder
 let Webhook = null;
@@ -88,6 +87,7 @@ router.post('/evo', async (req, res) => {
 
     // Encolar para procesamiento (no bloquea la respuesta)
     const priority = evento === 'venta.creada' ? 10 : 5; // Prioridad a ventas
+    const { queueWebhook } = require('../workers/api-worker');
     queueWebhook(webhookId, 'EVO', evento, data, priority)
       .catch(error => logger.error('Error encolando webhook:', error));
 
@@ -165,6 +165,7 @@ router.post('/w12', async (req, res) => {
     });
 
     // Encolar
+    const { queueWebhook } = require('../workers/api-worker');
     queueWebhook(webhookId, 'W12', evento, data, 5)
       .catch(error => logger.error('Error encolando webhook W12:', error));
 

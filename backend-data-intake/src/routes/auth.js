@@ -246,6 +246,196 @@ router.post('/register',
   handleRegister
 );
 
+/**
+ * POST /api/auth/request-access
+ * Usuario solicita acceso; admin podrá aprobar/rechazar
+ */
+router.post('/request-access',
+  validateRequest(schemas.requestAccess),
+  async (req, res) => {
+    try {
+      const { firstName, lastName, email, company, message } = req.body;
+
+      const { AccessRequest } = require('../models');
+
+      // Evitar duplicados simples
+      const existingUser = await Usuario.findOne({ email: (email || '').toLowerCase() });
+      if (existingUser) {
+        return res.status(409).json({ error: true, message: 'Usuario ya existe' });
+      }
+
+      const newReq = await AccessRequest.create({ firstName, lastName, email: email.toLowerCase(), company, message });
+
+      // Notificar al admin por email (console/sendgrid según config)
+      try {
+        const { sendAccessRequestEmail } = require('../utils/email');
+        await sendAccessRequestEmail(newReq);
+      } catch (emailErr) {
+        logger.warn('Error notificando access-request por email:', { error: emailErr.message || emailErr });
+      }
+
+      // Emitir evento para subsistemas (logs, webhooks) — usar valores seguros para evitar fallos si mock devuelve objeto mínimo
+      emitEvent(eventTypes.AUTH.REQUEST_ACCESS || 'auth.request_access', {
+        requestId: (newReq && newReq._id) ? newReq._id.toString() : null,
+        email: newReq && newReq.email,
+        firstName: newReq && newReq.firstName
+      });
+
+      res.status(201).json({ success: true, message: 'Solicitud recibida. El administrador la revisará.' });
+    } catch (error) {
+      logger.error('Error creando request-access:', { error: (error && (error.stack || error.message)) || error });
+      res.status(500).json({ error: true, message: 'Error al procesar la solicitud' });
+    }
+  }
+);
+
+/**
+ * GET /api/auth/access-requests (admin)
+ */
+router.get('/access-requests', requireAuth, async (req, res) => {
+  try {
+    const { requireRole } = require('../routes/auth');
+    // requireRole middleware is available elsewhere; enforce roles manually here
+    const user = await Usuario.findById(req.user.id);
+    if (!user || !['owner','admin'].includes(user.role)) {
+      return res.status(403).json({ error: true, message: 'Forbidden' });
+    }
+
+    const { AccessRequest } = require('../models');
+    const list = await AccessRequest.find().sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: list });
+  } catch (error) {
+    res.status(500).json({ error: true, message: 'Error obteniendo solicitudes' });
+  }
+});
+
+/**
+ * POST /api/auth/access-requests/:id/approve (admin)
+ */
+router.post('/access-requests/:id/approve', requireAuth, async (req, res) => {
+  try {
+    const user = await Usuario.findById(req.user.id);
+    if (!user || !['owner','admin'].includes(user.role)) {
+      return res.status(403).json({ error: true, message: 'Forbidden' });
+    }
+
+    const { AccessRequest } = require('../models');
+    const accessReq = await AccessRequest.findById(req.params.id);
+    if (!accessReq) return res.status(404).json({ error: true, message: 'Solicitud no encontrada' });
+    if (accessReq.status !== 'pending') return res.status(400).json({ error: true, message: 'Solicitud ya procesada' });
+
+    const existingUser = await Usuario.findOne({ email: accessReq.email });
+    if (existingUser) {
+      accessReq.status = 'approved';
+      accessReq.processedBy = req.user.id;
+      accessReq.processedAt = new Date();
+      await accessReq.save();
+      return res.status(409).json({ error: true, message: 'Ya existe un usuario con ese email' });
+    }
+
+    // Generar username base desde email
+    const baseUsername = (accessReq.email || '').split('@')[0].replace(/[^a-z0-9._-]/gi, '').toLowerCase() || `user${Date.now()}`;
+    let username = baseUsername;
+    let suffix = 1;
+    while (await Usuario.findOne({ username })) {
+      username = `${baseUsername}${suffix++}`;
+    }
+
+    // Crear usuario con role 'staff' y estado pending_verification
+    const randomPass = require('crypto').randomBytes(10).toString('hex');
+    const nuevoUsuario = new Usuario({
+      username,
+      email: accessReq.email.toLowerCase(),
+      password: randomPass,
+      firstName: accessReq.firstName,
+      lastName: accessReq.lastName,
+      fullName: `${accessReq.firstName} ${accessReq.lastName}`,
+      role: 'staff',
+      active: true,
+      status: REQUIRE_EMAIL_VERIFICATION ? 'pending_verification' : 'active',
+      source: 'invite'
+    });
+
+    await nuevoUsuario.save();
+
+    // Crear tokens: verify_email (si aplica) y reset_password (para que usuario defina contraseña)
+    try {
+      const resetToken = await createEmailToken(nuevoUsuario._id, 'reset_password', 60);
+      await sendPasswordResetEmail(nuevoUsuario, resetToken);
+    } catch (err) {
+      logger.warn('No se pudo enviar email de reset al usuario invitado:', { error: err.message || err });
+    }
+
+    if (REQUIRE_EMAIL_VERIFICATION) {
+      try {
+        const token = await createEmailToken(nuevoUsuario._id, 'verify_email', 60 * 24);
+        await sendVerificationEmail(nuevoUsuario, token);
+      } catch (err) {
+        logger.warn('No se pudo enviar email de verificación al usuario invitado:', { error: err.message || err });
+      }
+    }
+
+    accessReq.status = 'approved';
+    accessReq.processedBy = req.user.id;
+    accessReq.processedAt = new Date();
+    await accessReq.save();
+
+    emitEvent(eventTypes.USER.CREATED, {
+      userId: nuevoUsuario._id.toString(),
+      email: nuevoUsuario.email
+    });
+
+    await logAudit({ userId: req.user.id, action: 'ACCESS_REQUEST_APPROVED', meta: { requestId: accessReq._id } });
+
+    const userResponse = nuevoUsuario.toJSON();
+    userResponse.name = nuevoUsuario.fullName || nuevoUsuario.firstName;
+
+    res.json({ success: true, user: userResponse });
+  } catch (error) {
+    logger.error('Error aprobando access-request:', { error: error.message || error });
+    res.status(500).json({ error: true, message: 'Error al aprobar solicitud' });
+  }
+});
+
+/**
+ * POST /api/auth/access-requests/:id/reject (admin)
+ */
+router.post('/access-requests/:id/reject', requireAuth, async (req, res) => {
+  try {
+    const user = await Usuario.findById(req.user.id);
+    if (!user || !['owner','admin'].includes(user.role)) {
+      return res.status(403).json({ error: true, message: 'Forbidden' });
+    }
+
+    const { AccessRequest } = require('../models');
+    const accessReq = await AccessRequest.findById(req.params.id);
+    if (!accessReq) return res.status(404).json({ error: true, message: 'Solicitud no encontrada' });
+    if (accessReq.status !== 'pending') return res.status(400).json({ error: true, message: 'Solicitud ya procesada' });
+
+    accessReq.status = 'rejected';
+    accessReq.processedBy = req.user.id;
+    accessReq.processedAt = new Date();
+    await accessReq.save();
+
+    // Notificar al solicitante (opcional)
+    try {
+      await sendEmail({
+        to: accessReq.email,
+        subject: 'Solicitud de acceso - rechazada',
+        text: `Hola ${accessReq.firstName},\n\nTu solicitud de acceso ha sido revisada y rechazada. Si crees que esto es un error, contacta al administrador.`
+      });
+    } catch (err) {
+      logger.warn('Fallo al notificar rechazo de solicitud:', { error: err.message || err });
+    }
+
+    await logAudit({ userId: req.user.id, action: 'ACCESS_REQUEST_REJECTED', meta: { requestId: accessReq._id } });
+
+    res.json({ success: true, message: 'Solicitud rechazada' });
+  } catch (error) {
+    res.status(500).json({ error: true, message: 'Error al rechazar solicitud' });
+  }
+});
+
 // Exponer helper requireAdminOrOwner para rutas que lo necesitan (p. ej. auditLog)
 module.exports = router;
 module.exports.requireAdminOrOwner = requireAdminOrOwner;

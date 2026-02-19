@@ -59,6 +59,7 @@ const syncLogSchema = new Schema({
   sync_id: { type: String, unique: true, required: true, index: true },
   tenant_id: { type: String, required: true, index: true },
   fuente: { type: String, enum: ['EVO', 'W12', 'ARCHIVO', 'BD', 'API'], required: true },
+  estatus: { type: String },
   tipo: { type: String, enum: ['full', 'incremental', 'webhook'], default: 'incremental' },
   endpoint: String,
   

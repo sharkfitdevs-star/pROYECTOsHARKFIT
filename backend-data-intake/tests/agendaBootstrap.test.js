@@ -2,7 +2,7 @@
 // Nota: estas pruebas son placeholders. No deben inicializar Agenda en CI
 // a menos que mongodb esté disponible. Se usarán con `mongodb-memory-server`.
 
-describe.skip('Agenda bootstrap (placeholder)', () => {
+describe('Agenda bootstrap (placeholder)', () => {
   it('exporta getAgenda desde agendaAdapter', () => {
     const { getAgenda } = require('../src/workers/agendaAdapter');
     expect(typeof getAgenda).toBe('function');

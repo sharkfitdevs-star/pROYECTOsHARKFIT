@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { connectDB, disconnectDB } = require('../src/db/mongodb');
+const mongoose = require('mongoose');
 const Cliente = require('../src/models/Cliente');
 const Venta = require('../src/models/Venta');
 const Lead = require('../src/models/Lead');
@@ -99,12 +100,23 @@ async function upsertAccessLogs(rows, { dryRun = false } = {}) {
   return created;
 }
 
+function _normalizeLegacySyncStatus(s) {
+  if (!s) return 'iniciado';
+  const v = String(s).trim().toLowerCase();
+  if (['completed', 'completado', 'done', 'finished', 'ok', 'success'].includes(v)) return 'completado';
+  if (['failed', 'failure', 'error', 'errored'].includes(v)) return 'error';
+  if (['partial', 'parcial'].includes(v)) return 'parcial';
+  if (v === 'in_progress' || v === 'in-progress' || v.includes('progress') || v === 'processing') return 'en_proceso';
+  if (v === 'started' || v === 'init' || v === 'iniciado') return 'iniciado';
+  return 'iniciado';
+}
+
 async function importSyncQueue(rows, { dryRun = false } = {}) {
   let created = 0;
   for (const r of rows) {
     const doc = {
       syncType: (r.job_type || r.jobType || 'full').toLowerCase().includes('full') ? 'full' : (r.job_type || r.jobType || 'manual'),
-      status: (r.status || 'iniciado'),
+      status: _normalizeLegacySyncStatus(r.status || 'iniciado'),
       startedAt: r.created_at ? new Date(r.created_at) : undefined,
       completedAt: r.processed_at ? new Date(r.processed_at) : undefined,
       notes: r.error_message || undefined,
@@ -121,7 +133,9 @@ async function importSyncQueue(rows, { dryRun = false } = {}) {
 }
 
 async function importJsonToMongo({ inputDir = 'migration-output', dryRun = false } = {}) {
-  await connectDB();
+  const wasConnected = mongoose.connection && mongoose.connection.readyState === 1;
+  if (!wasConnected) await connectDB();
+
   const base = path.resolve(inputDir);
   const report = {};
 
@@ -143,7 +157,7 @@ async function importJsonToMongo({ inputDir = 'migration-output', dryRun = false
   report.access_logs = await upsertAccessLogs(access_logs, { dryRun });
   report.sync_queue = await importSyncQueue(sync_queue, { dryRun });
 
-  if (!dryRun) await disconnectDB();
+  if (!dryRun && !wasConnected) await disconnectDB();
   return report;
 }
 

@@ -72,6 +72,7 @@ class HealthCheckService {
   constructor() {
     this.lastStatus = new Map();
     this.checks = new Map();
+    this._timers = []; // almacenar referencias a timers para permitir limpieza
   }
 
   /**
@@ -250,23 +251,41 @@ class HealthCheckService {
    * Iniciar health checks periódicos
    */
   startPeriodicChecks() {
+    // No ejecutar durante pruebas unitarias o si la variable SKIP_HEALTH_CHECKS está activada
+    if (process.env.NODE_ENV === 'test' || String(process.env.SKIP_HEALTH_CHECKS).toLowerCase() === 'true') {
+      logger.info('⏭️ startPeriodicChecks omitido (test env o SKIP_HEALTH_CHECKS)');
+      return;
+    }
+
     logger.info('🏥 Iniciando health checks periódicos...');
 
     // EVO
-    setInterval(() => this.checkEVO(), HEALTH_CHECKS.EVO.interval);
+    this._timers.push(setInterval(() => this.checkEVO(), HEALTH_CHECKS.EVO.interval));
     this.checkEVO();
 
     // W12
-    setInterval(() => this.checkW12(), HEALTH_CHECKS.W12.interval);
+    this._timers.push(setInterval(() => this.checkW12(), HEALTH_CHECKS.W12.interval));
     this.checkW12();
 
     // Django
-    setInterval(() => this.checkDjango(), HEALTH_CHECKS.DJANGO.interval);
+    this._timers.push(setInterval(() => this.checkDjango(), HEALTH_CHECKS.DJANGO.interval));
     this.checkDjango();
 
-
     // MongoDB
-    setInterval(() => this.checkMongoDB(), HEALTH_CHECKS.MONGODB.interval);
+    this._timers.push(setInterval(() => this.checkMongoDB(), HEALTH_CHECKS.MONGODB.interval));
+  }
+
+  /**
+   * Parar health checks periódicos (limpieza de timers)
+   */
+  stopPeriodicChecks() {
+    if (this._timers && this._timers.length) {
+      for (const t of this._timers) {
+        try { clearInterval(t); } catch (e) { /* noop */ }
+      }
+      this._timers = [];
+      logger.info('🛑 Health checks periódicos detenidos');
+    }
   }
 
   /**

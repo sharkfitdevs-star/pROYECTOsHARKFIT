@@ -14,18 +14,75 @@ const { logger } = require('../utils/logger');
 const { RateLimiter } = require('../services/RateLimiter');
 
 // ============================================================================
-// CONFIGURACIÓN DE COLAS
+// CONFIGURACIÓN DE COLAS (LAZY - NO EJECUCIÓN TOP-LEVEL)
 // ============================================================================
 
 // Delegate queue implementation to `queueInterface` (InMemory / Agenda)
 const { getQueue, InMemoryQueue } = require('./queueInterface');
 
-const apiQueue = getQueue('api-calls');
-const webhookQueue = getQueue('webhooks');
-const syncQueue = getQueue('sync-tasks');
-const importQueue = getQueue('imports');
-const reportQueue = getQueue('reportes');
-const exportQueue = getQueue('exports');
+// Las colas y su registro de handlers se inicializan *solo* cuando se usan
+let apiQueue, webhookQueue, syncQueue, importQueue, reportQueue, exportQueue;
+let _queuesInitialized = false;
+
+function ensureQueuesInitialized() {
+  if (_queuesInitialized) return;
+
+  apiQueue = getQueue('api-calls');
+  webhookQueue = getQueue('webhooks');
+  syncQueue = getQueue('sync-tasks');
+  importQueue = getQueue('imports');
+  reportQueue = getQueue('reportes');
+  exportQueue = getQueue('exports');
+
+  // --------------------------------------------------
+  // EVENT HANDLERS
+  // --------------------------------------------------
+  apiQueue.on('failed', (job, err) => {
+    logger.error(`🔴 [API-QUEUE] Job fallido: ${job.id}`, {
+      attempts: job.attemptsMade,
+      maxAttempts: job.opts.attempts,
+      error: err.message
+    });
+  });
+
+  apiQueue.on('completed', (job) => {
+    logger.debug(`🟢 [API-QUEUE] Job completado: ${job.id}`);
+  });
+
+  webhookQueue.on('failed', (job, err) => {
+    logger.error(`🔴 [WEBHOOK-QUEUE] Job fallido: ${job.id}`, {
+      attempts: job.attemptsMade,
+      error: err.message
+    });
+  });
+
+  webhookQueue.on('completed', (job) => {
+    logger.debug(`🟢 [WEBHOOK-QUEUE] Job completado: ${job.id}`);
+  });
+
+  importQueue.on('failed', (job, err) => {
+    logger.error(`🔴 [IMPORT-QUEUE] Job fallido: ${job.id}`, {
+      attempts: job.attemptsMade,
+      error: err.message
+    });
+  });
+
+  importQueue.on('completed', (job) => {
+    logger.debug(`🟢 [IMPORT-QUEUE] Job completado: ${job.id}`);
+  });
+
+  // --------------------------------------------------
+  // REGISTRAR PROCESADORES
+  // --------------------------------------------------
+  apiQueue.process(5, processApiCall); // 5 workers paralelos
+  webhookQueue.process(10, processWebhook); // 10 workers para webhooks
+  syncQueue.process(2, processSyncTask); // 2 workers para sync
+  importQueue.process(2, processImport); // 2 workers para imports
+  reportQueue.process(2, processReport);
+  exportQueue.process(2, processExport); // exportaciones de datos (CSV/XLSX/PDF)
+
+  _queuesInitialized = true;
+}
 
 // ============================================================================
 // CIRCUIT BREAKER
@@ -459,6 +516,8 @@ exportQueue.process(2, processExport); // exportaciones de datos (CSV/XLSX/PDF)
  * Cola una llamada a API externa
  */
 async function queueApiCall(apiName, method, url, data, auth, options = {}) {
+  ensureQueuesInitialized();
+
   const jobConfig = {
     priority: options.priority || 5,
     attempts: options.maxRetries ? options.maxRetries + 1 : 4,
@@ -491,6 +550,8 @@ async function queueApiCall(apiName, method, url, data, auth, options = {}) {
  * Cola un webhook para procesamiento
  */
 async function queueWebhook(webhookId, source, evento, data, priority = 5) {
+  ensureQueuesInitialized();
+
   const job = await webhookQueue.add(
     {
       webhookId,
@@ -518,6 +579,8 @@ async function queueWebhook(webhookId, source, evento, data, priority = 5) {
  * Cola una tarea de sincronización
  */
 async function queueSyncTask(sourceApi, endpoint, options = {}) {
+  ensureQueuesInitialized();
+
   const job = await syncQueue.add(
     {
       taskId: options.taskId || `${sourceApi}-${endpoint}-${Date.now()}`,
@@ -544,6 +607,8 @@ async function queueSyncTask(sourceApi, endpoint, options = {}) {
  * job.data: { type, file, mapeo, entidad, delimitador }
  */
 async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opts = {}) {
+  ensureQueuesInitialized();
+
   const job = await importQueue.add(
     {
       type,
@@ -568,6 +633,8 @@ async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opt
  * job.data: { reporteId }
  */
 async function queueReportTask(reporteId, opts = {}) {
+  ensureQueuesInitialized();
+
   const job = await reportQueue.add(
     { reporteId },
     {
@@ -586,6 +653,8 @@ async function queueReportTask(reporteId, opts = {}) {
  * job.data: { tipo, formato, filtros, requestedBy, reporteId? }
  */
 async function queueExportTask(tipo, formato = 'csv', filtros = {}, opts = {}) {
+  ensureQueuesInitialized();
+
   const job = await exportQueue.add(
     {
       tipo,
@@ -610,6 +679,8 @@ async function queueExportTask(tipo, formato = 'csv', filtros = {}, opts = {}) {
 // ============================================================================
 
 async function getWorkerStats() {
+  ensureQueuesInitialized();
+
   const [apiCounts, webhookCounts, syncCounts] = await Promise.all([
     apiQueue.getJobCounts(),
     webhookQueue.getJobCounts(),
@@ -632,19 +703,11 @@ async function getWorkerStats() {
 }
 
 // ============================================================================
-// EXPORTS
+// EXPORTS (solo funciones — sin ejecución top-level)
 // ============================================================================
 
 module.exports = {
-  // Colas
-  apiQueue,
-  webhookQueue,
-  syncQueue,
-  importQueue,
-  reportQueue,
-  exportQueue,
-  
-  // Funciones
+  // Funciones públicas (cola + utilidades)
   queueApiCall,
   queueWebhook,
   queueSyncTask,
@@ -652,14 +715,15 @@ module.exports = {
   queueReportTask,
   queueExportTask,
   getWorkerStats,
-  // Procesadores (exportados para adaptación con Agenda)
+
+  // Procesadores (exportados para adaptación con Agenda / testing)
   processApiCall,
   processWebhook,
   processSyncTask,
   processImport,
   processReport,
   processExport,
-  
+
   // Clase Circuit Breaker
   CircuitBreaker
 };

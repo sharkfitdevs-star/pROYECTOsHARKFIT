@@ -49,9 +49,12 @@ export const AuthProvider = ({ children }) => {
       navigate('/dashboard');
       return { success: true, message: 'Sesión iniciada correctamente' };
     } catch (error) {
-      const errorMessage = error?.response?.data?.message || 'Error al iniciar sesión';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
+      const resp = error?.response?.data || {};
+      const errorMessage = resp.message || 'Error al iniciar sesión';
+      const fieldDetails = resp.fields ? Object.values(resp.fields).join('; ') : null;
+      const combined = fieldDetails ? `${errorMessage}: ${fieldDetails}` : errorMessage;
+      setError(combined);
+      return { success: false, error: fieldDetails || errorMessage };
     } finally {
       setLoading(false);
     }
@@ -70,9 +73,20 @@ export const AuthProvider = ({ children }) => {
       navigate('/dashboard');
       return { success: true, message: 'Cuenta creada correctamente' };
     } catch (error) {
-      const errorMessage = error?.response?.data?.message || 'Error al registrarse';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
+      const resp = error?.response?.data || {};
+      const rawMessage = resp.message || 'Error al registrarse';
+      const fieldDetails = resp.fields ? Object.values(resp.fields).join('; ') : null;
+
+      // Mensaje amistoso y acción sugerida cuando el backend deshabilita el registro público
+      let friendly = fieldDetails ? `${rawMessage}: ${fieldDetails}` : rawMessage;
+      const normalized = String(rawMessage).toLowerCase();
+
+      if (normalized.includes('registro deshabilitado') || error?.response?.status === 403) {
+        friendly = 'Registro público deshabilitado en el servidor. Ejecuta `cd backend-data-intake && npm run create-owner` en el servidor o contacta al administrador.';
+      }
+
+      setError(friendly);
+      return { success: false, error: fieldDetails || rawMessage };
     } finally {
       setLoading(false);
     }

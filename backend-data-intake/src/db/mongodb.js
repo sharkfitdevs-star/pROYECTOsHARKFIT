@@ -29,17 +29,21 @@ const diagnoseMongoError = (error) => {
   return 'Error desconocido de conexion MongoDB.';
 };
 
-const connectDB = async () => {
+const connectDB = async (uri) => {
   if (isConnected) {
     logger.info('📦 Ya conectado a MongoDB');
     return;
   }
 
-  const primaryUri = (process.env.MONGODB_URI || 'mongodb://localhost:27017/sharkfit').trim();
+  const finalUri = (uri || process.env.MONGODB_URI || '').trim();
   const fallbackUri = (process.env.MONGODB_URI_FALLBACK || process.env.MONGODB_URI_LOCAL || '').trim();
 
+  if (!finalUri) {
+    throw new Error('❌ MONGODB_URI no está definido. Configúralo en el archivo .env para conectar a MongoDB Atlas.');
+  }
+
   try {
-    await mongoose.connect(primaryUri, getMongoOptions());
+    await mongoose.connect(finalUri, getMongoOptions());
 
     isConnected = true;
     logger.info('✅ MongoDB conectado exitosamente');
@@ -54,7 +58,7 @@ const connectDB = async () => {
     logger.error('❌ Error conectando a MongoDB:', { message: error.message || error, hint });
     logger.error(`💡 Diagnostico: ${hint}`);
 
-    const hasFallback = fallbackUri && fallbackUri !== primaryUri;
+    const hasFallback = fallbackUri && fallbackUri !== finalUri;
     if (hasFallback) {
       try {
         logger.warn('↩️ Intentando conexion MongoDB de respaldo...');

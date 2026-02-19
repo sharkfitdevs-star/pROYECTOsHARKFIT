@@ -6,7 +6,6 @@
 const express = require('express');
 const router = express.Router();
 const { logger } = require('../utils/logger');
-const { getWorkerStats } = require('../workers/api-worker');
 const { getHealthCheckService } = require('../services/HealthCheckService');
 
 const healthService = getHealthCheckService();
@@ -17,6 +16,7 @@ const healthService = getHealthCheckService();
  */
 router.get('/', async (req, res) => {
   try {
+    const { getWorkerStats } = require('../workers/api-worker');
     const workerStats = await getWorkerStats().catch(() => ({}));
 
     res.status(200).json({

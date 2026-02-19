@@ -3,6 +3,7 @@
  * Interfaz moderna para autenticación de usuarios
  */
 
+import React from 'react'
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -80,6 +81,8 @@ export default function Login() {
       }
       if (!formData.username) {
         newErrors.username = 'El usuario es requerido';
+      } else if (!/^[a-zA-Z0-9._-]{3,30}$/.test(formData.username)) {
+        newErrors.username = 'Usuario inválido — solo letras, números, puntos, guiones o guion bajo (3-30 caracteres)';
       }
       if (!formData.email) {
         newErrors.email = 'El email es requerido';
@@ -143,6 +146,10 @@ export default function Login() {
     }
   };
 
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestData, setRequestData] = useState({ firstName: '', lastName: '', email: '', company: '', message: '' });
+  const [requestStatus, setRequestStatus] = useState(null);
+
   const toggleMode = () => {
     const nextIsLogin = !isLogin;
     setIsLogin(nextIsLogin);
@@ -158,6 +165,35 @@ export default function Login() {
     });
     setErrors({});
     setInfoMessage('');
+  };
+
+  const handleRequestChange = (e) => {
+    const { name, value } = e.target;
+    setRequestData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const submitRequestAccess = async (e) => {
+    e.preventDefault();
+    setRequestStatus(null);
+
+    if (!requestData.firstName || !requestData.lastName || !requestData.email) {
+      setRequestStatus({ error: true, message: 'Nombre, apellido y email son requeridos' });
+      return;
+    }
+
+    try {
+      const usuarios = await import('../../api/services/usuariosService').then(m => m.default);
+      const result = await usuarios.requestAccess(requestData);
+      if (result && result.success) {
+        setRequestStatus({ success: true, message: 'Solicitud enviada. Te avisaremos por email.' });
+        setShowRequestForm(false);
+        setRequestData({ firstName: '', lastName: '', email: '', company: '', message: '' });
+      } else {
+        setRequestStatus({ error: true, message: result?.message || 'Error al enviar solicitud' });
+      }
+    } catch (err) {
+      setRequestStatus({ error: true, message: err?.response?.data?.message || 'Error enviando solicitud' });
+    }
   };
 
   return (
@@ -209,6 +245,14 @@ export default function Login() {
             <div className="alert alert-error">
               <span className="alert-icon">⚠️</span>
               <span>{authError}</span>
+
+              {/* Ayuda contextual cuando el backend deshabilita el registro público */}
+              {(authError || '').toLowerCase().includes('registro público deshabilitado') || (authError || '').toLowerCase().includes('registro deshabilitado') ? (
+                <div className="auth-error-help" style={{marginTop:8, fontSize:12, color:'#e6e6e6'}}>
+                  <div>Si estás en desarrollo puedes habilitar el registro en el backend o crear el primer usuario:</div>
+                  <code style={{display:'block', marginTop:6}}>cd backend-data-intake && npm run create-owner</code>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -392,6 +436,54 @@ export default function Login() {
                 {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
               </button>
             </p>
+
+            {/* Solicitud de acceso (si no quieres registro público) */}
+            <p style={{marginTop:8}}>
+              <button
+                type="button"
+                onClick={() => { setShowRequestForm(s => !s); setRequestStatus(null); }}
+                className="toggle-button"
+                disabled={isSubmitting}
+              >
+                Solicitar acceso
+              </button>
+            </p>
+
+            {showRequestForm && (
+              <form onSubmit={submitRequestAccess} className="auth-form" style={{marginTop:12, padding:12, borderRadius:8, background:'#fff'}}>
+                {requestStatus && (
+                  <div className={requestStatus.error ? 'alert alert-error' : 'alert alert-success'} style={{marginBottom:8}}>
+                    <span>{requestStatus.message}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Nombre</label>
+                  <input name="firstName" value={requestData.firstName} onChange={handleRequestChange} />
+                </div>
+                <div className="form-group">
+                  <label>Apellido</label>
+                  <input name="lastName" value={requestData.lastName} onChange={handleRequestChange} />
+                </div>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input name="email" value={requestData.email} onChange={handleRequestChange} />
+                </div>
+                <div className="form-group">
+                  <label>Empresa (opcional)</label>
+                  <input name="company" value={requestData.company} onChange={handleRequestChange} />
+                </div>
+                <div className="form-group">
+                  <label>Mensaje (opcional)</label>
+                  <textarea name="message" value={requestData.message} onChange={handleRequestChange} rows={3} />
+                </div>
+
+                <div style={{display:'flex', gap:8}}>
+                  <button type="submit" className="btn btn-primary">Enviar solicitud</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowRequestForm(false)}>Cancelar</button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

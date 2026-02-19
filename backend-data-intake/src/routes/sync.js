@@ -8,7 +8,6 @@ const router = express.Router();
 const SyncService = require('../services/SyncService');
 const { findSyncLogById, listSyncLogs } = require('../db/repositories');
 const { logger } = require('../utils/logger');
-const { queueSyncTask } = require('../workers/api-worker');
 
 /**
  * POST /api/sync/run
@@ -27,6 +26,7 @@ router.post('/run', async (req, res) => {
     };
 
     // Enqueue manual sync via queueInterface (feature-flagged/portable)
+    const { queueSyncTask } = require('../workers/api-worker');
     const job = await queueSyncTask('API', 'manual-sync', { sourceId, modo, entidades, config });
 
     res.json({

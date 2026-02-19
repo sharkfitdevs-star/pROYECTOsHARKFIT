@@ -27,7 +27,8 @@ module.exports = {
     SESSION_EXPIRED: 'session.expired',
     PASSWORD_CHANGED: 'password.changed',
     MFA_ENABLED: 'mfa.enabled',
-    MFA_DISABLED: 'mfa.disabled'
+    MFA_DISABLED: 'mfa.disabled',
+    REQUEST_ACCESS: 'auth.request_access'
   },
 
   // =================

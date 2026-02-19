@@ -1,239 +1,95 @@
-/**
- * EMAIL SERVICE: Servicio de envío de emails
- * Soporta múltiples proveedores (SendGrid, Mailgun, Console)
+/*
+ * EMAIL SERVICE — canonical clean file
  */
 
 const { logger } = require('./logger');
-
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@sharkfit.com';
 
-/**
- * Envía un email usando el proveedor configurado
- * @param {Object} options - Opciones del email
- * @param {string} options.to - Email del destinatario
- * @param {string} options.subject - Asunto del email
- * @param {string} options.html - Contenido HTML del email
- * @param {string} options.text - Contenido de texto plano (opcional)
- */
-const sendEmail = async ({ to, subject, html, text }) => {
+async function sendEmail({ to, subject, html, text }) {
+  const provider = (EMAIL_PROVIDER || 'console').toLowerCase();
   try {
-    switch (EMAIL_PROVIDER.toLowerCase()) {
-      case 'sendgrid':
-        return await sendWithSendGrid({ to, subject, html, text });
-      
-      case 'mailgun':
-        return await sendWithMailgun({ to, subject, html, text });
-      
-      case 'console':
-      default:
-        return sendWithConsole({ to, subject, html, text });
-    }
-  } catch (error) {
-    logger.error('Error enviando email:', error);
-    throw error;
+    if (provider === 'sendgrid') return await sendWithSendGrid({ to, subject, html, text });
+    if (provider === 'mailgun') return await sendWithMailgun({ to, subject, html, text });
+    return sendWithConsole({ to, subject, html, text });
+  } catch (err) {
+    logger.error('Error enviando email:', err);
+    throw err;
   }
-};
+}
 
-/**
- * SendGrid provider
- */
-const sendWithSendGrid = async ({ to, subject, html, text }) => {
+async function sendWithSendGrid({ to, subject, html, text }) {
   const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) throw new Error('SENDGRID_API_KEY no configurado');
+  const sgMail = require('@sendgrid/mail');
+  sgMail.setApiKey(apiKey);
+  await sgMail.send({ from: EMAIL_FROM, to, subject, html, text: text || html.replace(/<[^>]*>/g, '') });
+  logger.info(`Email enviado via SendGrid: ${to}`);
+}
 
-  if (!apiKey) {
-    throw new Error('SENDGRID_API_KEY no configurado en .env');
-  }
+async function sendWithMailgun({ to, subject, html, text }) {
+  const apiKey = process.env.MAILGUN_API_KEY; const domain = process.env.MAILGUN_DOMAIN;
+  if (!apiKey || !domain) throw new Error('MAILGUN no configurado');
+  const mailgun = require('mailgun-js')({ apiKey, domain });
+  await mailgun.messages().send({ from: EMAIL_FROM, to, subject, html, text: text || html.replace(/<[^>]*>/g, '') });
+  logger.info(`Email enviado via Mailgun: ${to}`);
+}
 
-  try {
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(apiKey);
+function sendWithConsole({ to, subject, html, text }) {
+  logger.warn('EMAIL_PROVIDER=console — email simulado');
+  logger.info('\n' + '='.repeat(60));
+  logger.info(`To: ${to}`);
+  logger.info(`From: ${EMAIL_FROM}`);
+  logger.info(`Subject: ${subject}`);
+  logger.info(text || html.replace(/<[^>]*>/g, ''));
+  logger.info('='.repeat(60) + '\n');
+  return true;
+}
 
-    await sgMail.send({
-      from: EMAIL_FROM,
-      to,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]*>/g, '') // Fallback: strip HTML
-    });
+async function sendVerificationEmail(user, token) {
+  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+  return sendEmail({ to: user.email, subject: 'Verifica tu cuenta — SharkFit', html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#333"><div style="max-width:600px;margin:0 auto;padding:20px"><h2>¡Hola ${user.firstName}!</h2><p>Confirma tu email pulsando el botón a continuación:</p><p style="text-align:center"><a href="${verifyUrl}" style="background:#0066cc;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none;">Verificar email</a></p><p style="word-break:break-all;color:#0066cc">${verifyUrl}</p><p>Si no solicitaste esto, ignora este mensaje.</p></div></body></html>`, text: `Verifica tu cuenta: ${verifyUrl}` });
+}
 
-    logger.info(`✅ Email enviado via SendGrid a ${to}`);
-  } catch (error) {
-    logger.error('❌ Error SendGrid:', error.response?.body || error.message);
-    throw new Error('Error enviando email via SendGrid');
-  }
-};
+async function sendPasswordResetEmail(user, token) {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  return sendEmail({ to: user.email, subject: 'Restablece tu contraseña — SharkFit', html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#333"><div style="max-width:600px;margin:0 auto;padding:20px"><h2>Restablece tu contraseña</h2><p>Haz clic en el botón para crear una nueva contraseña:</p><p style="text-align:center"><a href="${resetUrl}" style="background:#dc3545;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none;">Restablecer contraseña</a></p><p style="word-break:break-all;color:#dc3545">${resetUrl}</p><p>Este enlace expira en 1 hora.</p></div></body></html>`, text: `Restablece tu contraseña: ${resetUrl}` });
+}
 
-/**
- * Mailgun provider
- */
-const sendWithMailgun = async ({ to, subject, html, text }) => {
-  const apiKey = process.env.MAILGUN_API_KEY;
-  const domain = process.env.MAILGUN_DOMAIN;
+async function sendAccessRequestEmail(request) {
+  const adminEmail = process.env.SEED_OWNER_EMAIL || process.env.EMAIL_FROM || 'admin@sharkfit.com';
+  return sendEmail({ to: adminEmail, subject: `Nueva solicitud de acceso — ${request.email}`, html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#333"><div style="max-width:600px;margin:0 auto;padding:20px"><h2>Nueva solicitud de acceso</h2><p><strong>${request.firstName} ${request.lastName}</strong> — ${request.email}</p><p>Empresa: ${request.company || '—'}</p><p>Mensaje: ${request.message || '—'}</p></div></body></html>`, text: `Solicitud: ${request.firstName} ${request.lastName} — ${request.email}\nEmpresa: ${request.company || '-'}\nMensaje: ${request.message || '-'}` });
+}
 
-  if (!apiKey || !domain) {
-    throw new Error('MAILGUN_API_KEY y MAILGUN_DOMAIN no configurados en .env');
-  }
 
-  try {
-    const mailgun = require('mailgun-js')({ apiKey, domain });
-
-    await mailgun.messages().send({
-      from: EMAIL_FROM,
-      to,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]*>/g, '')
-    });
-
-    logger.info(`✅ Email enviado via Mailgun a ${to}`);
-  } catch (error) {
-    logger.error('❌ Error Mailgun:', error.message);
-    throw new Error('Error enviando email via Mailgun');
-  }
-};
 
 /**
  * Console provider (desarrollo)
  * Imprime el email en la consola en lugar de enviarlo
  */
-const sendWithConsole = ({ to, subject, html, text }) => {
-  logger.warn('⚠️  EMAIL_PROVIDER=console - Email NO enviado (solo logs)');
-  
-  logger.info('\n' + '='.repeat(80));
-  logger.info('📧 EMAIL SIMULADO (DESARROLLO)');
-  logger.info('='.repeat(80));
-  logger.info(`Para:     ${to}`);
-  logger.info(`De:       ${EMAIL_FROM}`);
-  logger.info(`Asunto:   ${subject}`);
-  logger.info('-'.repeat(80));
-  logger.info('Contenido:');
-  logger.info(text || html.replace(/<[^>]*>/g, ''));
-  logger.info('='.repeat(80) + '\n');
 
-  return true;
-};
+
+// ----------------------
+// Email templates
+// ----------------------
+
+
+
+
+
+
+
 
 /**
- * Template para email de verificación
+ * Email para notificar al admin sobre una nueva solicitud de acceso
  */
-const sendVerificationEmail = async (user, token) => {
-  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
 
-  await sendEmail({
-    to: user.email,
-    subject: 'Verifica tu cuenta SharkFit',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
-          .content { padding: 30px; background: #f9f9f9; }
-          .button { display: inline-block; padding: 12px 30px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🏋️ SharkFit</h1>
-          </div>
-          <div class="content">
-            <h2>¡Bienvenido ${user.firstName}!</h2>
-            <p>Gracias por registrarte en SharkFit. Para activar tu cuenta, haz clic en el botón de abajo:</p>
-            <div style="text-align: center;">
-              <a href="${verifyUrl}" class="button">Verificar Email</a>
-            </div>
-            <p>O copia y pega este enlace en tu navegador:</p>
-            <p style="word-break: break-all; color: #0066cc;">${verifyUrl}</p>
-            <p><strong>Este enlace expira en 24 horas.</strong></p>
-          </div>
-          <div class="footer">
-            <p>Si no creaste esta cuenta, puedes ignorar este email.</p>
-            <p>&copy; ${new Date().getFullYear()} SharkFit. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    text: `
-Bienvenido ${user.firstName}!
-
-Gracias por registrarte en SharkFit. Para activar tu cuenta, visita este enlace:
-
-${verifyUrl}
-
-Este enlace expira en 24 horas.
-
-Si no creaste esta cuenta, puedes ignorar este email.
-    `
-  });
-};
-
-/**
- * Template para reset de password
- */
-const sendPasswordResetEmail = async (user, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-
-  await sendEmail({
-    to: user.email,
-    subject: 'Restablece tu contraseña - SharkFit',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-          .content { padding: 30px; background: #f9f9f9; }
-          .button { display: inline-block; padding: 12px 30px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🔒 Restablece tu Contraseña</h1>
-          </div>
-          <div class="content">
-            <h2>Hola ${user.firstName},</h2>
-            <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para crear una nueva:</p>
-            <div style="text-align: center;">
-              <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
-            </div>
-            <p>O copia y pega este enlace en tu navegador:</p>
-            <p style="word-break: break-all; color: #dc3545;">${resetUrl}</p>
-            <p><strong>Este enlace expira en 1 hora.</strong></p>
-          </div>
-          <div class="footer">
-            <p><strong>Si no solicitaste este cambio, ignora este email.</strong> Tu contraseña permanecerá sin cambios.</p>
-            <p>&copy; ${new Date().getFullYear()} SharkFit. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    text: `
-Hola ${user.firstName},
-
-Recibimos una solicitud para restablecer tu contraseña. Visita este enlace para crear una nueva:
-
-${resetUrl}
-
-Este enlace expira en 1 hora.
-
-Si no solicitaste este cambio, ignora este email. Tu contraseña permanecerá sin cambios.
-    `
-  });
-};
 
 module.exports = {
   sendEmail,
   sendVerificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendAccessRequestEmail
 };
+
+
