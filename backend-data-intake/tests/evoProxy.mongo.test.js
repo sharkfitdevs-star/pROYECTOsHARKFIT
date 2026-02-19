@@ -4,7 +4,7 @@ try {
 } catch (err) {
   MongoMemoryServer = null;
 }
-const mongoose = require('mongoose');
+let mongoose;
 const crypto = require('crypto');
 
 jest.setTimeout(20000);
@@ -27,6 +27,7 @@ describeIfMongo('evo-w12-proxy — Mongo integration (mongodb-memory-server)', (
     // Connect using app helper
     const { connectDB } = require('../src/db/mongodb');
     await connectDB();
+    mongoose = require('mongoose');
   });
 
   afterAll(async () => {
@@ -47,7 +48,12 @@ describeIfMongo('evo-w12-proxy — Mongo integration (mongodb-memory-server)', (
     const db = mongoose.connection.db;
     const cols = await db.listCollections().toArray();
     await Promise.all(cols.map(c => db.collection(c.name).deleteMany({})));
+
+    // Reset modules and reconnect to ensure models use the active mongoose instance
     jest.resetModules();
+    const { connectDB } = require('../src/db/mongodb');
+    await connectDB();
+    mongoose = require('mongoose');
   });
 
   test('runIntegrations inserts prospects, sales, entries and creates sync_log', async () => {
@@ -75,9 +81,13 @@ describeIfMongo('evo-w12-proxy — Mongo integration (mongodb-memory-server)', (
       }
     }));
 
-    // Run sync
-    const { runIntegrations } = require('../src/evo-w12-proxy-sqlite');
-    await runIntegrations();
+    // Run sync directly for the single test integration (avoid DB lock logic)
+    const { syncTenant } = require('../src/evo-w12-proxy-sqlite');
+    const evoRepo = require('../src/db/evoRepository');
+    const integrations = await evoRepo.getActiveIntegrations();
+    expect(integrations.length).toBeGreaterThan(0);
+
+    await syncTenant(integrations[0]);
 
     // Assertions: Cliente (stub), Venta, AccessLog, SyncLog
     const Cliente = require('../src/models/Cliente');

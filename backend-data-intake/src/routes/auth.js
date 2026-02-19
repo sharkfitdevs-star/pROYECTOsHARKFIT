@@ -256,13 +256,14 @@ router.post('/request-access',
     try {
       const { firstName, lastName, email, company, message } = req.body;
 
+      const { AccessRequest } = require('../models');
+
       // Evitar duplicados simples
       const existingUser = await Usuario.findOne({ email: (email || '').toLowerCase() });
       if (existingUser) {
         return res.status(409).json({ error: true, message: 'Usuario ya existe' });
       }
 
-      const AccessRequest = require('../models/AccessRequest');
       const newReq = await AccessRequest.create({ firstName, lastName, email: email.toLowerCase(), company, message });
 
       // Notificar al admin por email (console/sendgrid según config)
@@ -273,16 +274,16 @@ router.post('/request-access',
         logger.warn('Error notificando access-request por email:', { error: emailErr.message || emailErr });
       }
 
-      // Emitir evento para subsistemas (logs, webhooks)
+      // Emitir evento para subsistemas (logs, webhooks) — usar valores seguros para evitar fallos si mock devuelve objeto mínimo
       emitEvent(eventTypes.AUTH.REQUEST_ACCESS || 'auth.request_access', {
-        requestId: newReq._id.toString(),
-        email: newReq.email,
-        firstName: newReq.firstName
+        requestId: (newReq && newReq._id) ? newReq._id.toString() : null,
+        email: newReq && newReq.email,
+        firstName: newReq && newReq.firstName
       });
 
       res.status(201).json({ success: true, message: 'Solicitud recibida. El administrador la revisará.' });
     } catch (error) {
-      logger.error('Error creando request-access:', { error: error.message || error });
+      logger.error('Error creando request-access:', { error: (error && (error.stack || error.message)) || error });
       res.status(500).json({ error: true, message: 'Error al procesar la solicitud' });
     }
   }
@@ -300,7 +301,7 @@ router.get('/access-requests', requireAuth, async (req, res) => {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 
-    const AccessRequest = require('../models/AccessRequest');
+    const { AccessRequest } = require('../models');
     const list = await AccessRequest.find().sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: list });
   } catch (error) {
@@ -318,7 +319,7 @@ router.post('/access-requests/:id/approve', requireAuth, async (req, res) => {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 
-    const AccessRequest = require('../models/AccessRequest');
+    const { AccessRequest } = require('../models');
     const accessReq = await AccessRequest.findById(req.params.id);
     if (!accessReq) return res.status(404).json({ error: true, message: 'Solicitud no encontrada' });
     if (accessReq.status !== 'pending') return res.status(400).json({ error: true, message: 'Solicitud ya procesada' });
@@ -406,7 +407,7 @@ router.post('/access-requests/:id/reject', requireAuth, async (req, res) => {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 
-    const AccessRequest = require('../models/AccessRequest');
+    const { AccessRequest } = require('../models');
     const accessReq = await AccessRequest.findById(req.params.id);
     if (!accessReq) return res.status(404).json({ error: true, message: 'Solicitud no encontrada' });
     if (accessReq.status !== 'pending') return res.status(400).json({ error: true, message: 'Solicitud ya procesada' });

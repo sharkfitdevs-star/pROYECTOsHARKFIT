@@ -12,7 +12,7 @@ describe('server timers (test environment)', () => {
   });
 
   test('auto-sync interval is skipped when NODE_ENV=test', async () => {
-    const logger = require('../src/utils/logger');
+    const { logger } = require('../src/utils/logger');
     jest.spyOn(logger, 'info').mockImplementation(() => {});
 
     // Make sure we would normally schedule an interval

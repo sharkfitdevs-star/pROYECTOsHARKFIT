@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const SyncService = require('../services/SyncServiceMongo');
 const { SyncLog } = require('../models');
-const { queueSyncTask } = require('../workers/api-worker');
 
 /**
  * POST /api/sync/start
@@ -38,6 +37,7 @@ router.post('/start', async (req, res) => {
     };
     
     // Enqueue sync via queueInterface. Worker will process the job.
+    const { queueSyncTask } = require('../workers/api-worker');
     const job = await queueSyncTask(config.tipo || 'API', 'manual-sync', { sourceId, modo, entidades, config });
 
     res.json({

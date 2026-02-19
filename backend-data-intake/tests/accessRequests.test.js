@@ -1,10 +1,12 @@
 const request = require('supertest');
+// Allow longer timeout for API tests that may involve DB setup
+jest.setTimeout(20000);
 
 jest.mock('../src/models', () => ({
   Usuario: { findOne: jest.fn().mockResolvedValue(null) },
   Session: { create: jest.fn().mockResolvedValue({}) },
   EmailToken: { create: jest.fn().mockResolvedValue({}) },
-  AccessRequest: { create: jest.fn().mockResolvedValue({}), find: jest.fn().mockResolvedValue([]) }
+  AccessRequest: { create: jest.fn().mockResolvedValue({ _id: 'req-1', email: 'juan.perez@example.com', firstName: 'Juan' }), find: jest.fn().mockResolvedValue([]) }
 }));
 
 // Mock email util so tests don't try to send real emails

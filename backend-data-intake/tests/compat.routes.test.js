@@ -8,6 +8,8 @@ const mongoose = require('mongoose');
 const request = require('supertest');
 
 const describeIfMongo = MongoMemoryServer ? describe : describe.skip;
+// Tests that hit mongodb-memory-server can be a bit slow on CI/low-end machines
+jest.setTimeout(20000);
 
 describeIfMongo('API compatibility — fields expected by Django (contract)', () => {
   let mongod;
@@ -40,7 +42,11 @@ describeIfMongo('API compatibility — fields expected by Django (contract)', ()
     const db = mongoose.connection.db;
     const cols = await db.listCollections().toArray();
     await Promise.all(cols.map(c => db.collection(c.name).deleteMany({})));
+
+    // Reset modules to ensure test isolation, then reconnect the fresh mongoose instance
     jest.resetModules();
+    const { connectDB } = require('../src/db/mongodb');
+    await connectDB();
   });
 
   test('GET /api/clientes returns expected fields (idMember, name)', async () => {

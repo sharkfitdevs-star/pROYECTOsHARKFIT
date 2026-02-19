@@ -9,7 +9,6 @@ const multer = require('multer');
 const ImportService = require('../services/ImportService');
 const { listImportHistory } = require('../db/repositories');
 const { logger } = require('../utils/logger');
-const { queueImportTask } = require('../workers/api-worker');
 
 // Configurar multer para subida de archivos
 const upload = multer({
@@ -49,6 +48,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     const mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
 
     // Enqueue import job (worker will process file and update SyncLog)
+    const { queueImportTask } = require('../workers/api-worker');
     const job = await queueImportTask('excel', { path: req.file.path, originalname: req.file.originalname }, mapeoObj, entidad);
 
     res.json({
@@ -83,6 +83,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
     const mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
 
     // Enqueue CSV import job
+    const { queueImportTask } = require('../workers/api-worker');
     const job = await queueImportTask('csv', { path: req.file.path, originalname: req.file.originalname }, mapeoObj, entidad, { delimitador });
 
     res.json({

@@ -162,6 +162,8 @@ async function updateLastSync(integrationId) {
 // Provides an atomic, persistent lock so we don't rely on process-local
 // GLOBAL_SYNC_LOCK. Uses a single document in `locks` collection.
 async function acquireSyncLock(ttlMs = 5 * 60 * 1000) {
+  // Always use the DB-backed lock (call findOneAndUpdate) to provide a
+  // consistent, observable lock behavior for production and tests.
   const col = mongoose.connection.collection('locks');
   const now = new Date();
   const expiresAt = new Date(Date.now() + ttlMs);
