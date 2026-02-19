@@ -1,18 +1,20 @@
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ✅ VALIDACIÓN DE JWT_SECRET EN STARTUP
 const ACCESS_TOKEN_SECRET =
   process.env.ACCESS_TOKEN_SECRET ||
   process.env.JWT_ACCESS_SECRET ||
-  process.env.JWT_SECRET;
+  JWT_SECRET;
 
-// Durante tests (Jest) no lanzar en time-of-require para permitir setupFiles.
-if (!ACCESS_TOKEN_SECRET && process.env.NODE_ENV !== 'test') {
+if (!JWT_SECRET) {
   throw new Error(
-    '❌ FATAL: JWT_SECRET no configurado en .env\n' +
-    '📋 Generar con: openssl rand -hex 32\n' +
-    '📝 Guardar en .env: JWT_SECRET=<valor_generado>'
+    "❌ FATAL: JWT_SECRET no configurado en .env\n" +
+    "📋 Generar con: openssl rand -hex 32\n" +
+    "📝 Guardar en .env: JWT_SECRET=<valor_generado>"
   );
 }
 
