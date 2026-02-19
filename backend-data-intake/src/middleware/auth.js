@@ -2,9 +2,10 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const isProd = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (!isProd ? 'dev-secret-change-me' : null);
 
-// ✅ VALIDACIÓN DE JWT_SECRET EN STARTUP
+// ✅ VALIDACIÓN DE JWT_SECRET EN STARTUP (estricta en producción)
 const ACCESS_TOKEN_SECRET =
   process.env.ACCESS_TOKEN_SECRET ||
   process.env.JWT_ACCESS_SECRET ||
@@ -12,7 +13,7 @@ const ACCESS_TOKEN_SECRET =
 
 if (!JWT_SECRET) {
   throw new Error(
-    "❌ FATAL: JWT_SECRET no configurado en .env\n" +
+    "❌ FATAL: JWT_SECRET no configurado en .env (entorno producción)\n" +
     "📋 Generar con: openssl rand -hex 32\n" +
     "📝 Guardar en .env: JWT_SECRET=<valor_generado>"
   );
