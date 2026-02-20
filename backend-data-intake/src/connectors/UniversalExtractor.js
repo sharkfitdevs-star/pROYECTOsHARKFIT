@@ -1,28 +1,39 @@
 /**
- * UNIVERSAL EXTRACTOR - MONGODB + REST APIs
- * Extrae datos de:
- * - MongoDB (colecciones)
- * - APIs REST (con múltiples estrategias de fallback)
- * 
- * Coherente con stack Node.js/JavaScript puro
+ * GENERIC API CLIENT
+ *
+ * Transforma un `config` sencillo en un cliente que puede recorrer uno o
+ * varios endpoints HTTP y regresar todos los registros, manejando paginación
+ * automática y generando un informe de logs.
+ *
+ * Config esperado:
+ * {
+ *   baseUrl: 'https://api.foo.com',
+ *   endpoints: [
+ *     { name: 'members', path: '/v1/members', method: 'GET', headers:{}, params:{}, pagination: { type:'page-limit', pageParam:'page', limitParam:'limit', limit:100 } },
+ *     // o { path:'/v2/items', pagination:{type:'cursor', cursorParam:'cursor', nextField:'nextCursor'} }
+ *   ]
+ * }
+ *
+ * Retorna
+ *   { data: [...], meta:{count,pages}, logs:[{url,statusCode,bodyPreview,count,errorMessage}], sourceInfo }
+ *
+ * Ejemplo de uso:
+ *   const extractor = new UniversalExtractor({ baseUrl:'https://api.example.com', endpoints:[{path:'/members',pagination:{type:'page-limit',limit:50}}] });
+ *   const res = await extractor.extract({path:'/members'});
  */
 
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
-const DatabaseConnector = require('./DatabaseConnector');
 const { logger } = require('../utils/logger');
 
 class UniversalExtractor {
   constructor(config) {
-    this.config = config;
+    this.config = config || {};
     this.extractorId = uuidv4();
-    this.cache = new Map();
-    this.failureLog = [];
-    
-    logger.info(`🚀 UniversalExtractor initialized`, { 
+    this.logs = [];
+logger.info(`🚀 API Extractor initialized`, {
       id: this.extractorId,
-      type: config.type,
-      source: config.id 
+      baseUrl: this.config.baseUrl
     });
   }
 
@@ -31,415 +42,155 @@ class UniversalExtractor {
    * @param {String} endpoint - Nombre del endpoint o tabla
    * @returns {Promise<Object>} { success, data, source, duration, attempts }
    */
+  /**
+   * Extrae datos de un endpoint API.
+   * `endpoint` puede ser un objeto de configuración o una cadena que
+   * coincide con `config.endpoints[].name` o `path`.
+   */
   async extract(endpoint) {
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-    logger.info(`🔍 EXTRAYENDO: ${endpoint}`, { source: this.config.id, type: this.config.type });
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-
-    const startTime = Date.now();
-    const result = {
-      extractorId: this.extractorId,
-      endpoint,
-      success: false,
-      data: null,
-      source: null,
-      duration: 0,
-      attempts: [],
-      attemptNumber: 0
-    };
-
-    // Construir estrategias según tipo de fuente
-    const strategies = this.buildStrategies(endpoint);
-
-    if (strategies.length === 0) {
-      return this.buildFailureReport(result, 'No se encontraron estrategias para este endpoint');
+    const epConfig = this._resolveEndpoint(endpoint);
+    if (!epConfig) {
+      throw new Error('Endpoint no encontrado: ' + endpoint);
     }
 
-    // Intentar cada estrategia
-    for (let i = 0; i < strategies.length; i++) {
-      const strategy = strategies[i];
-      const attemptNum = i + 1;
-
-      try {
-        logger.info(`Intento ${attemptNum}/${strategies.length}: ${strategy.name}`, {
-          extractorId: this.extractorId,
-          endpoint
-        });
-
-        // Ejecutar estrategia con timeout
-        const data = await Promise.race([
-          strategy.execute(),
-          this._createTimeoutPromise(strategy.timeout || 10000)
-        ]);
-
-        // ✅ ÉXITO
-        result.success = true;
-        result.data = data;
-        result.source = strategy.name;
-        result.duration = Date.now() - startTime;
-        result.attemptNumber = attemptNum;
-
-        // Cachear para fallback futuro
-        this._cacheData(endpoint, data);
-
-        logger.info(`✅ ÉXITO en ${result.duration}ms`, { extractorId: this.extractorId, endpoint, strategy: strategy.name, duration: result.duration });
-        logger.info(`📦 Registros extraídos: ${this._countRecords(data)}`);
-
-        return result;
-
-      } catch (error) {
-        // ❌ FALLÓ - describe el error
-        const errorDesc = this.describeError(error, strategy);
-
-        result.attempts.push({
-          strategy: strategy.name,
-          error: errorDesc,
-          code: error.code || error.status,
-          message: error.message
-        });
-
-        logger.warn(`Intento ${attemptNum} falló: ${errorDesc}`, { extractorId: this.extractorId, endpoint, strategy: strategy.name });
-
-        // Si hay más estrategias, continúa
-        if (i < strategies.length - 1) {
-          continue;
-        }
-      }
-    }
-
-    // TODO FALLÓ - retorna reporte detallado
-    return this.buildFailureReport(result, endpoint);
+    const { data, meta, logs, sourceInfo } = await this._fetchAll(epConfig);
+    return { data, meta, logs, sourceInfo };
   }
 
   /**
    * Construye estrategias según tipo de fuente
    */
-  buildStrategies(endpoint) {
-    const strategies = [];
+  // ya no utiliza buildStrategies
 
-    if (this.config.type === 'database') {
-      // Estrategias para MongoDB
-      strategies.push(
-        {
-          name: `MongoDB Direct Query`,
-          timeout: 10000,
-          execute: () => this._extractFromMongoDB(endpoint)
-        },
-        {
-          name: `Cache local (últimas 24h)`,
-          timeout: 100,
-          execute: () => this._extractFromCache(endpoint)
-        }
-      );
+  // removed old DB and other private methods - rewritten below
 
-    } else if (this.config.type === 'rest') {
-      // Estrategias para APIs REST
-      strategies.push(
-        {
-          name: `Direct HTTP Request`,
-          timeout: 5000,
-          execute: () => this._directRequest(endpoint)
-        },
-        {
-          name: `GraphQL Query (si disponible)`,
-          timeout: 8000,
-          execute: () => this._graphqlQuery(endpoint)
-        },
-        {
-          name: `JSON Path Extraction`,
-          timeout: 6000,
-          execute: () => this._jsonPathExtraction(endpoint)
-        },
-        {
-          name: `Recursive Data Mining`,
-          timeout: 7000,
-          execute: () => this._recursiveExtraction(endpoint)
-        },
-        {
-          name: `HTML Parsing`,
-          timeout: 8000,
-          execute: () => this._htmlScrapling(endpoint)
-        },
-        {
-          name: `Cache local (últimas 24h)`,
-          timeout: 100,
-          execute: () => this._extractFromCache(endpoint)
-        }
-      );
-
-    } else if (this.config.type === 'hybrid') {
-      // Combina estrategias de MongoDB y REST
-      strategies.push(
-        {
-          name: `MongoDB Principal`,
-          timeout: 10000,
-          execute: () => this._extractFromMongoDB(endpoint, this.config.database)
-        },
-        {
-          name: `API Fallback`,
-          timeout: 5000,
-          execute: () => this._directRequest(endpoint)
-        },
-        {
-          name: `Cache local`,
-          timeout: 100,
-          execute: () => this._extractFromCache(endpoint)
-        }
-      );
-    }
-
-    return strategies;
+  /**
+   * Buscar configuración de endpoint por objeto o clave
+   */
+  _resolveEndpoint(endpoint) {
+    if (!endpoint) return null;
+    if (typeof endpoint === 'object') return endpoint;
+    return (this.config.endpoints || []).find(
+      e => e.name === endpoint || e.path === endpoint
+    );
   }
 
   /**
-   * Estrategia: Extrae de MongoDB
+   * Core: recorrer paginación y juntar resultados
    */
-  async _extractFromMongoDB(endpoint, dbConfig = null) {
-    const config = dbConfig || this.config.source;
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    if (!endpointConfig) {
-      throw new Error(`Endpoint "${endpoint}" no configurado`);
-    }
-
-    const connector = new DatabaseConnector(config);
-
-    try {
-      await connector.connect();
-
-      const data = await connector.extract(
-        endpointConfig.table || endpoint,
-        {
-          filter: endpointConfig.where ? connector.buildMongoFilter(endpointConfig.where) : {},
-          projection: endpointConfig.columns || '*',
-          limit: endpointConfig.limit || 1000,
-          skip: endpointConfig.offset || 0,
-          sort: endpointConfig.sort ? connector.buildMongoSort(endpointConfig.sort) : null
-        }
-      );
-
-      // Extrae solo los campos solicitados
-      return this._filterFields(data, endpointConfig.fields);
-
-    } finally {
-      await connector.disconnect();
-    }
-  }
-
-  /**
-   * Estrategia: Request HTTP Directo
-   */
-  async _directRequest(endpoint) {
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    if (!endpointConfig) {
-      throw new Error(`Endpoint "${endpoint}" no configurado`);
-    }
-
+  async _fetchAll(epConfig) {
     const client = this._createHttpClient();
+    let collected = [];
+    let page = 1;
+    let cursor = null;
+    let totalPages = 0;
+    let count = 0;
 
-    const response = await client.request({
-      method: endpointConfig.method || 'GET',
-      url: endpointConfig.path || endpoint,
-      params: endpointConfig.params,
-      timeout: 5000
-    });
-
-    return this._extractData(response.data, endpointConfig);
-  }
-
-  /**
-   * Estrategia: GraphQL
-   */
-  async _graphqlQuery(endpoint) {
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    if (!endpointConfig?.graphql) {
-      throw new Error(`GraphQL no configurado para ${endpoint}`);
-    }
-
-    const client = this._createHttpClient();
-
-    const response = await client.post('/graphql', {
-      query: endpointConfig.graphql.query || this._buildGraphQLQuery(endpoint),
-      variables: endpointConfig.graphql.variables
-    });
-
-    if (response.data.errors) {
-      throw new Error(`GraphQL Error: ${response.data.errors[0]?.message}`);
-    }
-
-    return this._extractData(response.data.data, endpointConfig);
-  }
-
-  /**
-   * Estrategia: JSON Path Extraction
-   */
-  async _jsonPathExtraction(endpoint) {
-    const client = this._createHttpClient();
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    const response = await client.get(endpointConfig?.path || endpoint);
-    const data = response.data;
-
-    // Rutas comunes donde pueden estar los datos
-    const commonPaths = [
-      endpointConfig?.dataPath,
-      'data',
-      'items',
-      'results',
-      'records',
-      'rows',
-      endpoint.split('/').pop()
-    ].filter(Boolean);
-
-    for (const path of commonPaths) {
-      const extracted = this._getNestedValue(data, path);
-      if (extracted && Array.isArray(extracted) && extracted.length > 0) {
-        return this._filterFields(extracted, endpointConfig?.fields);
+    while (true) {
+      const params = Object.assign({}, epConfig.params);
+      if (epConfig.pagination) {
+        const p = epConfig.pagination;
+        if (p.type === 'page-limit') {
+          params[p.pageParam || 'page'] = page;
+          params[p.limitParam || 'limit'] = p.limit || 100;
+        } else if (p.type === 'take-skip') {
+          params[p.takeParam || 'take'] = p.limit || 100;
+          params[p.skipParam || 'skip'] = (page - 1) * (p.limit || 100);
+        } else if (p.type === 'cursor' && cursor) {
+          params[p.cursorParam || 'cursor'] = cursor;
+        }
       }
+
+      const url = epConfig.path;
+      let resp;
+      try {
+        resp = await client.request({
+          method: epConfig.method || 'GET',
+          url,
+          headers: epConfig.headers,
+          params,
+          timeout: epConfig.timeout || 10000
+        });
+      } catch (err) {
+        const errInfo = {
+          url,
+          statusCode: err.response?.status,
+          bodyPreview: err.response?.data,
+          errorMessage: err.message
+        };
+        this.logs.push(errInfo);
+        throw err;
+      }
+
+      const pageData = resp.data;
+      const items = Array.isArray(pageData) ? pageData : pageData.items || [];
+      collected.push(...items);
+      count += items.length;
+      this.logs.push({ url, statusCode: resp.status, bodyPreview: items.slice(0,3), count: items.length });
+
+      // handle pagination
+      if (epConfig.pagination) {
+        const p = epConfig.pagination;
+        if (p.type === 'page-limit') {
+          totalPages = resp.data.totalPages || resp.data.pages || 0;
+          if (page >= totalPages || items.length === 0) break;
+          page++;
+          continue;
+        } else if (p.type === 'take-skip') {
+          if (items.length < (p.limit || 100)) break;
+          page++;
+          continue;
+        } else if (p.type === 'cursor') {
+          cursor = resp.data[p.nextField || 'nextCursor'];
+          if (!cursor) break;
+          continue;
+        }
+      }
+      break;
     }
 
-    throw new Error(`No se encontró datos en rutas: ${commonPaths.join(', ')}`);
+    return {
+      data: collected,
+      meta: { count, pages: totalPages },
+      logs: this.logs.slice(),
+      sourceInfo: { baseUrl: this.config.baseUrl, endpoint: epConfig.path }
+    };
   }
 
   /**
-   * Estrategia: Recursive Data Mining
+   * Crea cliente HTTP con auth y headers del config
    */
-  async _recursiveExtraction(endpoint) {
-    const client = this._createHttpClient();
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    const response = await client.get(endpointConfig?.path || endpoint);
-
-    const foundArray = this._findFirstArray(response.data);
-
-    if (!foundArray || foundArray.length === 0) {
-      throw new Error('No se encontraron arrays en la respuesta');
+  _createHttpClient() {
+    const client = axios.create({
+      baseURL: this.config.baseUrl,
+      timeout: 10000
+    });
+    if (this.config.headers) {
+      client.defaults.headers.common = Object.assign({}, client.defaults.headers.common, this.config.headers);
     }
-
-    return this._filterFields(foundArray, endpointConfig?.fields);
+    return client;
   }
 
   /**
-   * Estrategia: HTML Scraping
+   * filtrar campos de un conjunto si se solicita
    */
-  async _htmlScrapling(endpoint) {
-    const client = this._createHttpClient();
-    const endpointConfig = this.config.endpoints?.find(e => e.path === endpoint);
-
-    const response = await client.get(endpointConfig?.path || endpoint);
-
-    if (typeof response.data !== 'string' || !response.data.includes('<')) {
-      throw new Error('Respuesta no es HTML válido');
-    }
-
-    // Busca <script> tags con JSON
-    const jsonMatch = response.data.match(/<script[^>]*>({[\s\S]*?})<\/script>/);
-
-    if (!jsonMatch) {
-      throw new Error('No se encontró JSON embebido en HTML');
-    }
-
-    const json = JSON.parse(jsonMatch[1]);
-    return this._filterFields(json, endpointConfig?.fields);
+  _filterFields(data, fields) {
+    if (!fields || fields === '*' || fields.length === 0) return data;
+    const arr = Array.isArray(data) ? data : [data];
+    const out = arr.map(item => {
+      if (typeof item !== 'object') return item;
+      const m = {};
+      (Array.isArray(fields) ? fields : fields.split(',')).forEach(f => {
+        const k = f.trim();
+        m[k] = item[k];
+      });
+      return m;
+    });
+    return Array.isArray(data) ? out : out[0];
   }
 
-  /**
-   * Estrategia: Cache Local
-   */
-  async _extractFromCache(endpoint) {
-    const cached = this.cache.get(endpoint);
-
-    if (!cached) {
-      throw new Error('No hay datos en cache');
-    }
-
-    const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
-    const maxAge = 24; // 24 horas
-
-    if (ageHours > maxAge) {
-      this.cache.delete(endpoint);
-      throw new Error(`Cache expiró hace ${Math.round(ageHours)} horas`);
-    }
-
-    logger.info(`📦 Usando cache (${ageHours.toFixed(1)} horas antiguo)`);
-    return cached.data;
-  }
-
-  /**
-   * ⭐ Describe errores en español claro
-   */
-  describeError(error, strategy) {
-    const message = error.message;
-    const code = error.code || error.response?.status;
-
-    // Timeouts
-    if (message.includes('timeout') || message === 'ECONNABORTED') {
-      return `⏱️ Timeout: La fuente tardó demasiado (>${strategy.timeout}ms)`;
-    }
-
-    // Conexión rechazada
-    if (message.includes('ECONNREFUSED')) {
-      return `🌐 Conexión rechazada: ¿Fuente accesible en ${this.config.baseURL || this.config.host}?`;
-    }
-
-    // DNS no resolvió
-    if (message.includes('ENOTFOUND')) {
-      return `🌐 DNS no resolvió: ¿Dominio existe?`;
-    }
-
-    // MongoDB/Conexión errors
-    if (message.includes('ECONNREFUSED')) {
-      return `🔴 Conexión rechazada: ¿MongoDB está corriendo?`;
-    }
-
-    if (message.includes('ECONNRESET') || message.includes('EHOSTUNREACH')) {
-      return `🌐 Host no accesible: Verifica URL de MongoDB`;
-    }
-
-    if (message.includes('authentication failed') || message.includes('Authentication failed')) {
-      return `🔐 Autenticación fallida: User/Password inválidos en MongoDB`;
-    }
-
-    if (message.includes('no reachable servers') || message.includes('connect ECONNREFUSED')) {
-      return `❌ Servidor MongoDB no disponible`;
-    }
-
-    if (message.includes('Cannot find module') || message.includes('EPERM')) {
-      return `📁 Error de permisos o archivo no encontrado`;
-    }
-
-    // HTTP errors
-    if (code === 401) {
-      return `🔐 401 Unauthorized: Credenciales inválidas o expiradas`;
-    }
-
-    if (code === 403) {
-      return `🚫 403 Forbidden: Credenciales OK pero sin permisos`;
-    }
-
-    if (code === 404) {
-      return `❓ 404 Not Found: El endpoint no existe`;
-    }
-
-    if (code === 429) {
-      return `⚡ 429 Rate Limited: Demasiadas requests`;
-    }
-
-    if (code >= 500) {
-      return `🔥 ${code}: Fuente caída o en mantenimiento`;
-    }
-
-    // JSON parsing
-    if (message.includes('JSON')) {
-      return `📄 JSON inválido: Respuesta en otro formato`;
-    }
-
-    // MongoDB
-    if (message.includes('MongoDB')) {
-      return `🍃 MongoDB error: ${message}`;
-    }
+  // otras utilidades no necesarias eliminadas
+}    }
 
     return `❌ Error desconocido: ${message}`;
   }

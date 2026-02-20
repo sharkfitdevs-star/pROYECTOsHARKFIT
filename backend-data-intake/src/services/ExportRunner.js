@@ -86,10 +86,15 @@ class ExportRunner {
         const name = ep.path || ep.table;
         try {
           const res = await extractor.extract(name);
-          if (res.success && Array.isArray(res.data)) {
+          // res.data contiene arreglo o valor único
+          if (Array.isArray(res.data)) {
             allRows.push(...res.data);
-          } else if (res.success && res.data) {
+          } else if (res.data != null) {
             allRows.push(res.data);
+          }
+          // optionally store logs
+          if (res.logs && res.logs.length) {
+            runDoc.logs.push(...res.logs.map(l => ({ level: 'info', message: 'extract log', meta: l })));
           }
         } catch (e) {
           runDoc.logs.push({ level: 'warn', message: `extractor fallo ${name}: ${e.message}` });
