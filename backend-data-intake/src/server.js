@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -6,12 +7,11 @@ const cookieParser = require("cookie-parser");
 const axios = require("axios");
 const crypto = require("crypto");
 const { Server: SocketIOServer } = require("socket.io");
-require("dotenv").config();
 
 const { logger } = require("./utils/logger");
 const { errorHandler } = require("./middleware/errorHandler");
-const { connectDB } = require("./db/mongodb");  // ← AGREGADO
 const { seedOwner } = require("./utils/seedOwner");  // ← AGREGADO
+const { connectToDB } = require('./db/db');
 const authRoutes = require("./routes/auth");
 const importRoutes = require("./routes/import");
 const sourcesRoutes = require("./routes/sources");
@@ -225,6 +225,11 @@ app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/setup", apiSetupRoutes);
 app.use("/api/health", healthRoutes);  // ← NUEVO: Health checks
 
+// EXPORT RUNS
+const exportRoutes = require("./routes/export");
+app.use("/api/export", exportRoutes);  // endpoints de exportación/importación de datos
+
+
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: { origin: process.env.CORS_ORIGIN || "http://localhost:5173" }
@@ -420,7 +425,7 @@ io.on("connection", (socket) => {
 const startServer = async () => {
   try {
     // Conectar a MongoDB primero
-    await connectDB();
+    await connectToDB();
     logger.info('✅ MongoDB conectado');
 
     try {

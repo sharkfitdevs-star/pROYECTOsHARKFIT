@@ -21,6 +21,9 @@ const Session = require('./Session');
 const EmailToken = require('./EmailToken');
 const AuditLog = require('./AuditLog');
 const AccessRequest = require('./AccessRequest');
+const ExportRun = require('./ExportRun');
+const Membership = require('./Membership');
+const Payable = require('./Payable');
 
 module.exports = {
   Cliente,
@@ -34,6 +37,9 @@ module.exports = {
   EmailToken,
   AuditLog,
   AccessRequest,
+  ExportRun,
+  Membership,
+  Payable,
 
   // Mongo utility models/queries
   Webhook: MongoModels.Webhook,

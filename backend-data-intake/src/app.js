@@ -103,6 +103,7 @@ const agendamientosRoutes = require('./routes/agendamientosNew');
 const alertasRoutes = require('./routes/alertasNew');
 const reportesRoutes = require('./routes/reportesNew');
 const importRoutes = require('./routes/import');
+const exportRoutes = require('./routes/export');  // nuevo
 const webhooksRoutes = require('./routes/webhooks');
 const evoRoutes = require('./routes/evo');
 const syncRoutes = require('./routes/syncNew');
@@ -117,6 +118,7 @@ app.use('/api/agendamientos', agendamientosRoutes);
 app.use('/api/alertas', alertasRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/export', exportRoutes);  // rutas de exportación/importación de datos
 
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/evo', evoRoutes);
