@@ -10,7 +10,8 @@ export default defineConfig({
     cors: true,
     proxy: {
       // forward /api calls to backend port during development
-      '/api': 'http://localhost:3001'
+      // updated to match backend-data-intake default PORT=3005
+      '/api': 'http://localhost:3005'
     }
   },
   build: {

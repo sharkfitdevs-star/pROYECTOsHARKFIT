@@ -42,7 +42,7 @@ const createOptimizedIndexes = async () => {
 // ============================================
 const EVO_BASE_URL = process.env.EVO_BASE_URL;
 const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || "http://localhost:8000/api";
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3005;
 const POLL_MS = Number(process.env.POLL_MS || 10000);
 const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000); // 24h by default
@@ -452,7 +452,7 @@ const startServer = async () => {
     }
     
     server.listen(PORT, () => {
-      logger.info(`Servidor listo en: http://localhost:${PORT}`);
+      logger.info(`Servidor escuchando en http://localhost:${PORT}`);
       logger.info('API Endpoints available');
       logger.info('   POST   /login              { dns, token, django_token } → sessionToken');
       logger.info('   GET    /api/snapshot       (requiere header x-session-token)');

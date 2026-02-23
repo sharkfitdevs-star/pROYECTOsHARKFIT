@@ -40,6 +40,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// base URL para API; si no está definida usa proxy relativo (/api)
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -64,7 +67,7 @@ export function AuthProvider({ children }) {
       if (storedToken) {
         const controller = new AbortController();
         try {
-          const res = await fetch('/api/auth/me', {
+          const res = await fetch(`${API_BASE}/auth/me`, {
             signal: controller.signal,
             headers: {
               Authorization: `Bearer ${storedToken}`
@@ -116,7 +119,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setError(null);
     // llamar al backend de autenticación
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include', // para recibir cookie de refresh
@@ -140,7 +143,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       });

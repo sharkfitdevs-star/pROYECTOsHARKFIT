@@ -16,7 +16,8 @@ export default defineConfig({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // proxy now points to backend-data-intake running on port 3005
+        target: 'http://localhost:3005',
         changeOrigin: true,
         secure: false,
         // keep the /api prefix when forwarding to the backend

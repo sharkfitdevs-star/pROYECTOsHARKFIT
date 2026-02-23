@@ -93,10 +93,10 @@ Sincronizando EVO5 → Django en tiempo real
 
 📍 EVO5 API:      https://evo-integracao-api.w12app.com.br
 📍 Django API:    http://localhost:8000/api
-📍 Puerto:        3001
+📍 Puerto:        3005
 ⏱️  Poll Interval: 10000ms
 
-✅ Servidor listo en: http://localhost:3001
+✅ Servidor listo en: http://localhost:3005
 
 📝 API Endpoints:
    POST   /login              { dns, token, django_token } → sessionToken

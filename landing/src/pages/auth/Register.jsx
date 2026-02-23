@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/Auth.css';
 
+// permitimos configurar la URL base mediante variable de entorno
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 function Register() {
   const navigate = useNavigate();
   // use english keys for API compatibility
@@ -42,7 +45,7 @@ function Register() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

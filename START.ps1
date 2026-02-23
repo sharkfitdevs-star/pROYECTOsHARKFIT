@@ -39,14 +39,14 @@ Write-Host ""
 Write-Host "📍 Resultado: http://localhost:5173" -ForegroundColor Magenta
 Write-Host ""
 
-Write-Host "✅ PASO 3: Data Intake Service (Puerto 3001)" -ForegroundColor Green
+Write-Host "✅ PASO 3: Data Intake Service (Puerto 3005)" -ForegroundColor Green
 Write-Host "─────────────────────────────────────" -ForegroundColor Green
 Write-Host "cd ../backend-data-intake" -ForegroundColor Yellow
 Write-Host "npm install" -ForegroundColor Yellow
 Write-Host "cp .env.example .env          # Editar .env con credenciales" -ForegroundColor Yellow
 Write-Host "npm start" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "📍 Resultado: http://localhost:3001" -ForegroundColor Magenta
+Write-Host "📍 Resultado: http://localhost:3005" -ForegroundColor Magenta
 Write-Host ""
 
 Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan

@@ -147,8 +147,12 @@ async function handleRegister(req, res) {
   try {
     const { username, email, password, firstName, lastName, role } = req.body;
 
+    // normalizar valores para búsquedas y evitar crash si vienen undefined
+    const normalizedUsername = username ? username.toLowerCase() : '';
+    const normalizedEmail = email ? email.toLowerCase() : '';
+
     const existingUser = await Usuario.findOne({
-      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }]
+      $or: [{ username: normalizedUsername }, { email: normalizedEmail }]
     });
 
     if (existingUser) {
@@ -162,8 +166,8 @@ async function handleRegister(req, res) {
     const normalizedRole = isFirstUser ? 'owner' : (role || 'staff');
 
     const nuevoUsuario = new Usuario({
-      username,
-      email,
+      username: normalizedUsername,
+      email: normalizedEmail,
       password,
       firstName,
       lastName,

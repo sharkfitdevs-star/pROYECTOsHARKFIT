@@ -173,27 +173,14 @@ logger.info(`🚀 API Extractor initialized`, {
 
   /**
    * filtrar campos de un conjunto si se solicita
+   * (la versión completa está más abajo, esta es la definición antigua
+   * que se eliminó para evitar duplicados y errores de sintaxis)
    */
-  _filterFields(data, fields) {
-    if (!fields || fields === '*' || fields.length === 0) return data;
-    const arr = Array.isArray(data) ? data : [data];
-    const out = arr.map(item => {
-      if (typeof item !== 'object') return item;
-      const m = {};
-      (Array.isArray(fields) ? fields : fields.split(',')).forEach(f => {
-        const k = f.trim();
-        m[k] = item[k];
-      });
-      return m;
-    });
-    return Array.isArray(data) ? out : out[0];
-  }
+  // (el método real se encuentra más adelante, después de helpers)
 
-  // otras utilidades no necesarias eliminadas
-}    }
-
-    return `❌ Error desconocido: ${message}`;
-  }
+  /**
+   * Genera reporte detallado cuando TODO falla
+   */ 
 
   /**
    * Genera reporte detallado cuando TODO falla

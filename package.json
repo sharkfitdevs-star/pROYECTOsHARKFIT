@@ -1,0 +1,10 @@
+{
+  "name": "sharkfit-monorepo",
+  "private": true,
+  "scripts": {
+    "dev:all": "concurrently -n FRONT,INTAKE \"npm --prefix landing run dev\" \"npm --prefix backend-data-intake run dev\""
+  },
+  "dependencies": {
+    "concurrently": "^8.0.1"
+  }
+}
