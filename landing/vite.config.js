@@ -8,6 +8,10 @@ export default defineConfig({
     strictPort: false,
     host: true,
     cors: true,
+    proxy: {
+      // forward /api calls to backend port during development
+      '/api': 'http://localhost:3001'
+    }
   },
   build: {
     outDir: 'dist',

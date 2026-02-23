@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/shared/ProtectedRoute'
 
 // Páginas
-import Home from './pages/Home'
+// import Home from './pages/Home'
 import Login from './pages/auth/Login'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
@@ -17,6 +17,7 @@ import Account from './pages/auth/Account'
 import Dashboard from './pages/dashboard/Dashboard'
 import DashboardEVO from './components/DashboardEVO'
 import Toaster from './components/ui/toaster'
+import ExportHistory from './pages/dashboard/ExportHistory'
 
 function App() {
   return (
@@ -25,8 +26,21 @@ function App() {
         <div className="app-container">
           <Toaster />
           <Routes>
-            {/* Rutas públicas */}
-            <Route path="/" element={<Home />} />
+            {/*
+              FLUJO DE NAVEGACIÓN MODIFICADO:
+              - La ruta raíz ('/') ahora SIEMPRE muestra la pantalla de Login.
+              - No importa si existe una sesión activa, el login es el punto de entrada obligatorio.
+              - El acceso al dashboard sigue protegido por ProtectedRoute.
+              - No se modifica backend ni lógica JWT.
+              - Se elimina cualquier redirect automático desde Login.
+              - UX: El usuario debe autenticarse explícitamente cada vez que entra por '/'.
+            */}
+            <Route path="/" element={<Login />} />
+            {/*
+              La ruta '/login' sigue disponible y funcional.
+              Si se accede manualmente, se muestra la pantalla de login.
+              El registro también está disponible desde el login.
+            */}
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -56,6 +70,14 @@ function App() {
                   <DashboardEVO />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/dashboard/export-history"
+              element={
+                <ProtectedRoute>
+                  <ExportHistory />
+                </ProtectedRoute>
+              }
             />
             
             {/* Ruta por defecto */}

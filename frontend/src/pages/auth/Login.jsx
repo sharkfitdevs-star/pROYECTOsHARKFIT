@@ -44,43 +44,7 @@ export default function Login() {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Limpiar error del campo cuando el usuario escribe
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-
-    if (infoMessage) {
-      setInfoMessage('');
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (isLogin) {
-      if (!formData.identifier) {
-        newErrors.identifier = 'Email o usuario requerido';
-      }
-    } else {
-      if (!formData.firstName) {
-        newErrors.firstName = 'El nombre es requerido';
-      }
-      if (!formData.lastName) {
-        newErrors.lastName = 'El apellido es requerido';
-      }
-      if (!formData.username) {
-        newErrors.username = 'El usuario es requerido';
-      }
+  // (Eliminada duplicidad y cierre inválido)
       if (!formData.email) {
         newErrors.email = 'El email es requerido';
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {

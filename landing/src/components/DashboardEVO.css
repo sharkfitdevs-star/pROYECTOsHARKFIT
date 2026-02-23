@@ -1,0 +1,107 @@
+/* Dashboard EVO Styles */
+
+.dashboard-evo {
+  padding: 2rem;
+  background: #475569;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background: #764ba2;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 2rem;
+}
+
+.last-update {
+  color: #cbd5e1;
+  margin: 0.5rem 0 0 0;
+  font-size: 0.9rem;
+}
+
+.refresh-btn {
+  background: #475569;
+  color: #f1f5f9;
+  border: 2px solid #64748b;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+  background: #334155;
+  border-color: #94a3b8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #475569;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 2px solid #764ba2;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+}
+
+.stat-icon {
+  font-size: 3rem;
+  opacity: 0.8;
+}
+
+.stat-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-number {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #f1f5f9;
+}
+
+.stat-content small {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.stat-card.prospects { border-left: 4px solid #764ba2; }
+.stat-card.sales { border-left: 4px solid #764ba2; }
+.stat-card.entries { border-left: 4px solid #764ba2; }
+.stat-card.average { border-left: 4px solid #764ba2; }
