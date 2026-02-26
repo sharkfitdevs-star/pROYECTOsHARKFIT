@@ -6,7 +6,7 @@ import { AuthProvider } from "./context/AuthContext";
 
 // Componentes
 import ProtectedRoute from "./components/shared/ProtectedRoute";
-import Toaster from "./components/ui/toaster";
+import Toaster from "@/components/ui/toaster";
 
 // Páginas de autenticación
 import Login from "./pages/auth/Login";

@@ -1,32 +1,20 @@
-// backend-data-intake/src/db/db.js
+const { connectDB } = require('./mongodb');
 
-const mongoose = require('mongoose');
+async function connectToDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error('❌ MONGODB_URI no está definido en .env');
+    process.exit(1);
+  }
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  'mongodb://localhost:27017/sharkfit'; // cambia el nombre de la BD si quieres
-
-async function connectDB() {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      autoIndex: true,
-    });
-
-    console.log('✅ MongoDB conectado exitosamente');
+    await connectDB();
+    console.log('✅ Conectado a MongoDB Atlas');
   } catch (err) {
-    console.error('❌ Error conectando a MongoDB:', err.message);
-    // si no quieres que el servidor muera, comenta la siguiente línea
+    console.error('❌ Error conectando a MongoDB Atlas:');
+    console.error(err && err.message ? err.message : err);
     process.exit(1);
   }
 }
 
-// alias para compatibilidad con server.js que pide connectToDB
-async function connectToDB() {
-  return connectDB();
-}
-
-module.exports = {
-  connectDB,
-  connectToDB,
-  mongoose,
-};
+module.exports = { connectToDB };

@@ -73,6 +73,11 @@ class HealthCheckService {
     this.lastStatus = new Map();
     this.checks = new Map();
     this._timers = []; // almacenar referencias a timers para permitir limpieza
+
+    // track if we've already warned about missing config for a service
+    this._skippedReported = new Set();
+    // track last time an error was logged per service (for backoff)
+    this._lastErrorLog = new Map();
   }
 
   /**
@@ -81,6 +86,16 @@ class HealthCheckService {
   async checkEVO() {
     const start = Date.now();
     const config = HEALTH_CHECKS.EVO;
+
+    // skip if configuration incomplete
+    if (!config.url || !config.auth?.username || !config.auth?.password) {
+      if (!this._skippedReported.has('EVO')) {
+        logger.warn('⚠️ [HEALTH] EVO check skipped due to missing configuration');
+        this._skippedReported.add('EVO');
+      }
+      await this.recordHealth('EVO', 'skipped', 0, 'Falta configuración');
+      return { estado: 'skipped' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -95,7 +110,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] EVO fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('EVO') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] EVO fallo:', error.message);
+        this._lastErrorLog.set('EVO', now);
+      }
       await this.recordHealth('EVO', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }
@@ -107,6 +127,15 @@ class HealthCheckService {
   async checkW12() {
     const start = Date.now();
     const config = HEALTH_CHECKS.W12;
+
+    if (!config.url || !config.auth?.username || !config.auth?.password) {
+      if (!this._skippedReported.has('W12')) {
+        logger.warn('⚠️ [HEALTH] W12 check skipped due to missing configuration');
+        this._skippedReported.add('W12');
+      }
+      await this.recordHealth('W12', 'skipped', 0, 'Falta configuración');
+      return { estado: 'skipped' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -121,7 +150,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] W12 fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('W12') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] W12 fallo:', error.message);
+        this._lastErrorLog.set('W12', now);
+      }
       await this.recordHealth('W12', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }
@@ -133,6 +167,15 @@ class HealthCheckService {
   async checkDjango() {
     const start = Date.now();
     const config = HEALTH_CHECKS.DJANGO;
+
+    if (!config.url) {
+      if (!this._skippedReported.has('DJANGO')) {
+        logger.warn('⚠️ [HEALTH] Django check skipped due to missing configuration');
+        this._skippedReported.add('DJANGO');
+      }
+      await this.recordHealth('DJANGO', 'skipped', 0, 'Falta configuración');
+      return { estado: 'skipped' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -146,7 +189,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] Django fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('DJANGO') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] Django fallo:', error.message);
+        this._lastErrorLog.set('DJANGO', now);
+      }
       await this.recordHealth('DJANGO', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }

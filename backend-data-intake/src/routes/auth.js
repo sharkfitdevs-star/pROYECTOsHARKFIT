@@ -467,6 +467,7 @@ router.post('/login',
     });
 
     if (!usuario) {
+      logger.debug('Usuario no encontrado para login', { email, username });
       await logAudit({
         action: 'LOGIN_FAIL',
         meta: { reason: 'user_not_found' },
@@ -524,9 +525,11 @@ router.post('/login',
       });
     }
 
+    logger.debug('Comparando contraseña para usuario', { userId: usuario._id });
     const passwordMatch = await usuario.comparePassword(password);
 
     if (!passwordMatch) {
+      logger.debug('Password no coincide', { userId: usuario._id });
       usuario.registerFailedLogin(MAX_FAILED_LOGINS, LOCK_MINUTES);
       await usuario.save();
 
@@ -605,7 +608,16 @@ router.post('/login',
       user: userResponse
     });
   } catch (error) {
-    logger.error('❌ Error en login:', { message: error.message, error });
+    // log completo sin alterar la respuesta al cliente
+    const clientMeta = getClientMeta(req);
+    logger.error('❌ Error en login DETALLADO', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      ...clientMeta,
+      // conservar el objeto completo por si se necesita
+      error
+    });
     res.status(500).json({
       error: true,
       message: 'Error al iniciar sesion'

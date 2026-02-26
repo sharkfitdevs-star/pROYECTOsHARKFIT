@@ -96,6 +96,11 @@ const clienteSchema = new mongoose.Schema({
     default: 'evo',
     index: true 
   },
+  importId: {
+    type: String,
+    index: true,
+    default: null
+  },
   externalId: String
 }, {
   timestamps: true,

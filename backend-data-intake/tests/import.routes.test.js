@@ -3,6 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 
+// stub sync log helpers since routes now call them
+jest.mock('../src/db/repositories', () => ({
+  listImportHistory: jest.fn(),
+  createSyncLog: jest.fn().mockResolvedValue(true),
+  updateSyncLog: jest.fn().mockResolvedValue(true)
+}));
+
 const UPLOAD_DIR = path.resolve(__dirname, '..', 'uploads');
 
 describe('Import routes (enqueue behavior)', () => {
@@ -67,6 +74,149 @@ describe('Import routes (enqueue behavior)', () => {
     mongoose.modelSchemas = {};
   });
 
+  test('POST /api/import/excel/commit processes file synchronously and returns counts', async () => {
+    // stub service to avoid real processing
+    const processExcelFile = jest.fn().mockResolvedValue({ insertedCount: 5, skippedCount: 2, estatus: 'Exitoso', totalRows:1 });
+    jest.doMock('../src/services/ImportService', () => ({ processExcelFile }));
+
+    const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
+
+    const app = require('../src/app');
+    const mapeo = { Nombre: 'cliente.nombre', Email: 'cliente.email' };
+
+    const res = await request(app)
+      .post('/api/import/excel/commit')
+      .field('mapeo', JSON.stringify(mapeo))
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake-xlsx-content'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.counts.inserted).toBe(5);
+    expect(res.body.counts.skipped).toBe(2);
+    expect(res.body.status).toBe('Exitoso');
+    expect(processExcelFile).toHaveBeenCalled();
+    expect(createSyncLog).toHaveBeenCalledWith(expect.objectContaining({ syncId: expect.any(String), estatus: 'Procesando' }));
+    expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: expect.any(String) }));
+  });
+
+  test('commit is idempotent when same importId is reused', async () => {
+    const processExcelFile = jest.fn().mockResolvedValue({ insertedCount: 1, skippedCount: 0, estatus: 'Exitoso', totalRows:1 });
+    jest.doMock('../src/services/ImportService', () => ({ processExcelFile }));
+    const { createSyncLog } = require('../src/db/repositories');
+    createSyncLog.mockClear();
+
+    const app = require('../src/app');
+    const importId = 'fixed-id-123';
+
+    const base = request(app).post('/api/import/excel/commit')
+      .field('mapeo', JSON.stringify({ a: 'a' }))
+      .field('entidad', 'clientes')
+      .field('importId', importId)
+      .attach('file', Buffer.from('fake'), { filename: 'd.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    const [r1, r2] = await Promise.all([base, base]);
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(r1.body.importId).toBe(importId);
+    expect(r2.body.importId).toBe(importId);
+    // createSyncLog called twice but should not throw duplicate-key
+    expect(createSyncLog).toHaveBeenCalledTimes(2);
+  });
+
+  test('POST /api/import/csv/commit returns counts synchronously', async () => {
+    const processCSVFile = jest.fn().mockResolvedValue({ insertedCount: 3, skippedCount: 1, estatus: 'Parcial', totalRows:1 });
+    jest.doMock('../src/services/ImportService', () => ({ processCSVFile }));
+
+    const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
+
+    const app = require('../src/app');
+    const mapeo = { Nombre: 'cliente.nombre', Email: 'cliente.email' };
+
+    const res = await request(app)
+      .post('/api/import/csv/commit')
+      .field('mapeo', JSON.stringify(mapeo))
+      .field('entidad', 'clientes')
+      .field('delimitador', ',')
+      .attach('file', Buffer.from('a,b\n1,2'), { filename: 'data.csv', contentType: 'text/csv' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.counts.inserted).toBe(3);
+    expect(res.body.counts.skipped).toBe(1);
+    expect(res.body.status).toBe('Parcial');
+    expect(processCSVFile).toHaveBeenCalled();
+    expect(createSyncLog).toHaveBeenCalledWith(expect.objectContaining({ syncId: expect.any(String), estatus: 'Procesando' }));
+    expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: expect.any(String) }));
+  });
+
+  test('POST /api/import/excel/commit reports failure and still logs', async () => {
+    const processExcelFile = jest.fn().mockRejectedValue(new Error('boom'));
+    jest.doMock('../src/services/ImportService', () => ({ processExcelFile }));
+    const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
+
+    const app = require('../src/app');
+    const mapeo = { Nombre: 'cliente.nombre', Email: 'cliente.email' };
+
+    const res = await request(app)
+      .post('/api/import/excel/commit')
+      .field('mapeo', JSON.stringify(mapeo))
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toMatch(/boom/);
+    expect(createSyncLog).toHaveBeenCalled();
+    expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: 'Fallido' }));
+  });
+
+  test('POST /api/import/csv/commit reports failure and still logs', async () => {
+    const processCSVFile = jest.fn().mockRejectedValue(new Error('boom2'));
+    jest.doMock('../src/services/ImportService', () => ({ processCSVFile }));
+    const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
+
+    const app = require('../src/app');
+    const mapeo = { Nombre: 'cliente.nombre' };
+
+    const res = await request(app)
+      .post('/api/import/csv/commit')
+      .field('mapeo', JSON.stringify(mapeo))
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('a,b\n1,2'), { filename: 'data.csv', contentType: 'text/csv' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toMatch(/boom2/);
+    expect(createSyncLog).toHaveBeenCalled();
+    expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: 'Fallido' }));
+  });
+
+  test('POST /api/import/excel/commit with malformed mapping still logs and returns error', async () => {
+    const app = require('../src/app');
+    const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
+
+    const res = await request(app)
+      .post('/api/import/excel/commit')
+      .field('mapeo', '{badjson')
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toMatch(/Mapeo JSON inválido/);
+    expect(createSyncLog).toHaveBeenCalled();
+    expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: 'Fallido' }));
+  });
+
   test('POST /api/import/excel enqueues import job via queueImportTask', async () => {
     const queueImportTask = jest.fn().mockResolvedValue({ id: 'imp-job-1' });
     jest.doMock('../src/workers/api-worker', () => ({ queueImportTask }));
@@ -85,7 +235,8 @@ describe('Import routes (enqueue behavior)', () => {
     expect(res.body.exito).toBe(true);
     expect(res.body.queued).toBe(true);
     expect(res.body.jobId).toBe('imp-job-1');
-    expect(queueImportTask).toHaveBeenCalledWith('excel', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes');
+    expect(res.body.syncId).toBeDefined();
+    expect(queueImportTask).toHaveBeenCalledWith('excel', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes', expect.objectContaining({ syncId: expect.any(String) }));
   });
 
   test('POST /api/import/csv enqueues CSV import job via queueImportTask', async () => {
@@ -107,6 +258,160 @@ describe('Import routes (enqueue behavior)', () => {
     expect(res.body.exito).toBe(true);
     expect(res.body.queued).toBe(true);
     expect(res.body.jobId).toBe('imp-job-2');
-    expect(queueImportTask).toHaveBeenCalledWith('csv', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes', expect.objectContaining({ delimitador: ',' }));
+    expect(res.body.syncId).toBeDefined();
+    expect(queueImportTask).toHaveBeenCalledWith('csv', expect.objectContaining({ path: expect.any(String) }), expect.any(Object), 'clientes', expect.objectContaining({ delimitador: ',', syncId: expect.any(String) }));
+  });
+
+  test('GET /api/import/history returns normalized field names', async () => {
+    const fakeLogs = [
+      {
+        syncId: 'abc123',
+        fuente: 'Excel',
+        entidad: 'clientes',
+        estatus: 'Exitoso',
+        iniciado: '2025-01-01T00:00:00.000Z',
+        registosProcesados: 5,
+        registosInseridos: 2
+      }
+    ];
+    const listImportHistory = jest.fn().mockResolvedValue(fakeLogs);
+    jest.doMock('../src/db/repositories', () => ({ listImportHistory }));
+
+    const app = require('../src/app');
+    const res = await request(app).get('/api/import/history');
+
+    expect(res.status).toBe(200);
+    expect(res.body.exito).toBe(true);
+    expect(res.body.datos).toHaveLength(1);
+    expect(res.body.datos[0]).toEqual({
+      syncId: 'abc123',
+      iniciado: '2025-01-01T00:00:00.000Z',
+      fuente: 'Excel',
+      entidad: 'clientes',
+      estatus: 'Exitoso',
+      totalRows: undefined,
+      insertedCount: undefined,
+      skippedCount: undefined,
+      invalidCount: undefined,
+      errorMessage: undefined,
+      errorCode: undefined,
+      warnings: undefined,
+      mappingUsed: undefined,
+      detectedHeaders: undefined,
+      sheetName: undefined,
+      fileMeta: undefined
+    });
+  });
+
+  test('POST /api/import/excel returns 400 when mapeo JSON is malformed', async () => {
+    const app = require('../src/app');
+    const res = await request(app)
+      .post('/api/import/excel')
+      .field('mapeo', '{invalidJson')
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'x.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.exito).toBe(false);
+    expect(res.body.error).toMatch(/Mapeo JSON inválido/);
+  });
+
+  test('POST /api/import/csv returns 400 when entidad is invalid', async () => {
+    const app = require('../src/app');
+    const res = await request(app)
+      .post('/api/import/csv')
+      .field('mapeo', JSON.stringify({ a: 'a' }))
+      .field('entidad', 'invalida')
+      .attach('file', Buffer.from('a,b\n1,2'), { filename: 'data.csv', contentType: 'text/csv' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.exito).toBe(false);
+    expect(res.body.error).toMatch(/Entidad inválida/);
+  });
+
+  test('POST /api/import/excel returns 400 when entidad is invalid', async () => {
+    const app = require('../src/app');
+    const res = await request(app)
+      .post('/api/import/excel')
+      .field('mapeo', JSON.stringify({ a: 'a' }))
+      .field('entidad', 'otra')
+      .attach('file', Buffer.from('fake'), { filename: 'x.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.exito).toBe(false);
+    expect(res.body.error).toMatch(/Entidad inválida/);
+  });
+
+  test('POST /api/import/preview returns ok true with importId and additional metadata', async () => {
+    const app = require('../src/app');
+    // fake preview output
+    const previewExcelFile = jest.fn().mockResolvedValue({
+      columnas: ['Nombre','Email'],
+      primerosRegistros: [['Juan','juan@test.com'],['Ana','ana@test.com']]
+    });
+    jest.doMock('../src/services/ImportService', () => ({ previewExcelFile }));
+
+    const res = await request(app)
+      .post('/api/import/preview')
+      .field('entity','clientes')
+      .attach('file', Buffer.from('data'), { filename: 'f.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.importId).toBeDefined();
+    expect(res.body.headers).toEqual(['Nombre','Email']);
+    expect(res.body.normalizedHeaders).toEqual(['nombre','email']);
+    expect(Array.isArray(res.body.sampleRows)).toBe(true);
+    expect(res.body.suggestedMapping).toEqual(expect.objectContaining({ name: 'Nombre', email: 'Email' }));
+    expect(res.body.previewRows).toEqual(expect.any(Array));
+  });
+
+  test('POST /api/import/preview logs failure and returns importId', async () => {
+    const app = require('../src/app');
+    const res = await request(app).post('/api/import/preview');
+    // missing file should produce 400 with NO_FILE error
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('NO_FILE');
+    expect(res.body).toHaveProperty('importId');
+  });
+
+  test('POST /api/import/preview echoes provided importId even on error', async () => {
+    const app = require('../src/app');
+    const res = await request(app).post('/api/import/preview').field('importId', 'manual-42');
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.importId).toBe('manual-42');
+    expect(res.body.error).toBe('NO_FILE');
+  });
+
+  test('GET /api/import/history returns metadata fields when present', async () => {
+    const fakeLogs = [
+      {
+        syncId: 'xyz',
+        fuente: 'CSV',
+        entidad: 'clientes',
+        estatus: 'Fallido',
+        total_rows: 3,
+        inserted_count: 1,
+        skipped_count: 1,
+        invalid_count: 1,
+        error_message: 'test error'
+      }
+    ];
+    const listImportHistory = jest.fn().mockResolvedValue(fakeLogs.map(r => ({ ...r, registosProcesados:0, registosInseridos:0, registosActualizados:0, registosFallidos:0 })));
+    jest.doMock('../src/db/repositories', () => ({ listImportHistory }));
+    const app = require('../src/app');
+    const res = await request(app).get('/api/import/history');
+    expect(res.body.datos[0]).toMatchObject({
+      syncId: 'xyz',
+      fuente: 'CSV',
+      estatus: 'Fallido',
+      totalRows: 3,
+      insertedCount: 1,
+      skippedCount: 1,
+      invalidCount: 1,
+      errorMessage: 'test error'
+    });
   });
 });

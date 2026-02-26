@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ExportarDatos from './ExportarDatos'
+import { createToast } from '@/components/ui/use-toast'
+import ImportarExcelSection from './ImportarExcelSection'
+import ClientesSection from './ClientesSection'
 import './Dashboard.css'
 
 function Dashboard() {
@@ -15,6 +18,41 @@ function Dashboard() {
     const t = setTimeout(() => setLoading(false), 500)
     return () => clearTimeout(t)
   }, [])
+
+  // component to render toggle switch in sidebar
+  function ImportToggle() {
+    const {
+      importsConnected,
+      isTogglingImports,
+      setImportsConnectedRemote,
+    } = useAuth();
+
+    const handleClick = async () => {
+      const target = !importsConnected;
+      const msg = target
+        ? '¿Conectar importaciones globalmente?'
+        : '¿Desconectar importaciones globalmente? Los datos importados se ocultarán.';
+      if (!window.confirm(msg)) return;
+      try {
+        const val = await setImportsConnectedRemote(target);
+        createToast({ title: 'Éxito', description: `Importaciones ${val ? 'conectadas' : 'desconectadas'}` });
+      } catch (e) {
+        // error toast already handled in context
+      }
+    };
+
+    return (
+      <button
+        className="nav-item"
+        onClick={handleClick}
+        disabled={isTogglingImports}
+        style={{ color: importsConnected ? 'black' : '#c53030' }}
+        title="Datos importados"
+      >
+        📁 Datos importados: {importsConnected ? 'ON' : 'OFF'}
+      </button>
+    );
+  }
 
   const sections = {
     overview: {
@@ -46,12 +84,7 @@ function Dashboard() {
     },
     clients: {
       title: '👥 Clientes',
-      content: () => (
-        <div className="section-placeholder">
-          <p>📋 Gestión de clientes - Próximamente</p>
-          <p className="subtitle">Se cargarán los 60+ componentes de clientes aquí</p>
-        </div>
-      )
+      content: () => <ClientesSection />,
     },
     sales: {
       title: '💼 Ventas',
@@ -70,6 +103,10 @@ function Dashboard() {
           <p className="subtitle">Se cargarán los componentes de alertas aquí</p>
         </div>
       )
+    },
+    importar: {
+      title: '📂 Importar Excel',
+      content: () => <ImportarExcelSection />
     },
     exportar: {
       title: '📥 Exportar Datos',
@@ -100,6 +137,9 @@ function Dashboard() {
             <span className="notification-badge">3</span>
           </button>
           <button className="btn-icon" title="Configuración">⚙️</button>
+          <button className="btn-icon" title="Cerrar sesión" onClick={() => { logout(); navigate('/login'); }}>
+            🚪
+          </button>
           <div className="user-menu">
             <button className="btn-user" title="Mi perfil">
               <span className="user-avatar">
@@ -139,6 +179,13 @@ function Dashboard() {
               🚨 Alertas
             </button>
 
+            <button
+              className={`nav-item ${activeSection === 'importar' ? 'active' : ''}`}
+              onClick={() => setActiveSection('importar')}
+            >
+              📂 Importar Excel
+            </button>
+
             {/* Línea separadora */}
             <div style={{ height: '1px', background: '#93509e', margin: '15px 0', opacity: 0.5 }}></div>
 
@@ -150,6 +197,9 @@ function Dashboard() {
             >
               📥 Exportar datos
             </button>
+
+            {/* global toggle for imports connection */}
+            <ImportToggle />
           </nav>
 
           <div className="sidebar-footer">

@@ -1,0 +1,48 @@
+{
+  "id": "api-shopify",
+  "name": "Shopify API",
+  "type": "rest",
+  "description": "Extrae productos y órdenes desde Shopify con 6 estrategias de fallback",
+  
+  "baseURL": "${SHOPIFY_BASE_URL}",
+  
+  "auth": {
+    "type": "bearer",
+    "token": "${SHOPIFY_API_TOKEN}"
+  },
+
+  "endpoints": [
+    {
+      "path": "/admin/api/2024-01/products.json",
+      "method": "GET",
+      "fields": ["id", "title", "status", "vendor", "product_type", "price"],
+      "idField": "id",
+      "dataPath": "products",
+      "params": {
+        "limit": 250,
+        "status": "active"
+      },
+      "limit": 1000
+    },
+    {
+      "path": "/admin/api/2024-01/orders.json",
+      "method": "GET",
+      "fields": ["id", "order_number", "customer", "total_price", "created_at"],
+      "idField": "id",
+      "dataPath": "orders",
+      "params": {
+        "limit": 250,
+        "status": "any"
+      }
+    }
+  ],
+
+  "syncInterval": 15,
+  "retryStrategy": {
+    "maxAttempts": 5,
+    "backoffMs": 2000,
+    "timeoutMs": 10000
+  },
+
+  "createdAt": "2026-02-13T00:00:00Z"
+}

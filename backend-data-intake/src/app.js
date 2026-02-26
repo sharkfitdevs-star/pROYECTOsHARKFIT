@@ -96,7 +96,7 @@ app.use((req, res, next) => {
 // ==================== RUTAS ====================
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuariosNew');
-const clientesRoutes = require('./routes/clientesNew');
+const clientesRoutes = require('./routes/clientesRoutes');
 const ventasRoutes = require('./routes/ventasNew');
 
 const agendamientosRoutes = require('./routes/agendamientosNew');

@@ -1,17 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { Cliente } = require('../models');
+const Setting = require('../models/Setting');
 
 /**
  * GET /api/clientes
  * Listar clientes
  */
 router.get('/', async (req, res) => {
+  const { page = 1, limit = 10, status, active, search, idBranch } = req.query;
+  let importsConnected = true;
   try {
-    const { page = 1, limit = 10, status, active, search, idBranch } = req.query;
-    
+    const sett = await Setting.findOne({ key: 'imports_connected' }).lean();
+    if (sett && sett.value === false) importsConnected = false;
+  } catch (e) {
+    // ignore failure reading setting, assume connected
+    logger.warn('failed to read imports_connected setting', { error: e.message });
+  }
+
+  try {
+    // build base query
     const query = {};
-    
     if (status) query.status = status;
     if (active !== undefined) query.active = active === 'true';
     if (idBranch) query.idBranch = idBranch;
@@ -23,27 +32,55 @@ router.get('/', async (req, res) => {
         { cellPhone: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
+    // if disconnected, only return legacy records (no importId)
+    if (!importsConnected) {
+      const hideClause = {
+        $or: [
+          { importId: { $exists: false } },
+          { importId: null },
+          { importId: "" }
+        ]
+      };
+      // merge with existing query
+      if (query.$or) {
+        const or = query.$or;
+        delete query.$or;
+        query.$and = [{ $or: or }, hideClause];
+      } else {
+        Object.assign(query, hideClause);
+      }
+    }
+
     const clientes = await Cliente.find(query)
       .sort({ registrationDate: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-    
     const count = await Cliente.countDocuments(query);
-    
+
+    logger.info('listar_clientes', {
+      importsConnected,
+      clientes_count: clientes.length,
+      legacy_count: !importsConnected ? count : undefined
+    });
+
     res.json({
-      success: true,
+      ok: true,
+      importsConnected,
       data: clientes,
       total: count,
       page: parseInt(page),
       pages: Math.ceil(count / limit)
     });
   } catch (error) {
-    const { logger } = require('../utils/logger');
-    logger.error('Error listing clientes:', { error });
+    logger.error('Error listing clientes:', {
+      error: error.message,
+      importsConnected
+    });
     res.status(500).json({
-      error: true,
-      message: 'Error al listar clientes'
+      ok: false,
+      error: 'Error al obtener clientes',
+      details: { errorMessage: error.message }
     });
   }
 });

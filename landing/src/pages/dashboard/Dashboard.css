@@ -305,3 +305,39 @@
   color: #64748b;
   margin-top: 8px;
 }
+
+/* estilos para tabla de vista previa e historial de importación */
+.preview-table, .history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.preview-table th, .preview-table td,
+.history-table th, .history-table td {
+  border: 1px solid #ccc;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+.preview-container {
+  max-height: 200px;
+  overflow: auto;
+}
+.history-container {
+  max-height: 300px;
+  overflow: auto;
+}
+
+/* mensajes de estado */
+.error-text {
+  color: red;
+  margin-top: 0.5rem;
+}
+.success-text {
+  color: green;
+  margin-top: 0.5rem;
+}
+.info-text {
+  color: #666;
+  font-style: italic;
+  margin-top: 0.5rem;
+}

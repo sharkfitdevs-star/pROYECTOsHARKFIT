@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import '../../styles/Auth.css'
 
 function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -24,11 +24,11 @@ function Login() {
     setLocalError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login({ identifier, password })
       navigate('/dashboard', { replace: true })
     } catch (err) {
-      // el contexto ya puso authError, aquí sólo guardamos fallback
-      setLocalError(err.message || 'Error al iniciar sesión')
+      const msg = err?.response?.data?.error || err.message || 'Error al iniciar sesión'
+      setLocalError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -67,12 +67,12 @@ function Login() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="identifier">Email o usuario</label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 disabled={disabled}
               />
             </div>

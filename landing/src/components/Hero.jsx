@@ -9,8 +9,8 @@ export default function Hero() {
           <h1>Todo lo que tu negocio necesita en un dashboard</h1>
           <p>Gestiona clientes, ventas, alertas y reportes desde una sola plataforma. Aumenta productividad, reduce costos, crecimiento escalable.</p>
           <div className="hero-buttons">
-            <a href="http://localhost:5173" className="btn-primary">Iniciar sesión</a>
-            <a href="#pricing" className="btn-secondary">Ver precios</a>
+          <Link to="/login" className="hero-btn">Iniciar sesión</Link>
+          <Link to="/register" className="hero-btn hero-btn-secondary">Registrarse</Link>
           </div>
           <div className="hero-stats">
             <div className="stat">
@@ -30,4 +30,8 @@ export default function Hero() {
       </div>
     </section>
   )
+
+import React from "react";
+import { Link } from "react-router-dom";
+import "./Hero.css";
 }

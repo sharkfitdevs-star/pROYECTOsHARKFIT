@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="container">
         <div className="footer-content">
           <div className="footer-section">
-            <h4>📊 Vendify</h4>
+            <h4>📊 Sharkfit</h4>
             <p>Gestión comercial inteligente para tu negocio</p>
           </div>
           <div className="footer-section">
@@ -38,7 +38,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>&copy; 2026 Vendify. Todos los derechos reservados.</p>
+          <p>&copy; 2026 Sharkfit. Todos los derechos reservados.</p>
           <div className="socials">
             <a href="#">Twitter</a>
             <a href="#">LinkedIn</a>

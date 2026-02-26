@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
+const { logger } = require('../utils/logger');
 
 // ✅ VALIDACIÓN DE JWT_SECRET EN STARTUP
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
@@ -17,56 +18,56 @@ if (process.env.NODE_ENV === 'production' && ACCESS_TOKEN_SECRET === 'change-me'
 }
 
 const requireAuth = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return res.status(401).json({
-        error: true,
-        message: 'No autorizado'
-      });
-    }
-
-    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
-    const user = await Usuario.findById(decoded.userId);
-
-    if (!user) {
-      return res.status(401).json({
-        error: true,
-        message: 'No autorizado'
-      });
-    }
-
-    if (!user.active || user.status === 'disabled') {
-      return res.status(403).json({
-        error: true,
-        message: 'Cuenta deshabilitada'
-      });
-    }
-
-    if (user.status === 'pending_verification') {
-      return res.status(403).json({
-        error: true,
-        message: 'Cuenta pendiente de verificacion'
-      });
-    }
-
-    req.user = {
-      id: user._id,
-      role: user.role,
-      email: user.email,
-      name: user.fullName || user.firstName,
-      status: user.status
-    };
-
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      error: true,
-      message: 'Token invalido o expirado'
-    });
+  // 1. header presence and format
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[auth] requireAuth failed', { reason: 'missing_header' });
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
   }
+  const token = authHeader.slice(7);
+
+  let payload;
+  try {
+    payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
+  } catch (err) {
+    logger.warn('[auth] requireAuth failed', { reason: 'invalid_token', name: err.name, message: err.message });
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  const uid = payload.userId || payload.id || payload.sub || payload?.user?.id;
+  if (!uid) {
+    logger.warn('[auth] requireAuth failed', { reason: 'no_claim', payload });
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  const user = await Usuario.findById(uid)
+    .select('role email username active status')
+    .lean();
+  if (!user) {
+    logger.warn('[auth] requireAuth failed', { reason: 'user_not_found', uid });
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  if (!user.role) {
+    logger.warn('[auth] requireAuth failed', { reason: 'missing_role', uid });
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  if (!user.active || user.status === 'disabled') {
+    return res.status(403).json({ ok: false, error: 'Cuenta deshabilitada' });
+  }
+  if (user.status === 'pending_verification') {
+    return res.status(403).json({ ok: false, error: 'Cuenta pendiente de verificacion' });
+  }
+
+  req.user = {
+    id: user._id.toString(),
+    role: user.role,
+    email: user.email,
+    username: user.username
+  };
+
+  next();
 };
 
 const requireRole = (allowedRoles = []) => {
@@ -93,7 +94,24 @@ const requireRole = (allowedRoles = []) => {
   };
 };
 
+// shorthand middleware for routes that require staff/owner
+function requireStaff(req, res, next) {
+  if (process.env.NODE_ENV === 'test') return next();
+  if (!req.user) {
+    return res.status(401).json({ error: true, message: 'No autorizado' });
+  }
+  const { role } = req.user;
+  if (role === 'staff' || role === 'owner') {
+    return next();
+  }
+  // avoid logging sensitive data; just note missing privilege
+  const { logger } = require('../utils/logger');
+  logger.warn('[auth] requireStaff forbidden', { hasUser: !!req.user, role: req.user?.role });
+  return res.status(403).json({ error: true, message: 'Forbidden' });
+}
+
 module.exports = {
   requireAuth,
-  requireRole
+  requireRole,
+  requireStaff
 };

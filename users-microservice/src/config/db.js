@@ -1,17 +1,20 @@
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-dotenv.config();
 
+// connectDB reads the URI from process.env.MONGODB_URI.  The caller
+// (typically app.js) is responsible for running dotenv.config() first.
 const connectDB = async () => {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error('❌ MONGODB_URI no está definida en el .env de users-microservice');
+    return; // no connect attempt
+  }
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('MongoDB connected');
+    await mongoose.connect(uri);
+    console.log('✅ [users-microservice] MongoDB connected:', uri);
   } catch (err) {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
+    console.error('❌ [users-microservice] MongoDB connection error:', err);
+    // process.exit(1); // descomenta si quieres terminar el proceso en producción
   }
 };
 

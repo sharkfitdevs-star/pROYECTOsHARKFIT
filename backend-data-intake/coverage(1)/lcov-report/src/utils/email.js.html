@@ -1,0 +1,370 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/utils/email.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> email.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">9.75% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>4/41</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">10.81% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>4/37</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/7</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">11.11% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>4/36</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/*
+ * EMAIL SERVICE — canonical clean file
+ */
+&nbsp;
+const { logger } = require('./logger');
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@sharkfit.com';
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendEmail(</span>{ to, subject, html, text }) {
+  const provider = <span class="cstat-no" title="statement not covered" >(EMAIL_PROVIDER || 'console').toLowerCase();</span>
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    if (provider === 'sendgrid') <span class="cstat-no" title="statement not covered" >return await sendWithSendGrid({ to, subject, html, text });</span></span>
+<span class="cstat-no" title="statement not covered" >    if (provider === 'mailgun') <span class="cstat-no" title="statement not covered" >return await sendWithMailgun({ to, subject, html, text });</span></span>
+<span class="cstat-no" title="statement not covered" >    return sendWithConsole({ to, subject, html, text });</span>
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    logger.error('Error enviando email:', err);</span>
+<span class="cstat-no" title="statement not covered" >    throw err;</span>
+  }
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendWithSendGrid(</span>{ to, subject, html, text }) {
+  const apiKey = <span class="cstat-no" title="statement not covered" >process.env.SENDGRID_API_KEY;</span>
+<span class="cstat-no" title="statement not covered" >  if (!apiKey) <span class="cstat-no" title="statement not covered" >throw new Error('SENDGRID_API_KEY no configurado');</span></span>
+  const sgMail = <span class="cstat-no" title="statement not covered" >require('@sendgrid/mail');</span>
+<span class="cstat-no" title="statement not covered" >  sgMail.setApiKey(apiKey);</span>
+<span class="cstat-no" title="statement not covered" >  await sgMail.send({ from: EMAIL_FROM, to, subject, html, text: text || html.replace(/&lt;[^&gt;]*&gt;/g, '') });</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(`Email enviado via SendGrid: ${to}`);</span>
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendWithMailgun(</span>{ to, subject, html, text }) {
+  const apiKey = <span class="cstat-no" title="statement not covered" >process.env.MAILGUN_API_KEY;</span> const domain = <span class="cstat-no" title="statement not covered" >process.env.MAILGUN_DOMAIN;</span>
+<span class="cstat-no" title="statement not covered" >  if (!apiKey || !domain) <span class="cstat-no" title="statement not covered" >throw new Error('MAILGUN no configurado');</span></span>
+  const mailgun = <span class="cstat-no" title="statement not covered" >require('mailgun-js')({ apiKey, domain });</span>
+<span class="cstat-no" title="statement not covered" >  await mailgun.messages().send({ from: EMAIL_FROM, to, subject, html, text: text || html.replace(/&lt;[^&gt;]*&gt;/g, '') });</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(`Email enviado via Mailgun: ${to}`);</span>
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >sendWithConsole(</span>{ to, subject, html, text }) {
+<span class="cstat-no" title="statement not covered" >  logger.warn('EMAIL_PROVIDER=console — email simulado');</span>
+<span class="cstat-no" title="statement not covered" >  logger.info('\n' + '='.repeat(60));</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(`To: ${to}`);</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(`From: ${EMAIL_FROM}`);</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(`Subject: ${subject}`);</span>
+<span class="cstat-no" title="statement not covered" >  logger.info(text || html.replace(/&lt;[^&gt;]*&gt;/g, ''));</span>
+<span class="cstat-no" title="statement not covered" >  logger.info('='.repeat(60) + '\n');</span>
+<span class="cstat-no" title="statement not covered" >  return true;</span>
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendVerificationEmail(</span>user, token) {
+  const verifyUrl = <span class="cstat-no" title="statement not covered" >`${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;</span>
+<span class="cstat-no" title="statement not covered" >  return sendEmail({ to: user.email, subject: 'Verifica tu cuenta — SharkFit', html: `&lt;!doctype html&gt;&lt;html&gt;&lt;body style="font-family:Arial,sans-serif;color:#333"&gt;&lt;div style="max-width:600px;margin:0 auto;padding:20px"&gt;&lt;h2&gt;¡Hola ${user.firstName}!&lt;/h2&gt;&lt;p&gt;Confirma tu email pulsando el botón a continuación:&lt;/p&gt;&lt;p style="text-align:center"&gt;&lt;a href="${verifyUrl}" style="background:#0066cc;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none;"&gt;Verificar email&lt;/a&gt;&lt;/p&gt;&lt;p style="word-break:break-all;color:#0066cc"&gt;${verifyUrl}&lt;/p&gt;&lt;p&gt;Si no solicitaste esto, ignora este mensaje.&lt;/p&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;`, text: `Verifica tu cuenta: ${verifyUrl}` });</span>
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendPasswordResetEmail(</span>user, token) {
+  const resetUrl = <span class="cstat-no" title="statement not covered" >`${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;</span>
+<span class="cstat-no" title="statement not covered" >  return sendEmail({ to: user.email, subject: 'Restablece tu contraseña — SharkFit', html: `&lt;!doctype html&gt;&lt;html&gt;&lt;body style="font-family:Arial,sans-serif;color:#333"&gt;&lt;div style="max-width:600px;margin:0 auto;padding:20px"&gt;&lt;h2&gt;Restablece tu contraseña&lt;/h2&gt;&lt;p&gt;Haz clic en el botón para crear una nueva contraseña:&lt;/p&gt;&lt;p style="text-align:center"&gt;&lt;a href="${resetUrl}" style="background:#dc3545;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none;"&gt;Restablecer contraseña&lt;/a&gt;&lt;/p&gt;&lt;p style="word-break:break-all;color:#dc3545"&gt;${resetUrl}&lt;/p&gt;&lt;p&gt;Este enlace expira en 1 hora.&lt;/p&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;`, text: `Restablece tu contraseña: ${resetUrl}` });</span>
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >sendAccessRequestEmail(</span>request) {
+  const adminEmail = <span class="cstat-no" title="statement not covered" >process.env.SEED_OWNER_EMAIL || process.env.EMAIL_FROM || 'admin@sharkfit.com';</span>
+<span class="cstat-no" title="statement not covered" >  return sendEmail({ to: adminEmail, subject: `Nueva solicitud de acceso — ${request.email}`, html: `&lt;!doctype html&gt;&lt;html&gt;&lt;body style="font-family:Arial,sans-serif;color:#333"&gt;&lt;div style="max-width:600px;margin:0 auto;padding:20px"&gt;&lt;h2&gt;Nueva solicitud de acceso&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;${request.firstName} ${request.lastName}&lt;/strong&gt; — ${request.email}&lt;/p&gt;&lt;p&gt;Empresa: ${request.company || '—'}&lt;/p&gt;&lt;p&gt;Mensaje: ${request.message || '—'}&lt;/p&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;`, text: `Solicitud: ${request.firstName} ${request.lastName} — ${request.email}\nEmpresa: ${request.company || '-'}\nMensaje: ${request.message || '-'}` });</span>
+}
+&nbsp;
+&nbsp;
+&nbsp;
+/**
+ * Console provider (desarrollo)
+ * Imprime el email en la consola en lugar de enviarlo
+ */
+&nbsp;
+&nbsp;
+// ----------------------
+// Email templates
+// ----------------------
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+/**
+ * Email para notificar al admin sobre una nueva solicitud de acceso
+ */
+&nbsp;
+&nbsp;
+module.exports = {
+  sendEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendAccessRequestEmail
+};
+&nbsp;
+&nbsp;
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-02-26T14:28:55.607Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

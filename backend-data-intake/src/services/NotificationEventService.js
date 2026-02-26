@@ -15,7 +15,7 @@ const notificationSchema = new mongoose.Schema({
   orderId: String,
   severity: String,
   timestamp: { type: Date, default: Date.now, index: true },
-  expiresAt: { type: Date, index: true }
+  expiresAt: { type: Date }
 }, { collection: 'notifications' });
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);

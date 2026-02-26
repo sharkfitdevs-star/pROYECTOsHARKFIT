@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../../components/ui/Button'
-import Badge from '../../components/ui/Badge'
+import Button from '@/components/ui/Button'
+import Badge from '@/components/ui/Badge'
 import './Dashboard.css'
 
 function ExportHistory() {

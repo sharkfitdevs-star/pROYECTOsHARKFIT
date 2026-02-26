@@ -17,8 +17,76 @@ function mapVenta(doc) { if (!doc) return null; return { id: doc._id?.toString()
 function mapLead(doc) { if (!doc) return null; return { id: doc._id?.toString(), leadId: doc.leadId || null, eventoId: doc.eventoId || null, clienteId: doc.clienteId || null, nombre: doc.nombre || doc.name || null, email: doc.email || null, telefono: doc.telefono || doc.cellPhone || null, empresa: doc.empresa || null, estatus: doc.estatus || null, probabilidad: doc.probabilidad || doc.probability || 0, leadScore: doc.leadScore || 0, fuente: doc.fuente || 'mongodb', data: doc.data || {}, createdAt: doc.createdAt || null, updatedAt: doc.updatedAt || null, syncedAt: doc.syncedAt || null }; }
 
 // SYNC LOGS (Mongo)
-async function createSyncLog(data = {}) { const col = mongoose.connection.collection('sync_logs'); const now = new Date(); const payload = { sync_id: data.syncId || uuidv4(), fuente: data.fuente || data.source || 'API', estatus: data.estatus || data.status || 'Procesando', registos_procesados: data.registosProcesados || data.processed || 0, registos_inseridos: data.registosInseridos || data.created || 0, registos_actualizados: data.registosActualizados || data.updated || 0, registos_fallidos: data.registosFallidos || data.failed || 0, errores: JSON.stringify(data.errores || []), iniciado: toIso(data.iniciado || now), finalizado: toIso(data.finalizado || null), duracion_ms: data.duracionMs || data.duration || null, cambios: JSON.stringify(data.cambios || {}), proximo_intento: toIso(data.proximoIntento || null), reintento_count: data.reintentoCount || 0, createdAt: now }; const result = await col.insertOne(payload); return Object.assign({}, payload, { id: result.insertedId.toString(), syncId: payload.sync_id }); }
-async function updateSyncLog(syncId, updates = {}) { const col = mongoose.connection.collection('sync_logs'); const query = { $or: [{ sync_id: syncId }] }; if (/^[0-9a-fA-F]{24}$/.test(syncId)) { try { query.$or.push({ _id: new mongoose.Types.ObjectId(syncId) }); } catch (e) {} } const doc = await col.findOne(query); if (!doc) return null; const payload = {}; if (updates.estatus !== undefined) payload.estatus = updates.estatus; if (updates.registosProcesados !== undefined) payload.registos_procesados = updates.registosProcesados; if (updates.registosInseridos !== undefined) payload.registos_inseridos = updates.registosInseridos; if (updates.registosActualizados !== undefined) payload.registos_actualizados = updates.registosActualizados; if (updates.registosFallidos !== undefined) payload.registos_fallidos = updates.registosFallidos; if (updates.errores !== undefined) payload.errores = JSON.stringify(updates.errores); if (updates.finalizado !== undefined) payload.finalizado = toIso(updates.finalizado); if (updates.duracionMs !== undefined) payload.duracion_ms = updates.duracionMs; if (updates.cambios !== undefined) payload.cambios = JSON.stringify(updates.cambios); if (updates.proximoIntento !== undefined) payload.proximo_intento = toIso(updates.proximoIntento); if (updates.reintentoCount !== undefined) payload.reintento_count = updates.reintentoCount; await col.updateOne({ _id: doc._id }, { $set: payload }); return await col.findOne({ _id: doc._id }); }
+async function createSyncLog(data = {}) {
+  const col = mongoose.connection.collection('sync_logs');
+  const now = new Date();
+  const syncId = data.syncId || uuidv4();
+  const payload = {
+    sync_id: syncId,
+    entidad: data.entidad || data.entity || null,
+    fuente: data.fuente || data.source || 'API',
+    estatus: data.estatus || data.status || 'Procesando',
+    registos_procesados: data.registosProcesados || data.processed || 0,
+    registos_inseridos: data.registosInseridos || data.created || 0,
+    registos_actualizados: data.registosActualizados || data.updated || 0,
+    registos_fallidos: data.registosFallidos || data.failed || 0,
+    errores: JSON.stringify(data.errores || []),
+    // additional fields for detailed import history
+    total_rows: data.totalRows || data.registosProcesados || 0,
+    inserted_count: data.insertedCount || data.registosInseridos || 0,
+    skipped_count: data.skippedCount || 0,
+    invalid_count: data.invalidCount || 0,
+    warnings: JSON.stringify(data.warnings || []),
+    mapping_used: JSON.stringify(data.mappingUsed || {}),
+    detected_headers: JSON.stringify(data.detectedHeaders || []),
+    sheet_name: data.sheetName || null,
+    file_meta: JSON.stringify(data.fileMeta || {}),
+    error_message: data.errorMessage || null,
+    error_code: data.errorCode || null,
+    error_stack: data.errorStack ? data.errorStack.toString().slice(0, 2000) : null,
+    iniciado: toIso(data.iniciado || now),
+    finalizado: toIso(data.finalizado || null),
+    duracion_ms: data.duracionMs || data.duration || null,
+    cambios: JSON.stringify(data.cambios || {}),
+    proximo_intento: toIso(data.proximoIntento || null),
+    reintento_count: data.reintentoCount || 0,
+    createdAt: now
+  };
+
+  // use upsert to make operation idempotent when syncId provided
+  try {
+    const result = await col.findOneAndUpdate(
+      { sync_id: syncId },
+      { $setOnInsert: payload },
+      { upsert: true, returnDocument: 'after' }
+    );
+    const doc = result.value;
+    return Object.assign({}, payload, { id: doc._id.toString(), syncId: doc.sync_id });
+  } catch (err) {
+    // if unique index causes race, fetch existing document instead
+    if (err.code === 11000) {
+      const existing = await col.findOne({ sync_id: syncId });
+      if (existing) {
+        return Object.assign({}, payload, { id: existing._id.toString(), syncId: existing.sync_id });
+      }
+    }
+    throw err;
+  }
+}
+async function updateSyncLog(syncId, updates = {}) { const col = mongoose.connection.collection('sync_logs'); const query = { $or: [{ sync_id: syncId }] }; if (/^[0-9a-fA-F]{24}$/.test(syncId)) { try { query.$or.push({ _id: new mongoose.Types.ObjectId(syncId) }); } catch (e) {} } const doc = await col.findOne(query); if (!doc) return null; const payload = {}; if (updates.entidad !== undefined) payload.entidad = updates.entidad; if (updates.estatus !== undefined) payload.estatus = updates.estatus; if (updates.registosProcesados !== undefined) payload.registos_procesados = updates.registosProcesados; if (updates.registosInseridos !== undefined) payload.registos_inseridos = updates.registosInseridos; if (updates.registosActualizados !== undefined) payload.registos_actualizados = updates.registosActualizados; if (updates.registosFallidos !== undefined) payload.registos_fallidos = updates.registosFallidos; if (updates.errores !== undefined) payload.errores = JSON.stringify(updates.errores);
+    if (updates.totalRows !== undefined) payload.total_rows = updates.totalRows;
+    if (updates.insertedCount !== undefined) payload.inserted_count = updates.insertedCount;
+    if (updates.skippedCount !== undefined) payload.skipped_count = updates.skippedCount;
+    if (updates.invalidCount !== undefined) payload.invalid_count = updates.invalidCount;
+    if (updates.warnings !== undefined) payload.warnings = JSON.stringify(updates.warnings);
+    if (updates.mappingUsed !== undefined) payload.mapping_used = JSON.stringify(updates.mappingUsed);
+    if (updates.detectedHeaders !== undefined) payload.detected_headers = JSON.stringify(updates.detectedHeaders);
+    if (updates.sheetName !== undefined) payload.sheet_name = updates.sheetName;
+    if (updates.fileMeta !== undefined) payload.file_meta = JSON.stringify(updates.fileMeta);
+    if (updates.errorMessage !== undefined) payload.error_message = updates.errorMessage;
+    if (updates.errorCode !== undefined) payload.error_code = updates.errorCode;
+    if (updates.errorStack !== undefined) payload.error_stack = updates.errorStack ? updates.errorStack.toString().slice(0,2000) : null;
+    if (updates.finalizado !== undefined) payload.finalizado = toIso(updates.finalizado); if (updates.duracionMs !== undefined) payload.duracion_ms = updates.duracionMs; if (updates.cambios !== undefined) payload.cambios = JSON.stringify(updates.cambios); if (updates.proximoIntento !== undefined) payload.proximo_intento = toIso(updates.proximoIntento); if (updates.reintentoCount !== undefined) payload.reintento_count = updates.reintentoCount; await col.updateOne({ _id: doc._id }, { $set: payload }); return await col.findOne({ _id: doc._id }); }
 async function findSyncLogById(syncId) { const col = mongoose.connection.collection('sync_logs'); const query = { $or: [{ sync_id: syncId }] }; if (/^[0-9a-fA-F]{24}$/.test(syncId)) { try { query.$or.push({ _id: new mongoose.Types.ObjectId(syncId) }); } catch (e) {} } const row = await col.findOne(query); if (!row) return null; return { id: row._id?.toString(), syncId: row.sync_id, fuente: row.fuente, estatus: row.estatus, registosProcesados: row.registos_procesados, registosInseridos: row.registos_inseridos, registosActualizados: row.registos_actualizados, registosFallidos: row.registos_fallidos, errores: parseJson(row.errores, []), iniciado: row.iniciado, finalizado: row.finalizado, duracionMs: row.duracion_ms, cambios: parseJson(row.cambios, {}), proximoIntento: row.proximo_intento, reintentoCount: row.reintento_count }; }
 
 async function getLastSuccessfulSyncBySource(fuente) {
@@ -42,12 +110,25 @@ function mapSyncLog(row) {
   return {
     id: row._id?.toString(),
     syncId: row.sync_id || row._id?.toString(),
+    entidad: row.entidad || null,
     fuente: row.fuente,
     estatus: row.estatus,
+    totalRows: row.total_rows,
+    insertedCount: row.inserted_count,
+    skippedCount: row.skipped_count,
+    invalidCount: row.invalid_count,
     registosProcesados: row.registos_procesados,
     registosInseridos: row.registos_inseridos,
     registosActualizados: row.registos_actualizados,
     registosFallidos: row.registos_fallidos,
+    errorMessage: row.error_message,
+    errorCode: row.error_code,
+    errorStack: row.error_stack,
+    warnings: parseJson(row.warnings, []),
+    mappingUsed: parseJson(row.mapping_used, {}),
+    detectedHeaders: parseJson(row.detected_headers, []),
+    sheetName: row.sheet_name,
+    fileMeta: parseJson(row.file_meta, {}),
     errores: parseJson(row.errores, []),
     iniciado: row.iniciado,
     finalizado: row.finalizado,
@@ -72,6 +153,10 @@ async function listSyncLogs({ sourceId, desde, hasta, limit = 20 } = {}) {
 
 async function listImportHistory(limit = 50) {
   const col = mongoose.connection.collection('sync_logs');
+  if (!col || typeof col.find !== 'function') {
+    // defensive: connection may not be ready or collection not available
+    return [];
+  }
   const rows = await col.find({ fuente: { $in: ['Excel', 'CSV'] } }).sort({ iniciado: -1 }).limit(Number(limit)).toArray();
   return rows.map(mapSyncLog);
 }

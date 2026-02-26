@@ -7,11 +7,13 @@ const cookieParser = require("cookie-parser");
 const axios = require("axios");
 const crypto = require("crypto");
 const { Server: SocketIOServer } = require("socket.io");
+const net = require('net');
 
 const { logger } = require("./utils/logger");
 const { errorHandler } = require("./middleware/errorHandler");
 const { seedOwner } = require("./utils/seedOwner");  // ← AGREGADO
 const { connectToDB } = require('./db/db');
+const { createApp } = require('./app.IMPROVED');
 const authRoutes = require("./routes/auth");
 const importRoutes = require("./routes/import");
 const sourcesRoutes = require("./routes/sources");
@@ -20,6 +22,8 @@ const syncRoutes = require("./routes/sync");
 const webhooksRoutes = require("./routes/webhooks");
 const apiSetupRoutes = require("./routes/apiSetup");
 const healthRoutes = require("./routes/health");  // ← NUEVO
+const clientesRoutes = require("./routes/clientesRoutes");
+const settingsRoutes = require("./routes/settings");
 const evoRoutes = require("./routes/evo");
 const { extractAllApis } = require("./index");
 const { getHealthCheckService } = require("./services/HealthCheckService");  // ← NUEVO
@@ -203,37 +207,11 @@ async function syncSalesToDjango(sales, djangoToken, clientMap) {
 }
 
 // ============================================
-// EXPRESS & SOCKET.IO
+// SERVER-SPECIFIC ROUTES (will be added after app creation)
 // ============================================
-const app = express();
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  credentials: true
-}));
-app.use(cookieParser());
-app.use(express.json());
-
-// API Routes (SQLite-backed)
-app.use("/api/auth", authRoutes);
-app.use("/api/import", importRoutes);
-app.use("/api/sources", sourcesRoutes);
-app.use("/api/stats", statsRoutes);
-app.use("/api/evo", evoRoutes);
-app.use("/api/sync", syncRoutes);
-app.use("/api/webhooks", webhooksRoutes);
-app.use("/api/setup", apiSetupRoutes);
-app.use("/api/health", healthRoutes);  // ← NUEVO: Health checks
-
-// EXPORT RUNS
-const exportRoutes = require("./routes/export");
-app.use("/api/export", exportRoutes);  // endpoints de exportación/importación de datos
-
-
-const server = http.createServer(app);
-const io = new SocketIOServer(server, {
-  cors: { origin: process.env.CORS_ORIGIN || "http://localhost:5173" }
-});
+let app;
+let server;
+let io;
 
 // ============================================
 // RUTAS
@@ -422,11 +400,123 @@ io.on("connection", (socket) => {
 // ============================================
 // START SERVER
 // ============================================
+// Helper para comprobar si un puerto está libre
+function checkPortFree(port) {
+  return new Promise((resolve, reject) => {
+    const tester = net.createServer()
+      .once('error', err => {
+        if (err.code === 'EADDRINUSE') return reject(err);
+        reject(err);
+      })
+      .once('listening', () => {
+        tester.once('close', () => resolve()).close();
+      })
+      .listen(port, '0.0.0.0');
+  });
+}
+
 const startServer = async () => {
   try {
+    // verificar puerto antes de iniciar
+    try {
+      await checkPortFree(PORT);
+    } catch (err) {
+      logger.error(`Puerto ${PORT} ocupado, cierra el otro backend o mata el proceso`);
+      process.exit(1);
+    }
+
     // Conectar a MongoDB primero
     await connectToDB();
     logger.info('✅ MongoDB conectado');
+
+    // build app using factory
+    app = createApp();
+    // mount server-specific routes not covered by createApp()
+    app.use("/api/import", importRoutes);
+    app.use("/api/sources", sourcesRoutes);
+    app.use("/api/stats", statsRoutes);
+    app.use("/api/sync", syncRoutes);
+    app.use("/api/webhooks", webhooksRoutes);
+    app.use("/api/setup", apiSetupRoutes);
+    app.use("/api/export", require("./routes/export"));
+
+    // healthRoutes and clientesRoutes might be duplicates; only add if not already
+    app.use("/api/health", healthRoutes);
+    app.use("/api/clientes", clientesRoutes);
+
+    // create HTTP server and socket.io
+    server = http.createServer(app);
+    io = new SocketIOServer(server, {
+      cors: { origin: process.env.CORS_ORIGIN || "http://localhost:5173" }
+    });
+
+    // move socket handlers here (previously top-level)
+    io.use((socket, next) => {
+      const sessionToken = socket.handshake.auth?.sessionToken;
+      if (!sessionToken || !sessions.has(sessionToken)) {
+        return next(new Error("Sesión inválida"));
+      }
+      socket.sessionToken = sessionToken;
+      socket.session = sessions.get(sessionToken);
+      next();
+    });
+
+    io.on("connection", (socket) => {
+      logger.info(`Cliente conectado: ${socket.id}`);
+      let timer = setInterval(async () => {
+        try {
+          const { dns, token } = socket.session;
+          const snap = await fetchSnapshot(dns, token);
+          socket.emit("evo:snapshot", snap);
+        } catch (e) {
+          socket.emit("evo:error", {
+            ts: new Date().toISOString(),
+            message: e.message,
+          });
+        }
+      }, POLL_MS);
+
+      socket.on("sync:request", async () => {
+        try {
+          const { dns, token, django_token } = socket.session;
+          const snap = await fetchSnapshot(dns, token);
+
+          let results = {
+            clients: { synced: 0, errors: 0 },
+            sales: { synced: 0, errors: 0 },
+          };
+
+          if (snap.prospects?.ok && snap.prospects.data?.items) {
+            const clientResults = await syncClientesToDjango(
+              snap.prospects.data.items,
+              django_token
+            );
+            results.clients = clientResults;
+          }
+
+          if (snap.sales?.ok && snap.sales.data?.items) {
+            const clientMap = {};
+            results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, clientMap);
+          }
+
+          socket.emit("sync:complete", {
+            ok: true,
+            results,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (e) {
+          socket.emit("sync:error", {
+            ok: false,
+            message: e.message,
+          });
+        }
+      });
+
+      socket.on("disconnect", () => {
+        clearInterval(timer);
+        logger.info(`Cliente desconectado: ${socket.id}`);
+      });
+    });
 
     try {
       initializeEventServices();
@@ -451,8 +541,18 @@ const startServer = async () => {
       logger.info('⏭️ Health checks omitidos (entorno de test o SKIP_HEALTH_CHECKS)');
     }
     
-    server.listen(PORT, () => {
-      logger.info(`Servidor escuchando en http://localhost:${PORT}`);
+    // interceptar errores del servidor (especialmente EADDRINUSE)
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`Puerto ${PORT} ocupado, cierra el otro backend o mata el proceso`);
+        process.exit(1);
+      } else {
+        logger.error('Error en el servidor HTTP:', err);
+      }
+    });
+
+    server.listen(PORT, "0.0.0.0", () => {
+      logger.info(`Servidor escuchando en http://0.0.0.0:${PORT}`);
       logger.info('API Endpoints available');
       logger.info('   POST   /login              { dns, token, django_token } → sessionToken');
       logger.info('   GET    /api/snapshot       (requiere header x-session-token)');
@@ -469,8 +569,14 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+if (require.main === module) {
+  startServer().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
-startServer();
+module.exports = { startServer };
 
 // ============================================
 // AUTO-SYNC APIs EXTERNAS

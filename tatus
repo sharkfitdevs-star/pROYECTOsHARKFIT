@@ -1,0 +1,25 @@
+[33mcommit 662cb3713df2ddf427378a76a7c7bb5f8fb88be8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mpr-2/django-api-bridge-for-pr[m[33m, [m[1;31morigin/pr-2/django-api-bridge-for-pr[m[33m, [m[1;31morigin/pr-2/django-api-bridge[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mpr-2/django-api-bridge[m[33m)[m
+Author: tu-nombre <tu-email@ejemplo.com>
+Date:   Mon Feb 23 16:16:34 2026 -0300
+
+    Align frontend with backend port 3005, make API URL configurable; harden auth register handler; update docs and start scripts
+
+START.ps1
+START.sh
+backend-data-intake/.env.example
+backend-data-intake/README.md
+backend-data-intake/src/connectors/UniversalExtractor.js
+backend-data-intake/src/db/db.js
+backend-data-intake/src/routes/auth.js
+backend-data-intake/src/server.js
+backend-data-intake/src/services/abcEvo.js
+frontend/.env.example
+frontend/package-lock.json
+frontend/vite.config.js
+landing/package-lock.json
+landing/src/context/AuthContext.jsx
+landing/src/pages/auth/Login.jsx
+landing/src/pages/auth/Register.jsx
+landing/vite.config.js
+package-lock.json
+package.json

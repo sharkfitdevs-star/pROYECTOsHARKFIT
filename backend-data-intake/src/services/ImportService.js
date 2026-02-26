@@ -15,6 +15,10 @@ const {
   updateSyncLog,
   findClienteByEmail
 } = require('../db/repositories');
+const { normalizeHeader, detectMapping } = require('../utils/importUtils');
+
+// mongoose model for clientes storage
+const Cliente = require('../models/Cliente');
 const { logger } = require('../utils/logger');
 
 class ImportService {
@@ -24,13 +28,21 @@ class ImportService {
    * @param {Object} mapeo - Mapeo de columnas { 'Nombre Excel': 'campo.schema' }
    * @param {String} entidad - 'clientes', 'ventas', 'leads'
    */
-  async processExcelFile(file, mapeo, entidad = 'clientes') {
-    const syncId = uuidv4();
+  async processExcelFile(file, mapeo, entidad = 'clientes', providedSyncId) {
+    const syncId = providedSyncId || uuidv4();
+    const fileMeta = {
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+      ext: file.originalname ? file.originalname.split('.').pop() : null
+    };
     const baseLog = await createSyncLog({
       syncId,
+      entidad,
       fuente: 'Excel',
       estatus: 'Procesando',
-      iniciado: new Date()
+      iniciado: new Date(),
+      fileMeta
     });
 
     try {
@@ -38,48 +50,112 @@ class ImportService {
       await workbook.xlsx.readFile(file.path);
       const worksheet = workbook.getWorksheet(1);
 
+      // detect headers
+      const headerRow = worksheet.getRow(1);
+      const headers = [];
+      headerRow.eachCell((cell) => headers.push(cell.value));
+
+      // normalize headers (trim + lowercase)
+      const headersNorm = headers.map(h => normalizeHeader(h || ''));
+      console.debug('Headers normalizados:', headersNorm);
+
+      // normalize mapping keys as well
+      const mappingNormalized = {};
+      if (mapeo && typeof mapeo === 'object') {
+        Object.entries(mapeo).forEach(([k, v]) => {
+          mappingNormalized[normalizeHeader(k)] = v;
+        });
+      }
+      console.debug('Mapping normalizado:', mappingNormalized);
+
+      const { mapping: mappingUsed, detectedHeaders, warnings: mappingWarnings } = detectMapping(headers, mappingNormalized, entidad);
+      // add warning if required field missing (name for clientes)
+      if (entidad === 'clientes') {
+        const mappedFields = Object.values(mappingUsed).map(f => normalizeHeader(f));
+        if (!mappedFields.includes('name')) {
+          mappingWarnings.push('missingFields:name');
+        }
+      }
+      // store sheet name
+      const sheetName = worksheet.name || null;
+
       const registros = [];
       const errores = [];
+      const invalidRows = [];
       let procesados = 0;
       let inseridos = 0;
       let actualizados = 0;
+      let skippedCount = 0;
+      let invalidCount = 0;
 
       // Leer filas (ignorar encabezados)
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return; // Skip header
 
-        try {
-          const objeto = this._mapearFila(row, mapeo);
-          registros.push(objeto);
-          procesados++;
-        } catch (error) {
-          errores.push({
-            fila: rowNumber,
-            error: error.message,
-            acción: 'ignorado'
-          });
+        procesados++;
+        const objeto = {};
+        // build object according to mappingUsed
+        Object.entries(mappingUsed).forEach(([rawHeader, field]) => {
+          const colIndex = headers.findIndex((h) => h === rawHeader) + 1;
+          if (colIndex > 0) {
+            const valor = row.getCell(colIndex).value;
+            this._asignarValor(objeto, field, valor);
+          }
+        });
+
+        // validate required for clientes
+        if (entidad === 'clientes') {
+          const hasId = objeto.name || objeto.email || objeto.phone;
+          if (!hasId) {
+            invalidCount++;
+            invalidRows.push({ fila: rowNumber, motivo: 'missing identity fields' });
+            return; // skip inserting later
+          }
         }
+
+        registros.push(objeto);
       });
 
       // Procesar según entidad
+      let fallidosDB = 0;
       if (entidad === 'clientes') {
         const resultado = await this._importarClientes(registros, syncId);
         inseridos = resultado.inseridos;
         actualizados = resultado.actualizados;
+        fallidosDB = resultado.fallidos || 0;
       } else if (entidad === 'ventas') {
         const resultado = await this._importarVentas(registros, syncId);
         inseridos = resultado.inseridos;
         actualizados = resultado.actualizados;
+        // ventas importer already handles its own errors but could be extended similarly
       }
 
       // Registrar en syncLog
       const finalizado = new Date();
+      skippedCount = errores.length;
+      const totalFallidos = skippedCount + fallidosDB + invalidCount;
+      let estatusFinal = 'Exitoso';
+      if (totalFallidos > 0 && (inseridos > 0 || actualizados > 0)) {
+        estatusFinal = 'Parcial';
+      } else if (totalFallidos > 0 && inseridos === 0 && actualizados === 0) {
+        estatusFinal = 'Fallido';
+      }
+
       await updateSyncLog(syncId, {
-        estatus: errores.length === 0 ? 'Exitoso' : 'Parcial',
+        entidad,
+        estatus: estatusFinal,
         registosProcesados: procesados,
         registosInseridos: inseridos,
         registosActualizados: actualizados,
-        registosFallidos: errores.length,
+        registosFallidos: totalFallidos,
+        totalRows: procesados,
+        insertedCount: inseridos,
+        skippedCount: skippedCount,
+        invalidCount: invalidCount,
+        warnings: [...mappingWarnings, ...invalidRows.map(r=>r.motivo)],
+        mappingUsed,
+        detectedHeaders,
+        sheetName,
         errores,
         finalizado,
         duracionMs: baseLog?.iniciado ? finalizado - new Date(baseLog.iniciado) : null,
@@ -94,18 +170,27 @@ class ImportService {
 
       return {
         syncId,
+        totalRows: procesados,
+        insertedCount: inseridos,
+        skippedCount: skippedCount,
+        invalidCount: invalidCount,
+        mappingUsed,
+        detectedHeaders,
+        sheetName,
+        warnings: mappingWarnings,
         registosProcesados: procesados,
         registosInseridos: inseridos,
         registosActualizados: actualizados,
-        registosFallidos: errores.length,
+        registosFallidos: totalFallidos,
         errores,
-        estatus: errores.length === 0 ? 'Exitoso' : 'Parcial'
+        estatus: estatusFinal
       };
     } catch (error) {
-      logger.error('❌ Error en importación Excel:', error);
+      logger.error('❌ Error en importación Excel:', error, { syncId });
       await updateSyncLog(syncId, {
         estatus: 'Fallido',
-        errores: [{ error: error.message }],
+        errorMessage: error.message,
+        errorStack: error.stack,
         finalizado: new Date()
       });
 
@@ -121,31 +206,81 @@ class ImportService {
   /**
    * Procesar archivo CSV
    */
-  async processCSVFile(file, mapeo, entidad = 'clientes', delimitador = ',') {
-    const syncId = uuidv4();
+  async processCSVFile(file, mapeo, entidad = 'clientes', delimitador = ',', providedSyncId) {
+    const syncId = providedSyncId || uuidv4();
+    const fileMeta = {
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+      ext: file.originalname ? file.originalname.split('.').pop() : null
+    };
 
     const baseLog = await createSyncLog({
       syncId,
+      entidad,
       fuente: 'CSV',
       estatus: 'Procesando',
-      iniciado: new Date()
+      iniciado: new Date(),
+      fileMeta
     });
 
     return new Promise((resolve, reject) => {
       const registros = [];
       const errores = [];
+      const invalidRows = [];
       let procesados = 0;
+      let skippedCount = 0;
+      let invalidCount = 0;
+      let detectedHeaders = [];
+      let mappingUsed = {};
+      let mappingWarnings = [];
 
-      fs.createReadStream(file.path)
+      const stream = fs.createReadStream(file.path)
         .pipe(csv({ separator: delimitador }))
         .on('data', (row) => {
+          procesados++; // count every row read
+          if (procesados === 1) {
+            // first data row gives headers
+            const rawHeaders = Object.keys(row);
+            detectedHeaders = rawHeaders.map((h) => normalizeHeader(h));
+            console.debug('CSV headers normalizados:', detectedHeaders);
+
+            // normalize provided mapping keys
+            const mappingNormalized = {};
+            if (mapeo && typeof mapeo === 'object') {
+              Object.entries(mapeo).forEach(([k, v]) => {
+                mappingNormalized[normalizeHeader(k)] = v;
+              });
+            }
+            console.debug('CSV mapping normalizado:', mappingNormalized);
+
+            const { mapping, warnings } = detectMapping(rawHeaders, mappingNormalized, entidad);
+            mappingUsed = mapping;
+            mappingWarnings = warnings;
+            if (entidad === 'clientes') {
+              const mappedFields = Object.values(mapping).map(f => normalizeHeader(f));
+              if (!mappedFields.includes('name')) {
+                mappingWarnings.push('missingFields:name');
+              }
+            }
+          }
           try {
-            const objeto = this._mapearFilaCSV(row, mapeo);
+            const objeto = {};
+            Object.entries(mappingUsed).forEach(([hdr, field]) => {
+              objeto[field] = row[hdr];
+            });
+            // validate
+            if (entidad === 'clientes') {
+              if (!objeto.name && !objeto.email && !objeto.phone) {
+                invalidCount++;
+                invalidRows.push({ fila: procesados, motivo: 'missing identity fields' });
+                return;
+              }
+            }
             registros.push(objeto);
-            procesados++;
           } catch (error) {
             errores.push({
-              fila: procesados + 1,
+              fila: procesados,
               error: error.message,
               acción: 'ignorado'
             });
@@ -156,10 +291,12 @@ class ImportService {
             let inseridos = 0;
             let actualizados = 0;
 
+            let fallidosDB = 0;
             if (entidad === 'clientes') {
               const resultado = await this._importarClientes(registros, syncId);
               inseridos = resultado.inseridos;
               actualizados = resultado.actualizados;
+              fallidosDB = resultado.fallidos || 0;
             } else if (entidad === 'ventas') {
               const resultado = await this._importarVentas(registros, syncId);
               inseridos = resultado.inseridos;
@@ -167,12 +304,29 @@ class ImportService {
             }
 
             const finalizado = new Date();
+            skippedCount = errores.length;
+            const totalFallidos = skippedCount + fallidosDB + invalidCount;
+            let estatusFinal = 'Exitoso';
+            if (totalFallidos > 0 && (inseridos > 0 || actualizados > 0)) {
+              estatusFinal = 'Parcial';
+            } else if (totalFallidos > 0 && inseridos === 0 && actualizados === 0) {
+              estatusFinal = 'Fallido';
+            }
             await updateSyncLog(syncId, {
-              estatus: errores.length === 0 ? 'Exitoso' : 'Parcial',
+              entidad,
+              estatus: estatusFinal,
               registosProcesados: procesados,
               registosInseridos: inseridos,
               registosActualizados: actualizados,
-              registosFallidos: errores.length,
+              registosFallidos: totalFallidos,
+              totalRows: procesados,
+              insertedCount: inseridos,
+              skippedCount: skippedCount,
+              invalidCount: invalidCount,
+              warnings: [...mappingWarnings, ...invalidRows.map(r=>r.motivo)],
+              mappingUsed,
+              detectedHeaders,
+              sheetName: null,
               errores,
               finalizado,
               duracionMs: baseLog?.iniciado ? finalizado - new Date(baseLog.iniciado) : null,
@@ -185,12 +339,20 @@ class ImportService {
 
             resolve({
               syncId,
+              totalRows: procesados,
+              insertedCount: inseridos,
+              skippedCount: skippedCount,
+              invalidCount: invalidCount,
+              mappingUsed,
+              detectedHeaders,
+              sheetName: null,
+              warnings: mappingWarnings,
               registosProcesados: procesados,
               registosInseridos: inseridos,
               registosActualizados: actualizados,
-              registosFallidos: errores.length,
+              registosFallidos: totalFallidos,
               errores,
-              estatus: errores.length === 0 ? 'Exitoso' : 'Parcial'
+              estatus: estatusFinal
             });
 
             // Limpiar
@@ -259,29 +421,140 @@ class ImportService {
   async _importarClientes(registros, syncId) {
     let inseridos = 0;
     let actualizados = 0;
+    let fallidos = 0;
 
     for (const reg of registros) {
-      try {
-        // Buscar duplicado por email, RFC o clienteId
-        const resultado = await upsertCliente({
-          ...reg,
-          clienteId: reg.clienteId || uuidv4(),
-          syncedAt: new Date(),
-          fuente: 'importación'
-        });
+      // only handle objects
+      if (!reg || typeof reg !== 'object') continue;
 
-        if (resultado.updated) {
-          actualizados++;
+      // derive required values for schema
+      const {
+        // legacy / español
+        nombre,
+        apellido,
+        telefono,
+        rut,
+        direccion,
+        fechaRegistro,
+        origen,
+
+        // modern / frontend mapping
+        firstName,
+        lastName,
+        cellPhone,
+        cellphone,
+        phone,
+        mobile,
+        cpf,
+        address,
+        registrationDate,
+        source,
+
+        // identifiers
+        email,
+        uniqueId: uidFromReg,
+        idMember: idFromReg,
+
+        // already-mapped direct field
+        name: nameFromReg,
+
+        ...rest
+      } = reg;
+
+      const metadata = { ...rest };
+
+      // normalize equivalences
+      const computedNombre = (nameFromReg ? '' : (nombre ?? firstName ?? '')).toString().trim();
+      const computedApellido = (apellido ?? lastName ?? '').toString().trim();
+
+      const computedTelefono = telefono ?? cellPhone;
+      const computedRut = rut ?? cpf;
+      const computedDireccion = direccion ?? (address?.street ?? address);
+      const computedFechaRegistro = fechaRegistro ?? registrationDate;
+      const computedOrigen = origen ?? source;
+
+      // hardening: skip rows without any identifier
+      const hasIdentifier = !!email || !!computedRut || !!idMember || !!uidFromReg;
+      if (!hasIdentifier) {
+        fallidos++;
+        continue;
+      }
+
+      // compute name field
+      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
+      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
+
+      const metadata = { ...rest };
+
+      // normalize equivalences
+      const computedNombre = (nameFromReg ? '' : (nombre ?? firstName ?? '')).toString().trim();
+      const computedApellido = (apellido ?? lastName ?? '').toString().trim();
+
+      const computedTelefono = telefono ?? cellPhone;
+      const computedRut = rut ?? cpf;
+      const computedDireccion = direccion ?? (address?.street ?? address);
+      const computedFechaRegistro = fechaRegistro ?? registrationDate;
+      const computedOrigen = origen ?? source;
+
+      // compute name field
+      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
+      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
+
+      // compute identifiers
+      const uniqueId = uidFromReg || idFromReg || uuidv4();
+      const idMember = idFromReg || uniqueId || `import_${uuidv4()}`;
+
+      const docData = {
+        uniqueId,
+        idMember,
+        name,
+        email,
+        cellPhone: computedTelefono,
+        cpf: computedRut,
+        address: computedDireccion ? { street: computedDireccion } : undefined,
+        registrationDate: computedFechaRegistro,
+        origen: computedOrigen,
+        source: 'import_excel',
+        customFields: metadata
+      };
+
+      try {
+        // attempt to find existing cliente by common identifiers
+        // include email, rut (cpf), uniqueId and idMember to catch duplicates
+        let cliente = null;
+        const query = [];
+        if (email) query.push({ email });
+        if (computedRut) query.push({ cpf: computedRut });
+        if (uniqueId) query.push({ uniqueId });
+        if (idMember) query.push({ idMember });
+        if (query.length) {
+          cliente = await Cliente.findOne({ $or: query });
         }
-        if (resultado.inserted) {
+
+        if (cliente) {
+          // update basic info when provided (overwrite if new value exists)
+          if (idMember) cliente.idMember = idMember;
+          if (email) cliente.email = email;
+          if (name) cliente.name = name;
+          if (computedTelefono !== undefined) cliente.cellPhone = computedTelefono;
+          if (computedDireccion !== undefined) cliente.address = computedDireccion ? { street: computedDireccion } : undefined;
+          if (computedFechaRegistro !== undefined) cliente.registrationDate = computedFechaRegistro;
+          if (computedOrigen !== undefined) cliente.origen = computedOrigen;
+          // merge customFields
+          cliente.customFields = { ...cliente.customFields, ...metadata };
+          await cliente.save();
+          actualizados++;
+        } else {
+          await Cliente.create(docData);
           inseridos++;
         }
       } catch (error) {
         logger.error('Error importando cliente:', error, { registro: reg });
+        fallidos++;
       }
     }
 
-    return { inseridos, actualizados };
+    return { inseridos, actualizados, fallidos };
   }
 
   /**
