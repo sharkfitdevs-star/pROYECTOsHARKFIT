@@ -1,8 +1,17 @@
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
+const { logger } = require('../utils/logger');
 const Cliente = require('../models/Cliente');
 const Venta = require('../models/Venta');
 const Lead = require('../models/Lead');
+
+// SyncLog model might not be defined at startup; load lazily and guard
+let SyncLog;
+try {
+  SyncLog = require('../models/MongoModels').SyncLog;
+} catch (e) {
+  // ignore: use raw collection fallback later
+}
 
 // Utilities
 function toIso(value) {
@@ -18,9 +27,21 @@ function mapLead(doc) { if (!doc) return null; return { id: doc._id?.toString(),
 
 // SYNC LOGS (Mongo)
 async function createSyncLog(data = {}) {
-  const col = mongoose.connection.collection('sync_logs');
-  const now = new Date();
+  // pick syncId upfront so every return path can include it
   const syncId = data.syncId || uuidv4();
+
+  // guard: don't try when the connection isn't open
+  if (mongoose.connection.readyState !== 1) {
+    return { syncId, ok: false, exito: false, error: 'DB_NOT_READY' };
+  }
+
+  const now = new Date();
+
+  // logging convenience when id was generated locally
+  if (!data.syncId) {
+    logger.debug('generated syncId for createSyncLog', { syncId });
+  }
+
   const payload = {
     sync_id: syncId,
     entidad: data.entidad || data.entity || null,
@@ -34,6 +55,7 @@ async function createSyncLog(data = {}) {
     // additional fields for detailed import history
     total_rows: data.totalRows || data.registosProcesados || 0,
     inserted_count: data.insertedCount || data.registosInseridos || 0,
+    updated_count: data.updatedCount || data.registosActualizados || 0,
     skipped_count: data.skippedCount || 0,
     invalid_count: data.invalidCount || 0,
     warnings: JSON.stringify(data.warnings || []),
@@ -53,27 +75,76 @@ async function createSyncLog(data = {}) {
     createdAt: now
   };
 
-  // use upsert to make operation idempotent when syncId provided
-  try {
-    const result = await col.findOneAndUpdate(
-      { sync_id: syncId },
-      { $setOnInsert: payload },
-      { upsert: true, returnDocument: 'after' }
-    );
-    const doc = result.value;
-    return Object.assign({}, payload, { id: doc._id.toString(), syncId: doc.sync_id });
-  } catch (err) {
-    // if unique index causes race, fetch existing document instead
-    if (err.code === 11000) {
-      const existing = await col.findOne({ sync_id: syncId });
-      if (existing) {
-        return Object.assign({}, payload, { id: existing._id.toString(), syncId: existing.sync_id });
+  // split payload into $set and $setOnInsert for mongoose upsert
+  const setPayload = Object.assign({}, payload);
+  delete setPayload.sync_id;
+  delete setPayload.createdAt;
+  const setOnInsert = { sync_id: syncId, createdAt: now };
+
+  // choose update strategy depending on model availability
+  if (SyncLog && typeof SyncLog.findOneAndUpdate === 'function') {
+    try {
+      const doc = await SyncLog.findOneAndUpdate(
+        { sync_id: syncId },
+        { $set: setPayload, $setOnInsert: setOnInsert },
+        { new: true, upsert: true, setDefaultsOnInsert: true, lean: true }
+      );
+
+      if (!doc) {
+        return { syncId, ok: false, exito: false, error: 'SYNCLOG_WRITE_FAILED' };
       }
+
+      return Object.assign({}, payload, { id: doc._id?.toString(), syncId: doc.sync_id });
+    } catch (err) {
+      // log and swallow any errors so import/sync flows continue
+      logger.warn('syncLog failed but import continues', { syncId, err: err.message });
+      if (err && err.code === 11000) {
+        const existing = await SyncLog.findOne({ sync_id: syncId }).lean().catch(() => null);
+        if (existing) {
+          return Object.assign({}, payload, { id: existing._id?.toString(), syncId: existing.sync_id });
+        }
+      }
+      return { syncId, ok: false, exito: false, error: 'SYNCLOG_WRITE_FAILED' };
     }
-    throw err;
+  } else {
+    // fallback to raw collection operation
+    try {
+      const col = mongoose.connection.collection('sync_logs');
+      const result = await col.findOneAndUpdate(
+        { sync_id: syncId },
+        { $set: setPayload, $setOnInsert: setOnInsert },
+        {
+          upsert: true,
+          returnDocument: 'after',   // driver v4+
+          returnOriginal: false      // driver v3 (compat)
+        }
+      );
+      const doc = result?.value;
+      if (!doc) {
+        // compat: algunos drivers devuelven value=null en upsert (pre-image)
+        const existing = await col.findOne({ sync_id: syncId });
+        if (!existing) {
+          return { syncId, ok: false, exito: false, error: 'SYNCLOG_WRITE_FAILED' };
+        }
+        return Object.assign({}, payload, { id: existing._id?.toString(), syncId: existing.sync_id });
+      }
+      return Object.assign({}, payload, { id: doc._id?.toString(), syncId: doc.sync_id });
+    } catch (err) {
+      // log and swallow so the caller can continue
+      logger.warn('syncLog failed but import continues', { syncId, err: err.message });
+      if (err && err.code === 11000) {
+        const existing = await mongoose.connection.collection('sync_logs').findOne({ sync_id: syncId });
+        if (existing) {
+          return Object.assign({}, payload, { id: existing._id?.toString(), syncId: existing.sync_id });
+        }
+      }
+      return { syncId, ok: false, exito: false, error: 'SYNCLOG_WRITE_FAILED' };
+    }
   }
 }
-async function updateSyncLog(syncId, updates = {}) { const col = mongoose.connection.collection('sync_logs'); const query = { $or: [{ sync_id: syncId }] }; if (/^[0-9a-fA-F]{24}$/.test(syncId)) { try { query.$or.push({ _id: new mongoose.Types.ObjectId(syncId) }); } catch (e) {} } const doc = await col.findOne(query); if (!doc) return null; const payload = {}; if (updates.entidad !== undefined) payload.entidad = updates.entidad; if (updates.estatus !== undefined) payload.estatus = updates.estatus; if (updates.registosProcesados !== undefined) payload.registos_procesados = updates.registosProcesados; if (updates.registosInseridos !== undefined) payload.registos_inseridos = updates.registosInseridos; if (updates.registosActualizados !== undefined) payload.registos_actualizados = updates.registosActualizados; if (updates.registosFallidos !== undefined) payload.registos_fallidos = updates.registosFallidos; if (updates.errores !== undefined) payload.errores = JSON.stringify(updates.errores);
+async function updateSyncLog(syncId, updates = {}) { const col = mongoose.connection.collection('sync_logs'); const query = { $or: [{ sync_id: syncId }] }; if (/^[0-9a-fA-F]{24}$/.test(syncId)) { try { query.$or.push({ _id: new mongoose.Types.ObjectId(syncId) }); } catch (e) {} } const doc = await col.findOne(query); if (!doc) return null; const payload = {}; if (updates.entidad !== undefined) payload.entidad = updates.entidad; if (updates.estatus !== undefined) payload.estatus = updates.estatus; if (updates.registosProcesados !== undefined) payload.registos_procesados = updates.registosProcesados; if (updates.registosInseridos !== undefined) payload.registos_inseridos = updates.registosInseridos; if (updates.registosActualizados !== undefined) payload.registos_actualizados = updates.registosActualizados;
+    if (updates.updatedCount !== undefined) payload.updated_count = updates.updatedCount;
+    if (updates.registosFallidos !== undefined) payload.registos_fallidos = updates.registosFallidos; if (updates.errores !== undefined) payload.errores = JSON.stringify(updates.errores);
     if (updates.totalRows !== undefined) payload.total_rows = updates.totalRows;
     if (updates.insertedCount !== undefined) payload.inserted_count = updates.insertedCount;
     if (updates.skippedCount !== undefined) payload.skipped_count = updates.skippedCount;
@@ -115,6 +186,7 @@ function mapSyncLog(row) {
     estatus: row.estatus,
     totalRows: row.total_rows,
     insertedCount: row.inserted_count,
+    updatedCount: row.updated_count,
     skippedCount: row.skipped_count,
     invalidCount: row.invalid_count,
     registosProcesados: row.registos_procesados,

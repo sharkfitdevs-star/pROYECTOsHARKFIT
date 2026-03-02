@@ -120,9 +120,10 @@ class ImportService {
       let fallidosDB = 0;
       if (entidad === 'clientes') {
         const resultado = await this._importarClientes(registros, syncId);
-        inseridos = resultado.inseridos;
-        actualizados = resultado.actualizados;
-        fallidosDB = resultado.fallidos || 0;
+        inseridos = resultado.insertedCount;
+        actualizados = resultado.updatedCount;
+        fallidosDB = resultado.skippedCount || 0;
+        invalidCount += resultado.invalidCount || 0;
       } else if (entidad === 'ventas') {
         const resultado = await this._importarVentas(registros, syncId);
         inseridos = resultado.inseridos;
@@ -150,6 +151,7 @@ class ImportService {
         registosFallidos: totalFallidos,
         totalRows: procesados,
         insertedCount: inseridos,
+        updatedCount: actualizados,
         skippedCount: skippedCount,
         invalidCount: invalidCount,
         warnings: [...mappingWarnings, ...invalidRows.map(r=>r.motivo)],
@@ -294,9 +296,10 @@ class ImportService {
             let fallidosDB = 0;
             if (entidad === 'clientes') {
               const resultado = await this._importarClientes(registros, syncId);
-              inseridos = resultado.inseridos;
-              actualizados = resultado.actualizados;
-              fallidosDB = resultado.fallidos || 0;
+              inseridos = resultado.insertedCount;
+              actualizados = resultado.updatedCount;
+              fallidosDB = resultado.skippedCount || 0;
+              invalidCount += resultado.invalidCount || 0;
             } else if (entidad === 'ventas') {
               const resultado = await this._importarVentas(registros, syncId);
               inseridos = resultado.inseridos;
@@ -321,6 +324,7 @@ class ImportService {
               registosFallidos: totalFallidos,
               totalRows: procesados,
               insertedCount: inseridos,
+              updatedCount: actualizados,
               skippedCount: skippedCount,
               invalidCount: invalidCount,
               warnings: [...mappingWarnings, ...invalidRows.map(r=>r.motivo)],
@@ -419,9 +423,11 @@ class ImportService {
    * @private
    */
   async _importarClientes(registros, syncId) {
-    let inseridos = 0;
-    let actualizados = 0;
-    let fallidos = 0;
+    // counters required by caller
+    let insertedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let invalidCount = 0;
 
     for (const reg of registros) {
       // only handle objects
@@ -473,36 +479,21 @@ class ImportService {
       const computedFechaRegistro = fechaRegistro ?? registrationDate;
       const computedOrigen = origen ?? source;
 
-      // hardening: skip rows without any identifier
-      const hasIdentifier = !!email || !!computedRut || !!idMember || !!uidFromReg;
+      // compute identifiers from provided data; we'll still generate defaults
+      // later, but validity is based only on what was supplied.
+      const hasIdentifier = !!email || !!computedRut || !!idFromReg || !!uidFromReg;
       if (!hasIdentifier) {
-        fallidos++;
+        invalidCount++;
         continue;
       }
 
-      // compute name field
-      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
-      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
-
-      const metadata = { ...rest };
-
-      // normalize equivalences
-      const computedNombre = (nameFromReg ? '' : (nombre ?? firstName ?? '')).toString().trim();
-      const computedApellido = (apellido ?? lastName ?? '').toString().trim();
-
-      const computedTelefono = telefono ?? cellPhone;
-      const computedRut = rut ?? cpf;
-      const computedDireccion = direccion ?? (address?.street ?? address);
-      const computedFechaRegistro = fechaRegistro ?? registrationDate;
-      const computedOrigen = origen ?? source;
-
-      // compute name field
-      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
-      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
-
-      // compute identifiers
+      // compute identifiers (defaults allowed after validation)
       const uniqueId = uidFromReg || idFromReg || uuidv4();
       const idMember = idFromReg || uniqueId || `import_${uuidv4()}`;
+
+      // compute name field
+      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
+      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
 
       const docData = {
         uniqueId,
@@ -519,42 +510,67 @@ class ImportService {
       };
 
       try {
-        // attempt to find existing cliente by common identifiers
-        // include email, rut (cpf), uniqueId and idMember to catch duplicates
+        // find existing record by idMember first, then email (to avoid duplicates)
         let cliente = null;
-        const query = [];
-        if (email) query.push({ email });
-        if (computedRut) query.push({ cpf: computedRut });
-        if (uniqueId) query.push({ uniqueId });
-        if (idMember) query.push({ idMember });
-        if (query.length) {
-          cliente = await Cliente.findOne({ $or: query });
+        if (idMember) {
+          cliente = await Cliente.findOne({ idMember });
+        }
+        if (!cliente && email) {
+          cliente = await Cliente.findOne({ email });
         }
 
         if (cliente) {
-          // update basic info when provided (overwrite if new value exists)
-          if (idMember) cliente.idMember = idMember;
-          if (email) cliente.email = email;
+          // ensure idMember/email consistency
+          if (idMember && cliente.idMember !== idMember) cliente.idMember = idMember;
+          if (email && cliente.email !== email) cliente.email = email;
           if (name) cliente.name = name;
           if (computedTelefono !== undefined) cliente.cellPhone = computedTelefono;
           if (computedDireccion !== undefined) cliente.address = computedDireccion ? { street: computedDireccion } : undefined;
           if (computedFechaRegistro !== undefined) cliente.registrationDate = computedFechaRegistro;
           if (computedOrigen !== undefined) cliente.origen = computedOrigen;
-          // merge customFields
           cliente.customFields = { ...cliente.customFields, ...metadata };
           await cliente.save();
-          actualizados++;
+          updatedCount++;
         } else {
-          await Cliente.create(docData);
-          inseridos++;
+          try {
+            await Cliente.create(docData);
+            insertedCount++;
+          } catch (err) {
+            // handle rare duplicate key errors by falling back to update
+            if (err && err.code === 11000) {
+              const exist = await Cliente.findOne({ $or: [{ idMember }, { email }] });
+              if (exist) {
+                if (idMember && exist.idMember !== idMember) exist.idMember = idMember;
+                if (email && exist.email !== email) exist.email = email;
+                if (name) exist.name = name;
+                if (computedTelefono !== undefined) exist.cellPhone = computedTelefono;
+                if (computedDireccion !== undefined) exist.address = computedDireccion ? { street: computedDireccion } : undefined;
+                if (computedFechaRegistro !== undefined) exist.registrationDate = computedFechaRegistro;
+                if (computedOrigen !== undefined) exist.origen = computedOrigen;
+                exist.customFields = { ...exist.customFields, ...metadata };
+                await exist.save();
+                updatedCount++;
+              } else {
+                skippedCount++;
+              }
+            } else {
+              throw err;
+            }
+          }
         }
       } catch (error) {
         logger.error('Error importando cliente:', error, { registro: reg });
-        fallidos++;
+        skippedCount++;
       }
     }
 
-    return { inseridos, actualizados, fallidos };
+    return {
+      totalRows: registros.length,
+      insertedCount,
+      updatedCount,
+      skippedCount,
+      invalidCount
+    };
   }
 
   /**

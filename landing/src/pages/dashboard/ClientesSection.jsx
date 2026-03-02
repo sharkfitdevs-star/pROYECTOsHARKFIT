@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, Fragment } from "react";
+import { useNavigate } from 'react-router-dom';
 import { fetchClientes, normalizeClientesResponse } from "../../services/clientesApi";
 import { createToast } from "@/components/ui/use-toast";
 import { useAuth } from "../../context/AuthContext";
@@ -26,49 +27,83 @@ function normalizarValor(val) {
 }
 
 export default function ClientesSection() {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState([]); // accumulated pages
+  const [skip, setSkip] = useState(0);
+  const [limit] = useState(200); // could be made configurable later
+  const [totalCount, setTotalCount] = useState(0);
+
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const navigate = useNavigate();
   const {
+    token,
     importsConnected,
+    importsConnectionError,
     isTogglingImports,
     importsToggleForbidden,
     setImportsConnectedRemote,
     syncImportsConnected,
     importsReloadKey,
+    logout
   } = useAuth();
 
   useEffect(() => {
     const cargar = async () => {
+      // if token missing, mark as expired and bail so UI can show login
+      if (!token) {
+        setError('Sesión expirada');
+        return;
+      }
+      // bail out if imports not connected or still unknown
+      if (importsConnected === false || importsConnected === null) return;
+      // if previous attempt determined session expired, stop retrying
+      if (error && error.includes('Sesión expirada')) return;
+
       setCargando(true);
       setError(null);
       try {
-        const resultRaw = await fetchClientes();
-        const { items, total, importsConnected: flag } = normalizeClientesResponse(resultRaw);
+        const resultRaw = await fetchClientes({ skip, limit });
+        const { items, total, importsConnected: flag, meta } = normalizeClientesResponse(resultRaw);
         if (process.env.NODE_ENV === 'development') {
-          console.debug('clientes normalized', { count: items.length, total, importsConnected: flag });
+          console.debug('clientes normalized', { count: items.length, total, importsConnected: flag, meta });
         }
         if (typeof flag === 'boolean' && flag !== importsConnected) {
           syncImportsConnected(flag);
         }
-        setClientes(items);
+        setTotalCount(total);
+        if (skip === 0) {
+          setClientes(items);
+        } else {
+          setClientes((prev) => [...prev, ...items]);
+        }
       } catch (err) {
         console.error(err);
-        setError(err.message || "No se pudo cargar la lista de clientes.");
+        if (err.code === 'NO_TOKEN' || err.code === 'AUTH_EXPIRED') {
+          setError('Sesión expirada, vuelve a iniciar sesión.');
+        } else {
+          setError(err.message || "No se pudo cargar la lista de clientes.");
+        }
       } finally {
         setCargando(false);
       }
     };
-    // fetch initial list and whenever importsConnected/reloadKey changes
+    // reset state when connection toggles off or jitter
+    if (importsConnected === false) {
+      setClientes([]);
+      setTotalCount(0);
+      setSkip(0);
+    }
+    // whenever importsConnected changes from null->true or reload key changes or skip changes, try fetch
     cargar();
 
     const onRefresh = () => {
+      // simply fetch current page again
       cargar();
     };
     window.addEventListener('clientes-refresh', onRefresh);
     return () => window.removeEventListener('clientes-refresh', onRefresh);
-  }, [importsConnected, importsReloadKey]);
+  }, [importsConnected, importsReloadKey, skip, limit]);
 
   // columnas fijas que mostramos en la tabla (orden y etiqueta)
   const columnasDef = useMemo(() => [
@@ -144,13 +179,34 @@ export default function ClientesSection() {
     }
   };
 
+  // helper to trigger reload from outside
+  const dispatchReload = () => window.dispatchEvent(new Event('clientes-refresh'));
+
+  // early UI cases
+  if (importsConnected === null) {
+    return (
+      <div className="clientes-section">
+        <h2>👥 Clientes</h2>
+        <p>Verificando conexión...</p>
+      </div>
+    );
+  }
+
+
   return (
     <div className="clientes-section">
       <h2>👥 Clientes</h2>
       <p>Los datos se obtienen de las importaciones realizadas en Excel/CSV.</p>
-      {!importsConnected && (
-        <div className="warning-card" style={{ padding: '1rem', background: '#fff3cd', color: '#856404', margin: '0.5rem 0', borderRadius: '4px' }}>
-          Importaciones globalmente desconectadas. Los registros importados no se mostrarán.
+      {importsConnected === false && (
+        <div className="info-text" style={{ margin: '0.5rem 0' }}>
+          Imports desconectado: no hay datos de clientes.
+        </div>
+      )}
+      {/* connection error banner */}
+      {importsConnectionError && (
+        <div className="error-text" style={{ margin: '0.5rem 0' }}>
+          Error de conexión de imports: {importsConnectionError}{' '}
+          <button className="btn-secondary" onClick={dispatchReload}>Reintentar</button>
         </div>
       )}
       {/* connection control */}
@@ -190,12 +246,17 @@ export default function ClientesSection() {
           />
         </div>
         <div className="info-text">
-          Total clientes: {clientes.length} | Mostrando: {filtrados.length}
+          Total clientes: {totalCount} | Mostrando: {filtrados.length}
         </div>
       </div>
 
       {cargando && <p className="info-text">Cargando clientes...</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <div className="error-text">
+          {error}{' '}
+          <button className="btn-secondary" onClick={dispatchReload}>Reintentar</button>
+        </div>
+      )}
 
       {!cargando && !error && clientes.length === 0 && !importsConnected && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
@@ -210,9 +271,18 @@ export default function ClientesSection() {
       )}
 
       {/* only render table when connected; if disconnected show nothing */}
+      {error && error.includes('Sesión expirada') && (
+        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+          <h3 className="card-title">{error}</h3>
+          <button className="btn-primary" onClick={() => navigate('/login')}>
+            Iniciar sesión
+          </button>
+        </div>
+      )}
       {importsConnected && !cargando && !error && filtrados.length > 0 && (
-        <div className="clientes-table-container">
-          <table className="clientes-table">
+        <>
+          <div className="clientes-table-container">
+            <table className="clientes-table">
             <thead>
               <tr>
                 {columnasDef.map((c) => (
@@ -258,6 +328,18 @@ export default function ClientesSection() {
             </tbody>
           </table>
         </div>
+          {/* load more button */}
+          {clientes.length < totalCount && (
+            <button
+              className="btn-primary"
+              disabled={cargando}
+              onClick={() => setSkip((s) => s + limit)}
+              style={{ margin: '1rem auto', display: 'block' }}
+            >
+              Cargar más
+            </button>
+          )}
+        </>
       )}
     </div>
   );

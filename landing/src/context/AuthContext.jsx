@@ -39,9 +39,22 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { setAccessToken, clearAccessToken, setAuthHooks } from "../api/axios";
+import api, { setAccessToken as setApiToken, clearAccessToken as clearApiToken, setAuthHooks } from "../api/axios";
+import { getAccessToken, setAccessToken, clearAccessToken, TOKEN_KEY } from "../config/authStorage";
 import { getImportsConnection, setImportsConnection } from "../services/settingsApi";
 import { createToast } from "@/components/ui/use-toast";
+
+// helper that wraps fetch/axios calls and never throws
+async function safeFetchJson(url, options = {}) {
+  try {
+    const resp = await fetch(url, options);
+    let data = null;
+    try { data = await resp.json(); } catch {};
+    return { ok: resp.ok, status: resp.status, data };
+  } catch (err) {
+    return { ok: false, status: null, error: err.message || String(err) };
+  }
+}
 
 const AuthContext = createContext(null);
 
@@ -51,21 +64,32 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [importsConnected, setImportsConnected] = useState(true);
+  const [importsConnected, setImportsConnected] = useState(null);
+  const [importsConnectionError, setImportsConnectionError] = useState(null);
   const [isTogglingImports, setIsTogglingImports] = useState(false);
   const [importsReloadKey, setImportsReloadKey] = useState(0);
   const [settingsLoaded, setSettingsLoaded] = useState(false); // prevent duplicate fetch
-  const [importsToggleForbidden, setImportsToggleForbidden] = useState(() => 
+  const [importsToggleForbidden, setImportsToggleForbidden] = useState(() =>
     sessionStorage.getItem('importsToggleForbidden') === '1'
   ); // if server returns 403, stop trying (session-persistent)
 
   // restaura sesión desde localStorage al montar
+  // listen for expiration events dispatched by fetchAuth
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
+    const handleExpired = () => {
+      console.log('auth expired event, logging out');
+      // record a friendly message so that login page / other components
+      // can inform the user. using localStorage keeps it across reloads.
+      try { localStorage.setItem('authMessage', 'Sesión expirada'); } catch {}
+      logout();
+    };
+    window.addEventListener('auth:expired', handleExpired);
+
+    const storedToken = getAccessToken();
     const storedUser = localStorage.getItem('authUser');
     if (storedToken) {
       setToken(storedToken);
-      setAccessToken(storedToken);
+      setApiToken(storedToken);
     }
     if (storedUser) {
       try {
@@ -75,42 +99,61 @@ export function AuthProvider({ children }) {
       }
     }
     setLoading(false);
+
+    return () => window.removeEventListener('auth:expired', handleExpired);
   }, []);
 
   // fetch importsConnected flag once on mount and set up polling & cross-tab sync
   useEffect(() => {
+    const importsConnectedRef = { current: importsConnected };
+    const togglingRef = { current: isTogglingImports };
+
+    // keep refs up to date
+    const updRefs = () => {
+      importsConnectedRef.current = importsConnected;
+      togglingRef.current = isTogglingImports;
+    };
+
     let pollId;
     let lastTickLog = 0;
 
     const load = async () => {
-      if (settingsLoaded) return; // already done
-      try {
-        const val = await getImportsConnection();
-        setImportsConnected(val);
-      } catch (e) {
-        if (e.status === 401 || (e.response && e.response.status === 401)) {
-          // session has expired or token invalid
+      updRefs();
+
+      // initial fetch (only set settingsLoaded on a successful response)
+      if (!settingsLoaded) {
+        try {
+          const resp = await safeFetchJson('/api/settings/imports-connection');
+          if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
+            setImportsConnected(resp.data.importsConnected);
+            setImportsConnectionError(null);
+            setSettingsLoaded(true); // mark only after we know it succeeded
+          } else {
+            throw new Error(resp.error || `HTTP ${resp.status}`);
+          }
+        } catch (e) {
+          setImportsConnected(null);
+          setImportsConnectionError(e.message || String(e));
+          if (e.status === 401 || (e.response && e.response.status === 401)) {
+            createToast({
+              title: 'Sesión expirada',
+              description: 'Por favor, vuelva a iniciar sesión.',
+              variant: 'destructive'
+            });
+            logout();
+            return;
+          }
           createToast({
-            title: 'Sesión expirada',
-            description: 'Por favor, vuelva a iniciar sesión.',
-            variant: 'destructive'
+            title: 'Advertencia',
+            description: 'Error leyendo configuración de imports; usando valor por defecto.',
+            variant: 'warning'
           });
-          logout();
-          return;
+          if (sessionStorage.getItem('settingsErrorLogged') !== '1') {
+            sessionStorage.setItem('settingsErrorLogged', '1');
+            console.warn('settings initial load error, using default true', e.message || e);
+          }
         }
-        // other problems: network, 500, etc.
-        createToast({
-          title: 'Advertencia',
-          description: 'No se pudo leer configuración de imports; usando valor por defecto.',
-          variant: 'warning'
-        });
-        // fallback to true; will also be handled by poll below if needed
-        setImportsConnected(true);
-        if (sessionStorage.getItem('settingsErrorLogged') !== '1') {
-          sessionStorage.setItem('settingsErrorLogged', '1');
-          console.warn('settings initial load error, using default true', e.message || e);
-        }
-      } // end catch
+      }
 
       // log tick at most once every 30s or when forbidden toggles
       const now = Date.now();
@@ -119,71 +162,74 @@ export function AuthProvider({ children }) {
         lastTickLog = now;
       }
 
+      // polling logic should run every time, regardless of settingsLoaded
       if (importsToggleForbidden) return;
-      if (isTogglingImports) return;
+      if (togglingRef.current) return;
 
       try {
-        const val = await getImportsConnection();
-        if (typeof val === 'boolean' && val !== importsConnected) {
-          _syncImportsConnected(val);
-          createToast({
-            title: 'Info',
-            description: 'Estado de datos importados actualizado.',
-            variant: 'info'
-          });
+        const resp = await safeFetchJson('/api/settings/imports-connection');
+        if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
+          const val = resp.data.importsConnected;
+          if (val !== importsConnectedRef.current) {
+            _syncImportsConnected(val);
+            createToast({
+              title: 'Info',
+              description: 'Estado de datos importados actualizado.',
+              variant: 'info'
+            });
+          }
+        } else {
+          if (resp.status === 403) {
+            markImportsForbidden();
+            if (pollId) clearInterval(pollId);
+            return;
+          }
+          throw new Error(resp.error || `HTTP ${resp.status}`);
         }
       } catch (e) {
-        // auth failure -> logout
         if (e.status === 401 || (e.response && e.response.status === 401)) {
           logout();
           return;
         }
-        // handle 403 specially
-        if (e.status === 403 || (typeof e.message === 'string' && e.message.includes('403'))) {
-          markImportsForbidden();
-          if (pollId) clearInterval(pollId);
-          return;
-        }
-        // other errors: network/500
-        setImportsConnected(true);
+        // network/500: keep previous value but record error
+        setImportsConnectionError(e.message || String(e));
         if (sessionStorage.getItem('settingsErrorLogged') !== '1') {
           sessionStorage.setItem('settingsErrorLogged', '1');
           console.warn('settings connection error, using default true', e.message || e);
         }
-        // swallow error
       }
     };
 
     const onStorage = async (ev) => {
       if (ev.key !== 'importsConnectedUpdatedAt') return;
-      // other tab changed, refetch flag
-      if (isTogglingImports) return;
+      if (togglingRef.current) return;
       try {
-        const val = await getImportsConnection();
-        if (typeof val === 'boolean' && val !== importsConnected) {
-          _syncImportsConnected(val);
-          createToast({
-            title: 'Info',
-            description: 'Estado de datos importados actualizado.',
-            variant: 'info'
-          });
+        const resp = await safeFetchJson('/api/settings/imports-connection');
+        if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
+          const val = resp.data.importsConnected;
+          if (val !== importsConnectedRef.current) {
+            _syncImportsConnected(val);
+            createToast({
+              title: 'Info',
+              description: 'Estado de datos importados actualizado.',
+              variant: 'info'
+            });
+          }
         }
       } catch (e) {
         console.debug('storage listener fetch failed', e.message);
-        if (e.status === 403 || (typeof e.message === 'string' && e.message.includes('403'))) {
-          if (pollId) clearInterval(pollId);
-        }
+        if (e.status === 403 && pollId) clearInterval(pollId);
       }
     };
 
     load();
-    pollId = setInterval(poll, 25000);
+    pollId = setInterval(load, 25000);
     window.addEventListener('storage', onStorage);
     return () => {
       if (pollId) clearInterval(pollId);
       window.removeEventListener('storage', onStorage);
     };
-  }, [importsConnected, isTogglingImports]);
+  }, []);
 
   const login = async ({ identifier, password }) => {
     setError(null);
@@ -204,12 +250,20 @@ export function AuthProvider({ children }) {
       // backend replies with `{ success:true, accessToken, user }`
       const newToken = res.data.accessToken || res.data.token;
       const loggedUser = res.data.user;
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Saved token key: authToken len:', newToken ? newToken.length : 0);
+      }
 
       setToken(newToken);
       setUser(loggedUser);
+      setApiToken(newToken);
       setAccessToken(newToken);
-      localStorage.setItem('authToken', newToken);
       localStorage.setItem('authUser', JSON.stringify(loggedUser));
+      // clear any previous expiration message
+      try { localStorage.removeItem('authMessage'); } catch {}
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('Saved token key:', TOKEN_KEY, 'len:', newToken?.length, 'head:', newToken?.slice(0,12));
+      }
       return loggedUser;
     } catch (err) {
       const msg = err?.response?.data?.error || err.message || 'Error al iniciar sesión';
@@ -221,8 +275,8 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
+    clearApiToken();
     clearAccessToken();
-    localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
     navigate('/login');
   };
@@ -322,6 +376,7 @@ export function AuthProvider({ children }) {
     logout,
     // import control
     importsConnected,
+    importsConnectionError,
     isTogglingImports,
     importsReloadKey,
     importsToggleForbidden,

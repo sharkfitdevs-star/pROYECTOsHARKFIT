@@ -3,11 +3,18 @@
 
 const BASE_URL = '/api/import'; // proxy de Vite redirige a data-intake
 
-export async function previewImport(file) {
+export async function previewImport(file, options = {}) {
+  const { entity = 'clientes', mapping = {} } = options;
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('entity', entity);
+  formData.append('mapping', JSON.stringify(mapping));
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}/preview`, {
     method: 'POST',
+    headers,
     body: formData,
   });
   if (!res.ok) {
@@ -35,8 +42,12 @@ export async function commitImport(file, options = {}) {
   }
 
   const route = file.name.toLowerCase().endsWith('.csv') ? 'csv/commit' : 'excel/commit';
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}/${route}`, {
     method: 'POST',
+    headers,
     body: formData,
   });
   if (!res.ok) {
@@ -55,7 +66,10 @@ export async function importFile(file, options = {}) {
 }
 
 export async function fetchImportHistory() {
-  const res = await fetch(`${BASE_URL}/history`);
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${BASE_URL}/history`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const error = new Error(err.error || `Error history (HTTP ${res.status})`);
@@ -69,9 +83,12 @@ export async function fetchImportHistory() {
 }
 
 export async function setImportVisibility(importId, visible) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('authToken');
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/api/imports/${importId}/visibility`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ visible })
   });
   if (!res.ok) {
@@ -84,7 +101,10 @@ export async function setImportVisibility(importId, visible) {
 }
 
 export async function deleteImport(importId) {
-  const res = await fetch(`/api/imports/${importId}`, { method: 'DELETE' });
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/imports/${importId}`, { method: 'DELETE', headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const error = new Error(err.error || 'Error deleting import');

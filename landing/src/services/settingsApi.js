@@ -4,15 +4,36 @@ import api from '../api/axios';
 // so that token injection, credentials, and error parsing live in one place.
 
 async function _fetchWithFallback(method, url, data) {
+  const isDev = process.env.NODE_ENV === 'development';
+  const ts = new Date().toISOString();
+  if (isDev) {
+    console.log('[FE FETCH]', { url, method, ts });
+  }
+
   try {
+    let resp;
     if (method === 'get') {
-      return await api.get(url);
+      resp = await api.get(url);
+    } else if (method === 'patch') {
+      resp = await api.patch(url, data);
+    } else {
+      throw new Error('unsupported method ' + method);
     }
-    if (method === 'patch') {
-      return await api.patch(url, data);
+    if (isDev) {
+      console.log('[FE FETCH OK]', { url, status: resp.status });
     }
-    throw new Error('unsupported method ' + method);
+    return resp;
   } catch (err) {
+    if (isDev) {
+      let bodySnippet = null;
+      try {
+        const text = err.response?.data && typeof err.response.data === 'string'
+          ? err.response.data
+          : JSON.stringify(err.response?.data);
+        bodySnippet = text?.slice(0, 300);
+      } catch {}
+      console.warn('[FE FETCH FAIL]', { url, status: err.response?.status, bodySnippet });
+    }
     // if the route doesn't exist, try the legacy alias
     if (err.response?.status === 404) {
       const legacy = url.replace('imports-connection', 'imports-connected');

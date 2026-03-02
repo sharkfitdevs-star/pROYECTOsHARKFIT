@@ -65,7 +65,11 @@ export default function ImportarExcelSection() {
       if (!showHidden) datos = datos.filter((h) => h.visible !== false);
       setHistory(datos);
     } catch (err) {
-      console.error(err);
+      if (err.status === 503) {
+        createToast({ title: 'Historial no disponible', description: 'Base de datos no está lista', variant: 'warning' });
+      } else {
+        console.error(err);
+      }
     }
   };
 
@@ -92,18 +96,7 @@ export default function ImportarExcelSection() {
     setError(null);
     setIsPreviewing(true);
     try {
-      // build proper multipart form
-      const fd = new FormData();
-      fd.append('file', selectedFile);
-      fd.append('entity', entity);
-      fd.append('mapping', JSON.stringify(mappingObj));
-      fd.append('source', 'excel');
-
-      const res = await fetch('/api/import/preview', {
-        method: 'POST',
-        body: fd
-      });
-      const resp = await res.json();
+      const resp = await previewImport(selectedFile, { entity, mapping: mappingObj });
 
       if (!resp.ok) {
         throw new Error(resp.error || 'Vista previa fallida');

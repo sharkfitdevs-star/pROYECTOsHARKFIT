@@ -89,6 +89,8 @@ const syncLogSchema = new mongoose.Schema({
 });
 
 // Índices
+// aseguramos unicidad de sync_id para evitar errores E11000
+syncLogSchema.index({ sync_id: 1 }, { unique: true });
 syncLogSchema.index({ syncType: 1, startedAt: -1 });
 syncLogSchema.index({ status: 1, startedAt: -1 });
 syncLogSchema.index({ idBranch: 1, startedAt: -1 });

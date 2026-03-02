@@ -8,9 +8,12 @@ const router = express.Router();
 const multer = require('multer');
 const ImportService = require('../services/ImportService');
 const { v4: uuidv4 } = require('uuid');
-const { listImportHistory, createSyncLog, updateSyncLog } = require('../db/repositories');
+const { listImportHistory, createSyncLog, updateSyncLog, findSyncLogById } = require('../db/repositories');
 const { logger } = require('../utils/logger');
+const mongoose = require('mongoose');
 const { queueImportTask } = require('../workers/api-worker');
+// middleware de autenticación (commit/import history deben requerir token)
+const { requireAuth } = require('../middleware/auth');
 const { normalizeHeader, suggestMapping } = require('../utils/importUtils');
 
 // habilita procesamiento inline cuando no haya worker
@@ -21,39 +24,81 @@ const upload = multer({
   dest: './uploads/',
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB máximo
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'text/csv'
+    // allow by mimetype or, if mimetype is missing/generic, by extension
+    const allowedExt = ['xlsx', 'xls', 'csv'];
+    const allowedMime = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+      'application/vnd.ms-excel',                                       // xls or csv
+      'text/csv',
+      'application/csv'
     ];
 
-    if (allowedTypes.includes(file.mimetype)) {
+    const original = file.originalname || '';
+    const ext = original.split('.').pop().toLowerCase();
+    const mimetype = file.mimetype || '';
+    const isGeneric = !mimetype || mimetype === 'application/octet-stream';
+
+    let ok = false;
+    if (allowedMime.includes(mimetype)) {
+      ok = true;
+    } else if ((isGeneric || !mimetype) && allowedExt.includes(ext)) {
+      ok = true;
+    }
+
+    if (ok) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de archivo no permitido'));
+      // build error for unsupported type
+      const err = new Error('UNSUPPORTED_FILE_TYPE');
+      err.statusCode = 415;
+      err.details = { mimetype, originalname: original, ext };
+      cb(err);
     }
   }
 });
+
+// wrapper para manejar el upload y transformar errores de tipo
+function uploadHandler(req, res, next) {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.statusCode === 415 && err.message === 'UNSUPPORTED_FILE_TYPE') {
+        return res.status(415).json({
+          ok: false,
+          exito: false,
+          error: 'UNSUPPORTED_FILE_TYPE',
+          allowed: ['xlsx','xls','csv'],
+          got: err.details || {}
+        });
+      }
+      return next(err);
+    }
+    if (!req.file) {
+      return res.status(400).json({ ok: false, exito: false, error: 'MISSING_FILE' });
+    }
+    next();
+  });
+}
 
 /**
  * POST /api/import/excel
  * Importar archivo Excel
  */
 // synchronous commit API: process and return result immediately (no worker queue)
-router.post('/excel/commit', upload.single('file'), async (req, res) => {
+router.post('/excel/commit', requireAuth, uploadHandler, async (req, res) => {
   const syncId = req.body.importId || uuidv4();
   // record initial history immediately so there's always a log entry
   const fileMeta = req.file ? { originalName: req.file.originalname } : {};
   const mappingMeta = {};
+  // accept either `mapping` or legacy `mapeo` field
+  const rawMapping = req.body.mapping ?? req.body.mapeo;
   try {
-    const maybeMapping = req.body.mapeo;
-    if (maybeMapping && typeof maybeMapping === 'object') {
-      Object.entries(maybeMapping).forEach(([k, v]) => {
+    if (rawMapping && typeof rawMapping === 'object') {
+      Object.entries(rawMapping).forEach(([k, v]) => {
         mappingMeta[normalizeHeader(k)] = v;
       });
-    } else if (typeof maybeMapping === 'string') {
-      try { 
-        const parsed = JSON.parse(maybeMapping);
+    } else if (typeof rawMapping === 'string') {
+      try {
+        const parsed = JSON.parse(rawMapping);
         Object.entries(parsed).forEach(([k, v]) => {
           mappingMeta[normalizeHeader(k)] = v;
         });
@@ -86,29 +131,28 @@ router.post('/excel/commit', upload.single('file'), async (req, res) => {
       return res.status(400).json({ ok: false, error: 'No se recibió archivo', details: { importId: syncId }, status: 'failed' });
     }
 
-    const { mapeo, entidad = 'clientes' } = req.body;
+    const { entidad = 'clientes' } = req.body;
     const validEntidades = ['clientes', 'ventas', 'leads'];
     if (!validEntidades.includes(entidad)) {
       await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: 'Entidad inválida' });
       return res.status(400).json({ ok: false, error: 'Entidad inválida', details: { importId: syncId }, status: 'failed' });
     }
 
+    // mapping validation -------------------------------------------------
     let mapeoObj;
     try {
-      mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
+      if (rawMapping === undefined || rawMapping === null) {
+        throw new Error('missing');
+      }
+      mapeoObj = typeof rawMapping === 'string' ? JSON.parse(rawMapping) : rawMapping;
     } catch (err) {
-      await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: 'Mapeo JSON inválido' });
-      return res.status(400).json({ ok: false, error: 'Mapeo JSON inválido', details: { importId: syncId }, status: 'failed' });
+      await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: 'Mapeo inválido' });
+      return res.status(400).json({ ok: false, error: 'INVALID_MAPPING', details: { importId: syncId }, status: 'failed' });
     }
 
-    if (entidad === 'clientes' && (!mapeoObj || Object.keys(mapeoObj).length === 0)) {
-      mapeoObj = {
-        "ID Miembro": "idMember",
-        "Nombre": "name",
-        "Apellido": "lastName",
-        "Teléfono": "cellPhone",
-        "Email": "email"
-      };
+    if (!mapeoObj || typeof mapeoObj !== 'object' || Object.keys(mapeoObj).length === 0) {
+      await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: 'Mapeo vacío' });
+      return res.status(400).json({ ok: false, error: 'INVALID_MAPPING', details: { importId: syncId }, status: 'failed' });
     }
 
     logger.info('import.start', { importId: syncId, rows: 'unknown' });
@@ -126,30 +170,50 @@ router.post('/excel/commit', upload.single('file'), async (req, res) => {
       insertedCount: result.insertedCount,
       skippedCount: result.skippedCount,
       invalidCount: result.invalidCount || 0,
-      warnings: result.warnings || []
+      warnings: result.warnings || [],
+      updatedCount: result.updatedCount || result.registosActualizados || 0
     });
 
     return res.json({
       ok: true,
       importId: syncId,
       status: result.estatus || 'success',
+      // always include explicit fields for frontend
+      totalRows: result.totalRows || 0,
+      insertedCount: result.insertedCount || 0,
+      updatedCount: result.updatedCount || result.registosActualizados || 0,
+      skippedCount: result.skippedCount || 0,
+      invalidCount: result.invalidCount || 0,
+      warnings: result.warnings || [],
       counts: {
         processed: result.totalRows,
         inserted: result.insertedCount,
         skipped: result.skippedCount,
         invalid: result.invalidCount || 0
-      },
-      warnings: result.warnings || []
+      }
     });
-  } catch (error) {
-    logger.error('import.fail', { importId: syncId, error: error.message });
-    await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: error.message, errorStack: error.stack });
-    res.status(500).json({ ok: false, importId: syncId, error: error.message, details: { importId: syncId }, status: 'failed' });
+  } catch (err) {
+    logger.error('[import][commit] failed', {
+      importId: syncId,
+      message: err?.message,
+      stack: err?.stack
+    });
+    await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: err?.message, errorStack: err?.stack });
+    return res.status(500).json({
+      ok: false,
+      importId: syncId,
+      error: err?.message || 'COMMIT_FAILED',
+      details: {
+        importId: syncId,
+        stack: (err?.stack || '').toString().slice(0, 1200)
+      },
+      status: "failed"
+    });
   }
 });
 
 // existing /excel route (queueing)
-router.post('/excel', upload.single('file'), async (req, res) => {
+router.post('/excel', requireAuth, uploadHandler, async (req, res) => {
   // each import attempt gets its own syncId/runId
   const syncId = uuidv4();
   try {
@@ -233,7 +297,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
  * Importar archivo CSV
  */
 // commit endpoint for CSV imports
-router.post('/csv/commit', upload.single('file'), async (req, res) => {
+router.post('/csv/commit', requireAuth, uploadHandler, async (req, res) => {
   const syncId = req.body.importId || uuidv4();
   // initial history entry (upserted by createSyncLog)
   const fileMeta = req.file ? { originalName: req.file.originalname } : {};
@@ -340,11 +404,10 @@ router.post('/csv/commit', upload.single('file'), async (req, res) => {
 });
 
 // original CSV route (queueing)
-router.post('/csv', upload.single('file'), async (req, res) => {
+router.post('/csv', requireAuth, uploadHandler, async (req, res) => {
   const syncId = uuidv4();
   try {
     if (!req.file) {
-      await createSyncLog({ syncId, fuente: 'CSV', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
       return res.status(400).json({ exito: false, error: 'No se recibió archivo', details: { syncId } });
     }
 
@@ -418,7 +481,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
  * POST /api/import/preview
  * Vista previa del archivo (primeros registros)
  */
-router.post('/preview', upload.single('file'), async (req, res) => {
+router.post('/preview', requireAuth, uploadHandler, async (req, res) => {
   const syncId = req.body.importId || uuidv4();
   const entidad = req.body.entity || req.body.entidad || 'clientes';
 
@@ -426,7 +489,14 @@ router.post('/preview', upload.single('file'), async (req, res) => {
   logger.info({ hasFile: !!req.file, fileField: req.file?.fieldname, original: req.file?.originalname, size: req.file?.size }, 'preview upload');
 
   if (!req.file) {
-    await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
+    try {
+      const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
+      if (logResult && logResult.ok === false) {
+        logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
+      }
+    } catch (err) {
+      logger.warn('createSyncLog failed', { syncId, err: err.message });
+    }
     return res.status(400).json({ ok: false, importId: syncId, error: 'NO_FILE', details: "No file received. Expected multipart/form-data field 'file'." });
   }
 
@@ -439,11 +509,25 @@ router.post('/preview', upload.single('file'), async (req, res) => {
 
     const empty = (!headers.length) && (!sampleRows.length);
     if (empty) {
-      await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'Archivo vacío' });
+      try {
+        const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'Archivo vacío' });
+        if (logResult && logResult.ok === false) {
+          logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
+        }
+      } catch (err) {
+        logger.warn('createSyncLog failed', { syncId, err: err.message });
+      }
       return res.json({ ok: false, importId: syncId, error: 'EMPTY', details: { headers: headers.length, rows: sampleRows.length } });
     }
 
-    await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Exitoso' });
+    try {
+      const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Exitoso' });
+      if (logResult && logResult.ok === false) {
+        logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
+      }
+    } catch (err) {
+      logger.warn('createSyncLog failed', { syncId, err: err.message });
+    }
     return res.json({
       ok: true,
       importId: syncId,
@@ -465,9 +549,19 @@ router.post('/preview', upload.single('file'), async (req, res) => {
  * GET /api/import/history
  * Historial de importaciones
  */
-router.get('/history', async (req, res) => {
+router.get('/history', requireAuth, async (req, res) => {
   try {
-    const historial = (await listImportHistory(50)).map((log) => ({
+    // ensure DB is connected
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ ok: false, error: 'DB_UNAVAILABLE' });
+    }
+
+    // pagination param, default 50 max 500
+    let limit = parseInt(req.query.limit, 10) || 50;
+    if (limit < 1) limit = 1;
+    if (limit > 500) limit = 500;
+
+    const historial = (await listImportHistory(limit)).map((log) => ({
       syncId: log.syncId,
       iniciado: log.iniciado,
       fuente: log.fuente,
@@ -475,6 +569,7 @@ router.get('/history', async (req, res) => {
       estatus: log.estatus,
       totalRows: log.totalRows,
       insertedCount: log.insertedCount,
+      updatedCount: log.updatedCount || log.registosActualizados,
       skippedCount: log.skippedCount,
       invalidCount: log.invalidCount,
       errorMessage: log.errorMessage,
@@ -498,6 +593,33 @@ router.get('/history', async (req, res) => {
       exito: false,
       error: error.message
     });
+  }
+});
+
+// health check endpoint that verifies mongo can write/read a sync log
+// This is intentionally O(1) and *does not* delete anything; it simply upserts
+// a document with a known id and next reads it back.
+router.get('/selftest', requireAuth, async (req, res) => {
+  const syncId = 'selftest';
+  try {
+    const now = new Date();
+    // upsert a record with current timestamps
+    await createSyncLog({
+      syncId,
+      fuente: 'selftest',
+      estatus: 'iniciado',
+      iniciado: now,
+      finalizado: now
+    });
+
+    const doc = await findSyncLogById(syncId);
+    if (!doc) {
+      throw new Error('document not found');
+    }
+    return res.json({ ok: true, mongo: true, syncLogsWritable: true });
+  } catch (err) {
+    logger.error('selftest failure', err);
+    return res.json({ ok: false, mongo: false, error: err.message });
   }
 });
 

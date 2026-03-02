@@ -1,3 +1,7 @@
+// make sure signing secret exists during integration tests
+process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-secret';
+process.env.JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -70,5 +74,33 @@ describe('integration import flow', () => {
     expect(cli.status).toBe(200);
     expect(cli.body.total).toBe(1);
     expect(cli.body.clientes[0].email).toBe('carlos@x.com');
+  });
+
+  test('synchronous commit failure still generates history entry with Fallido', async () => {
+    // stub ImportService to throw
+    const ImportService = require('../src/services/ImportService');
+    const origCSV = ImportService.processCSVFile;
+    ImportService.processCSVFile = jest.fn().mockRejectedValue(new Error('simulated failure'));
+
+    const filepath = path.join(UPLOAD_DIR, 'bad.csv');
+    fs.writeFileSync(filepath, 'nombre,email\nFoo,foo@x.com');
+    const res = await request(app)
+      .post('/api/import/csv/commit')
+      .field('mapeo', JSON.stringify({ nombre: 'nombre', email: 'email' }))
+      .field('entidad', 'clientes')
+      .field('delimitador', ',')
+      .attach('file', fs.readFileSync(filepath), { filename: 'bad.csv', contentType: 'text/csv' });
+    expect(res.status).toBe(500);
+    // history must contain one entry with estatus Fallido
+    const hist = await request(app).get('/api/import/history');
+    expect(hist.status).toBe(200);
+    expect(hist.body.datos[0].estatus).toBe('Fallido');
+
+    // ensure no clientes inserted
+    const cli2 = await request(app).get('/api/clientes');
+    expect(cli2.body.total).toBe(0);
+
+    // restore
+    ImportService.processCSVFile = origCSV;
   });
 });

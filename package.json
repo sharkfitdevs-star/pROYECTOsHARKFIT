@@ -2,7 +2,8 @@
   "name": "sharkfit-monorepo",
   "private": true,
   "scripts": {
-    "dev:all": "concurrently -n FRONT,INTAKE \"npm --prefix landing run dev\" \"npm --prefix backend-data-intake run dev\""
+    "dev:all": "concurrently -n FRONT,INTAKE \"npm --prefix landing run dev\" \"npm --prefix backend-data-intake run dev\"",
+    "dev:stable": "powershell -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1"
   },
   "dependencies": {
     "concurrently": "^8.0.1"

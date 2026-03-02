@@ -46,7 +46,9 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
   process.exit(1);
 }
 
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+// default origins for development include both frontends used by team
+// (CRA at :3000 and Vite at :5173).  CLI or CI can override via CORS_ORIGIN.
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:5173')
   .split(',')
   .map(origin => origin.trim());
 
@@ -87,11 +89,36 @@ app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize());  // Evitar NoSQL injection
 app.use(hpp());  // Evitar HTTP Parameter Pollution
 
-// Logger middleware
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`);
-  next();
-});
+// Dev‑only request logger with request-id and status
+if (process.env.NODE_ENV !== 'production') {
+  const { randomUUID } = require('crypto');
+  app.use((req, res, next) => {
+    req.requestId = randomUUID();
+
+    // intercept status setter so we can tag 401 responses automatically
+    const origStatus = res.status;
+    res.status = function(code) {
+      if (code === 401) {
+        res.set('X-Service', 'backend-data-intake');
+      }
+      return origStatus.call(this, code);
+    };
+
+    res.on('finish', () => {
+      logger.info(`[${req.requestId}] ${req.method} ${req.path} ${res.statusCode}`);
+    });
+
+    next();
+  });
+}
+
+// For production we still want the minimal log once per request
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // ==================== RUTAS ====================
 const authRoutes = require('./routes/auth');
@@ -170,6 +197,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// simple service-specific health (no auth) so proxy tests can distinguish
+app.get('/api/health/service', (req, res) => {
+  res.json({ ok: true, service: 'backend-data-intake' });
+});
+
 // ==================== MANEJO DE ERRORES ====================
 app.use((err, req, res, next) => {
   logger.error('Error:', err);
@@ -197,6 +229,18 @@ const startServer = async () => {
   try {
     // Esperar a que MongoDB esté completamente conectado
     await connectDB();
+
+    // development logging of Mongo connection info
+    if (process.env.NODE_ENV !== 'production') {
+      const mongoose = require('mongoose');
+      const uri = process.env.MONGODB_URI || '(not set)';
+      const safeUri = uri.replace(/(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@/, '$1$2:****@');
+      mongoose.connection.on('connected', () => {
+        console.log('[DEV] intake Mongo URI:', safeUri);
+        console.log('[DEV] intake DB name:', mongoose.connection.name);
+      });
+    }
+
     await seedOwner();
 
     // Inicializar Agenda si está habilitado (no en tests)

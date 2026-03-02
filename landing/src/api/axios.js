@@ -38,9 +38,22 @@ export function setAuthHooks({ markImportsForbidden }) {
   _markImportsForbidden = markImportsForbidden;
 }
 
-// request guard: block any attempt to hit the imports connection endpoint if we
-// already know it's forbidden for this session.
+// request interceptor: attach token from memory or storage, log in dev
 api.interceptors.request.use((config) => {
+  // ensure auth header present if we have a token stored or persisted
+  const token = accessToken || localStorage.getItem('authToken');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('[AXIOS REQ]', config.method, config.url, 'headers', {
+      authorization: config.headers?.Authorization
+    });
+  }
+
+  // guard: block any attempt to hit the imports connection endpoint if we
+  // already know it's forbidden for this session.
   const url = config.url || '';
   if (url.includes('/api/settings/imports-connection') &&
       sessionStorage.getItem('importsToggleForbidden') === '1') {

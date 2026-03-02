@@ -1,3 +1,5 @@
+import { getAccessToken } from '../config/authStorage';
+
 // simple API client for fetching clients list
 // follows same pattern used in importApi.js (native fetch, error handling)
 
@@ -19,31 +21,44 @@ export function normalizeClientesResponse(raw) {
       items = raw.items;
     }
   }
-  const total = typeof raw?.total === 'number' ? raw.total : items.length;
+  const total =
+    typeof raw?.total === 'number'
+      ? raw.total
+      : typeof raw?.meta?.count === 'number'
+      ? raw.meta.count
+      : items.length;
   const importsConnected = typeof raw?.importsConnected === 'boolean' ? raw.importsConnected : undefined;
-  return { items, total, importsConnected };
+  // also return raw.meta so callers can see skip/limit etc.
+  return { items, total, importsConnected, meta: raw?.meta };
 }
 
 
-export async function fetchClientes() {
-  let res;
-  try {
-    res = await fetch("/api/clientes");
-  } catch (err) {
-    throw new Error('Error de red al obtener clientes');
+import { fetchAuth } from '../api/fetchAuth';
+
+export async function fetchClientes({ skip = 0, limit } = {}) {
+  // build query string when pagination params provided
+  let url = "/api/clientes";
+  const params = new URLSearchParams();
+  if (typeof skip === 'number') params.set('skip', skip);
+  if (typeof limit === 'number') params.set('limit', limit);
+  if ([...params].length) url += `?${params.toString()}`;
+
+  // instrument token presence
+  const token = getAccessToken();
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('clientesApi token?', !!token, 'len:', token ? token.length : 0, 'head:', token?.slice(0,12));
+  }
+  if (!token) {
+    const err = new Error('Missing access token');
+    err.code = 'NO_TOKEN';
+    throw err;
   }
 
   let data;
   try {
-    data = await res.json();
-  } catch {
-    throw new Error('Respuesta inválida del servidor');
-  }
-
-  if (!res.ok || data?.ok === false) {
-    const msg = data?.error || `Error al obtener clientes (HTTP ${res.status})`;
-    const err = new Error(msg);
-    if (data?.details) err.details = err.details;
+    data = await fetchAuth(url, { method: 'GET' });
+  } catch (err) {
+    // rethrow special errors
     throw err;
   }
 
@@ -53,7 +68,13 @@ export async function fetchClientes() {
     console.warn('fetchClientes: missing importsConnected flag, assuming true');
   }
 
-  return { clientes: items, total, importsConnected: importsConnected !== undefined ? importsConnected : true };
+  // include raw meta for caller if present
+  return {
+    clientes: items,
+    total,
+    importsConnected: importsConnected !== undefined ? importsConnected : true,
+    meta: data?.meta,
+  };
 }
 
 // settings endpoints are handled in a dedicated helper to avoid

@@ -200,7 +200,7 @@ const healthCheckSchema = new Schema({
   },
   estado: {
     type: String,
-    enum: ['healthy', 'degraded', 'unhealthy'],
+    enum: ['healthy', 'degraded', 'unhealthy', 'skipped'],
     required: true
   },
   latencia_ms: Number,

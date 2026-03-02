@@ -24,6 +24,7 @@ const { connectDB } = require('./db/mongodb');
 const { logger } = require('./utils/logger');
 const { validateRequest, schemas, applySecurityPolicies } = require('./middleware/validation.IMPROVED');
 const { authLoginRateLimiter, authPasswordRateLimiter, rateLimiter } = require('./middleware/rateLimiter');
+const { requireAuth } = require('./middleware/auth');
 
 const PORT = process.env.PORT || 8000;
 
@@ -82,18 +83,38 @@ function createApp() {
     next();
   });
 
-  // ✅ CORS configurado con validación
-  const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map(o => o.trim());
+  // ✅ CORS configurado con whitelist y validación segura
+  // build explicit list: env CSV plus known dev hosts
+  const corsOrigins = [];
+  if (process.env.CORS_ORIGIN) {
+    corsOrigins.push(...process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean));
+  }
+  // always allow local dev addresses for both ports 3000 and 5173
+  corsOrigins.push(
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+  );
+  if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+    throw new Error('❌ CORS_ORIGIN no configurado en .env para producción');
+  }
 
   const corsOptions = {
     origin: (origin, callback) => {
-      // ✅ Permitir requests sin origen (mobile apps, curl, etc.)
-      if (!origin || corsOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`❌ CORS blocked: ${origin}`);
-        callback(new Error('CORS no permitido'));
+      // during tests we don't want CORS to interfere at all
+      if (process.env.NODE_ENV === 'test') {
+        return callback(null, true);
       }
+      // allow requests without origin (curl, Postman, server-to-server)
+      if (!origin || corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // rejected origin: log in dev but do not throw error
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[CORS] blocking origin', origin);
+      }
+      return callback(null, false);
     },
     credentials: true,  // Permite cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -102,6 +123,8 @@ function createApp() {
     maxAge: 86400  // Cache preflight 24 horas
   };
 
+  // enable global preflight handler
+  app.options('*', cors(corsOptions));
   app.use(cors(corsOptions));
 
   // ✅ Rate limiting global (100 requests / 15 min)
@@ -121,9 +144,16 @@ function createApp() {
   // ✅ HPP (HTTP Parameter Pollution)
   app.use(hpp());
 
-  // ✅ Logger custom
+  // ✅ Request logging middleware (boolean headers only)
   app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.path}`);
+    logger.info('[REQ]', {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      hasCookie: !!req.headers.cookie,
+      hasAuth: !!req.headers.authorization,
+      hasSession: !!req.headers['x-session-token'],
+      contentType: req.headers['content-type'] || null
+    });
     next();
   });
 
@@ -168,43 +198,41 @@ function createApp() {
     });
   });
 
-  // ════════════════════════════════════════════════════════════════════
-  // ❌ ERROR HANDLING (DEBE SER ÚLTIMO)
-  // ════════════════════════════════════════════════════════════════════
-
-  // 404 Handler
-  app.use((req, res) => {
-    res.status(404).json({
-      error: true,
-      message: 'Endpoint no encontrado'
-    });
+  // debugging helper: echo the authenticated user object constructed from JWT
+  app.get('/api/whoami', requireAuth, (req, res) => {
+    res.json({ ok: true, user: req.user });
   });
 
-  // Error handler global
+  // ════════════════════════════════════════════════════════════════════
+  // ❌ ERROR HANDLING MIDDLEWARES (deben montarse al FINAL en server.js)
+  // ════════════════════════════════════════════════════════════════════
+
+  // Nota: no registramos un 404 aquí.  Se expone como middleware para que
+  // server.js pueda montarlo después de todas las rutas específicas.
+  
+  // Global error middleware logs structured error info and returns uniform JSON
   app.use((err, req, res, next) => {
-    // ✅ Log detallado (solo en server, no en respuesta)
-    logger.error('Unhandled error:', {
-      message: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-      path: req.path,
+    logger.error('[ERR]', {
       method: req.method,
-      ip: req.ip
+      path: req.originalUrl || req.url,
+      message: err.message,
+      stack: err.stack
     });
 
-    // ✅ Respuesta genérica al cliente
     const statusCode = err.status || 500;
     const message = process.env.NODE_ENV === 'production'
-      ? 'Error interno del servidor'  // Genérico en prod
-      : err.message;  // Detallado en dev
+      ? 'Error interno del servidor'
+      : err.message;
 
-    res.status(statusCode).json({
-      error: true,
-      message,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    });
+    res.status(statusCode).json({ ok: false, error: 'INTERNAL_SERVER_ERROR', message });
   });
 
   return app;
 }
 
-module.exports = { createApp };
+// export 404 handler so caller can mount it last
+function notFoundHandler(req, res) {
+  res.status(404).json({ error: true, message: 'Endpoint no encontrado' });
+}
+
+module.exports = { createApp, notFoundHandler };

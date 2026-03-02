@@ -1,3 +1,8 @@
+// make sure a secret is available so jwt.sign doesn't throw during tests
+jest.setTimeout(20000);
+process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-secret';
+process.env.JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+
 const request = require('supertest');
 const fs = require('fs');
 const path = require('path');
@@ -9,11 +14,50 @@ jest.mock('../src/db/repositories', () => ({
   createSyncLog: jest.fn().mockResolvedValue(true),
   updateSyncLog: jest.fn().mockResolvedValue(true)
 }));
+// bypass authentication during tests
+jest.mock('../src/middleware/auth', () => ({ requireAuth: (req, res, next) => next(), requireRole: () => (req, res, next) => next() }));
+// avoid hitting real Mongo for Usuario.create used in issueUser
+jest.mock('../src/models', () => ({
+  Usuario: { create: jest.fn(async data => ({ ...data, _id: 'dummy' })) }
+}));
 
 const UPLOAD_DIR = path.resolve(__dirname, '..', 'uploads');
 
 describe('Import routes (enqueue behavior)', () => {
   let originalEnv;
+  let authToken;
+
+  // helper to create a user and token (similar to settings tests)
+  async function issueUser(role = 'staff') {
+    const { Usuario } = require('../src/models');
+    const user = await Usuario.create({
+      username: `u${Date.now()}`,
+      email: `u${Date.now()}@example.com`,
+      password: 'password123',
+      firstName: 'Test',
+      lastName: 'User',
+      role,
+    });
+    const jwt = require('jsonwebtoken');
+    const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+    const token = jwt.sign({ userId: user._id }, secret, { expiresIn: '1h' });
+    return { user, token };
+  }
+
+  beforeAll(async () => {
+    const issued = await issueUser('staff');
+    authToken = issued.token;
+  });
+
+  test('protected routes return 401 without token', async () => {
+    const app = require('../src/app');
+    const r1 = await request(app).post('/api/import/excel/commit');
+    expect(r1.status).toBe(401);
+    expect(r1.body.error).toBe('UNAUTHORIZED');
+    const r2 = await request(app).get('/api/import/history');
+    expect(r2.status).toBe(401);
+    expect(r2.body.error).toBe('UNAUTHORIZED');
+  });
 
   beforeEach(async () => {
     originalEnv = { ...process.env };
@@ -86,6 +130,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .attach('file', Buffer.from('fake-xlsx-content'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -93,9 +138,15 @@ describe('Import routes (enqueue behavior)', () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.importId).toBeDefined();
+    expect(res.body.totalRows).toBeUndefined(); // service stub returns no rows
+    expect(res.body.insertedCount).toBe(5);
+    expect(res.body.updatedCount).toBe(0);
+    expect(res.body.skippedCount).toBe(2);
+    expect(res.body.invalidCount).toBe(0);
+    expect(Array.isArray(res.body.warnings)).toBe(true);
+    expect(res.body.status).toBe('Exitoso');
     expect(res.body.counts.inserted).toBe(5);
     expect(res.body.counts.skipped).toBe(2);
-    expect(res.body.status).toBe('Exitoso');
     expect(processExcelFile).toHaveBeenCalled();
     expect(createSyncLog).toHaveBeenCalledWith(expect.objectContaining({ syncId: expect.any(String), estatus: 'Procesando' }));
     expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: expect.any(String) }));
@@ -136,6 +187,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/csv/commit')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .field('delimitador', ',')
@@ -162,6 +214,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -185,6 +238,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/csv/commit')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .attach('file', Buffer.from('a,b\n1,2'), { filename: 'data.csv', contentType: 'text/csv' });
@@ -198,21 +252,98 @@ describe('Import routes (enqueue behavior)', () => {
     expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: 'Fallido' }));
   });
 
-  test('POST /api/import/excel/commit with malformed mapping still logs and returns error', async () => {
+  test('GET /api/import/selftest returns success when mongo writable', async () => {
+    // mock repositories before loading app
+    const findSyncLogById = jest.fn().mockResolvedValue({ syncId: 'selftest' });
+    const createSyncLog = jest.fn().mockResolvedValue(true);
+    const updateSyncLog = jest.fn().mockResolvedValue(true);
+    jest.doMock('../src/db/repositories', () => ({
+      listImportHistory: jest.fn(),
+      createSyncLog,
+      updateSyncLog,
+      findSyncLogById
+    }));
+
+    const app = require('../src/app');
+    const res = await request(app)
+      .get('/api/import/selftest')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.mongo).toBe(true);
+    expect(res.body.syncLogsWritable).toBe(true);
+    expect(findSyncLogById).toHaveBeenCalledWith('selftest');
+  });
+
+  test('POST /api/import/excel/commit rejects missing or invalid mapping', async () => {
     const app = require('../src/app');
     const { createSyncLog, updateSyncLog } = require('../src/db/repositories');
 
-    const res = await request(app)
+    // malformed json using legacy field
+    let res = await request(app)
       .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', '{badjson')
       .field('entidad', 'clientes')
       .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
     expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
-    expect(res.body.importId).toBeDefined();
-    expect(res.body.status).toBe('failed');
-    expect(res.body.error).toMatch(/Mapeo JSON inválido/);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
+    // malformed json using new "mapping" field
+    res = await request(app)
+      .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('mapping', '{badjson')
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
+    // completely missing mapping (neither field present)
+    res = await request(app)
+      .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
+    // missing mapping with new field name (mapping undefined still)
+    res = await request(app)
+      .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
+    // empty object using legacy name
+    res = await request(app)
+      .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('mapeo', JSON.stringify({}))
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
+    // empty object using new field name
+    res = await request(app)
+      .post('/api/import/excel/commit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('mapping', JSON.stringify({}))
+      .field('entidad', 'clientes')
+      .attach('file', Buffer.from('fake'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe('INVALID_MAPPING');
+
     expect(createSyncLog).toHaveBeenCalled();
     expect(updateSyncLog).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ estatus: 'Fallido' }));
   });
@@ -227,6 +358,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/excel')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .attach('file', Buffer.from('fake-xlsx-content'), { filename: 'data.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -249,6 +381,7 @@ describe('Import routes (enqueue behavior)', () => {
 
     const res = await request(app)
       .post('/api/import/csv')
+      .set('Authorization', `Bearer ${authToken}`)
       .field('mapeo', JSON.stringify(mapeo))
       .field('entidad', 'clientes')
       .field('delimitador', ',')
@@ -271,14 +404,18 @@ describe('Import routes (enqueue behavior)', () => {
         estatus: 'Exitoso',
         iniciado: '2025-01-01T00:00:00.000Z',
         registosProcesados: 5,
-        registosInseridos: 2
+        registosInseridos: 2,
+        registosActualizados: 1,
+        updated_count: 1
       }
     ];
     const listImportHistory = jest.fn().mockResolvedValue(fakeLogs);
     jest.doMock('../src/db/repositories', () => ({ listImportHistory }));
 
     const app = require('../src/app');
-    const res = await request(app).get('/api/import/history');
+    const res = await request(app)
+      .get('/api/import/history')
+      .set('Authorization', `Bearer ${authToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.exito).toBe(true);
@@ -291,6 +428,7 @@ describe('Import routes (enqueue behavior)', () => {
       estatus: 'Exitoso',
       totalRows: undefined,
       insertedCount: undefined,
+      updatedCount: undefined,
       skippedCount: undefined,
       invalidCount: undefined,
       errorMessage: undefined,
@@ -394,6 +532,7 @@ describe('Import routes (enqueue behavior)', () => {
         estatus: 'Fallido',
         total_rows: 3,
         inserted_count: 1,
+        updated_count: 2,
         skipped_count: 1,
         invalid_count: 1,
         error_message: 'test error'
@@ -402,13 +541,16 @@ describe('Import routes (enqueue behavior)', () => {
     const listImportHistory = jest.fn().mockResolvedValue(fakeLogs.map(r => ({ ...r, registosProcesados:0, registosInseridos:0, registosActualizados:0, registosFallidos:0 })));
     jest.doMock('../src/db/repositories', () => ({ listImportHistory }));
     const app = require('../src/app');
-    const res = await request(app).get('/api/import/history');
+    const res = await request(app)
+      .get('/api/import/history')
+      .set('Authorization', `Bearer ${authToken}`);
     expect(res.body.datos[0]).toMatchObject({
       syncId: 'xyz',
       fuente: 'CSV',
       estatus: 'Fallido',
       totalRows: 3,
       insertedCount: 1,
+      updatedCount: 2,
       skippedCount: 1,
       invalidCount: 1,
       errorMessage: 'test error'

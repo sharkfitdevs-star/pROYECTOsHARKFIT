@@ -1,21 +1,57 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { Cliente } = require('../models');
 const Setting = require('../models/Setting');
+const { requireAuth } = require('../middleware/auth');
+const { logger } = require('../utils/logger');
 
 /**
  * GET /api/clientes
  * Listar clientes
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
+  // ensure DB connection available before proceeding
+  if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ ok: false, error: 'DB_UNAVAILABLE' });
+  }
   const { page = 1, limit = 10, status, active, search, idBranch } = req.query;
   let importsConnected = true;
   try {
     const sett = await Setting.findOne({ key: 'imports_connected' }).lean();
-    if (sett && sett.value === false) importsConnected = false;
+    if (sett) {
+      if (typeof sett.value === 'boolean') {
+        importsConnected = sett.value;
+      } else if (typeof sett.value === 'object' && sett.value !== null) {
+        if (typeof sett.value.importsConnected === 'boolean') {
+          importsConnected = sett.value.importsConnected;
+        }
+      }
+    }
   } catch (e) {
     // ignore failure reading setting, assume connected
     logger.warn('failed to read imports_connected setting', { error: e.message });
+  }
+
+  // when disconnected we don't want to disclose any client records at all;
+  // this keeps behavior consistent with the UI (which hides the table) and
+  // simplifies downstream callers. short‑circuit before building the query.
+  if (!importsConnected) {
+    logger.info('listar_clientes', { importsConnected, clientes_count: 0 });
+    return res.json({
+      ok: true,
+      importsConnected,
+      data: [],
+      clientes: [],
+      total: 0,
+      page: parseInt(page),
+      pages: 0,
+      meta: {
+        limit: Number(limit),
+        skip: 0,
+        count: 0
+      }
+    });
   }
 
   try {
@@ -68,9 +104,15 @@ router.get('/', async (req, res) => {
       ok: true,
       importsConnected,
       data: clientes,
+      clientes,              // alias for compatibility with older clients
       total: count,
       page: parseInt(page),
-      pages: Math.ceil(count / limit)
+      pages: Math.ceil(count / limit),
+      meta: {
+        limit: Number(limit),
+        skip: Number(page > 0 ? (page - 1) * limit : 0),
+        count
+      }
     });
   } catch (error) {
     logger.error('Error listing clientes:', {
@@ -240,5 +282,11 @@ router.get('/stats/resumen', async (req, res) => {
   }
 });
 
+
+// simple helper for frontend debugging/proxy verification
+router.get('/whoami', requireAuth, (req, res) => {
+  const { id, role } = req.user || {};
+  res.json({ ok: true, sub: id, role });
+});
 
 module.exports = router;

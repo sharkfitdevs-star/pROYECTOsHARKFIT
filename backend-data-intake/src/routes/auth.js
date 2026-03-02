@@ -89,6 +89,8 @@ const createEmailToken = async (userId, type, expiresMinutes) => {
   return rawToken;
 };
 
+// helper used by registration when public sign‑up is disabled
+// this mirrors what requireRole would do but without touching the DB
 const requireAdminOrOwner = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || '';
@@ -102,21 +104,21 @@ const requireAdminOrOwner = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
-    const user = await Usuario.findById(decoded.userId);
+    const role = decoded.role || decoded.user?.role || null;
 
-    if (!user || !['owner', 'admin'].includes(user.role)) {
+    if (!role || !['owner', 'admin'].includes(role)) {
       return res.status(403).json({
         error: true,
         message: 'Registro solo para administradores'
       });
     }
 
+    // propagate minimal user info so downstream handlers don't crash
     req.user = {
-      id: user._id,
-      role: user.role,
-      email: user.email,
-      name: user.fullName || user.firstName,
-      status: user.status
+      id: decoded.userId || decoded.sub,
+      role,
+      email: decoded.email || null,
+      name: decoded.username || null
     };
 
     next();
@@ -297,10 +299,8 @@ router.post('/request-access',
  */
 router.get('/access-requests', requireAuth, async (req, res) => {
   try {
-    const { requireRole } = require('../routes/auth');
-    // requireRole middleware is available elsewhere; enforce roles manually here
-    const user = await Usuario.findById(req.user.id);
-    if (!user || !['owner','admin'].includes(user.role)) {
+    // token payload already contains role, no need to hit the usuarios collection
+    if (!req.user || !['owner','admin'].includes(req.user.role)) {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 
@@ -317,8 +317,7 @@ router.get('/access-requests', requireAuth, async (req, res) => {
  */
 router.post('/access-requests/:id/approve', requireAuth, async (req, res) => {
   try {
-    const user = await Usuario.findById(req.user.id);
-    if (!user || !['owner','admin'].includes(user.role)) {
+    if (!req.user || !['owner','admin'].includes(req.user.role)) {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 
@@ -405,8 +404,7 @@ router.post('/access-requests/:id/approve', requireAuth, async (req, res) => {
  */
 router.post('/access-requests/:id/reject', requireAuth, async (req, res) => {
   try {
-    const user = await Usuario.findById(req.user.id);
-    if (!user || !['owner','admin'].includes(user.role)) {
+    if (!req.user || !['owner','admin'].includes(req.user.role)) {
       return res.status(403).json({ error: true, message: 'Forbidden' });
     }
 

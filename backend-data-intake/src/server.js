@@ -1,4 +1,10 @@
-require('dotenv').config();
+const path = require('path');
+// always load root .env.local so both backends share the same secrets/ports
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
+// warn if mongodb uri missing (do not exit)
+if (!process.env.MONGODB_URI) {
+  console.error('MONGODB_URI missing in root .env.local');
+}
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -10,10 +16,13 @@ const { Server: SocketIOServer } = require("socket.io");
 const net = require('net');
 
 const { logger } = require("./utils/logger");
+// global Node error handlers (keep server alive; log instead of crash)
+process.on("unhandledRejection", (reason) => logger.error("UNHANDLED_REJECTION", reason));
+process.on("uncaughtException", (err) => { logger.error("UNCAUGHT_EXCEPTION", err); });
 const { errorHandler } = require("./middleware/errorHandler");
 const { seedOwner } = require("./utils/seedOwner");  // ← AGREGADO
 const { connectToDB } = require('./db/db');
-const { createApp } = require('./app.IMPROVED');
+const { createApp, notFoundHandler } = require('./app.IMPROVED');
 const authRoutes = require("./routes/auth");
 const importRoutes = require("./routes/import");
 const sourcesRoutes = require("./routes/sources");
@@ -46,7 +55,8 @@ const createOptimizedIndexes = async () => {
 // ============================================
 const EVO_BASE_URL = process.env.EVO_BASE_URL;
 const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || "http://localhost:8000/api";
-const PORT = process.env.PORT || 3005;
+const PORT = Number(process.env.PORT_INTAKE) || 3005; // prefer shared env variable
+
 const POLL_MS = Number(process.env.POLL_MS || 10000);
 const EXTERNAL_API_SYNC_MINUTES = Number(process.env.EXTERNAL_API_SYNC_MINUTES || 180);
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000); // 24h by default
@@ -213,189 +223,9 @@ let app;
 let server;
 let io;
 
-// ============================================
-// RUTAS
-// ============================================
+// NOTE: routes defined later inside startServer once `app` is created to avoid
+// using an undefined reference.  See startServer() further down.
 
-/**
- * POST /login
- * body: { dns, token, django_token }
- * return: { sessionToken }
- */
-app.post("/login", async (req, res) => {
-  const { dns, token, django_token } = req.body || {};
-
-  if (!dns || !token) {
-    return res.status(400).json({ ok: false, error: "Falta dns o token" });
-  }
-
-  try {
-    await testCredentials(dns, token);
-
-    const sessionToken = makeSessionToken();
-    sessions.set(sessionToken, {
-      dns,
-      token,
-      django_token: django_token || process.env.DJANGO_JWT_TOKEN || "",
-      createdAt: Date.now(),
-    });
-
-    // Expirar sesión en 24 horas
-    const sessionTimer = setTimeout(() => sessions.delete(sessionToken), SESSION_TTL_MS);
-    if (sessionTimer && typeof sessionTimer.unref === 'function') sessionTimer.unref();
-
-    return res.json({ ok: true, sessionToken, message: "Sesión iniciada correctamente" });
-  } catch (e) {
-    return res.status(401).json({
-      ok: false,
-      error: "Credenciales inválidas o sin permisos",
-      detail: e.message,
-    });
-  }
-});
-
-/**
- * GET /api/snapshot
- * header: x-session-token: <sessionToken>
- */
-app.get("/api/snapshot", requireSession, async (req, res) => {
-  try {
-    const { dns, token } = req.session;
-    const snap = await fetchSnapshot(dns, token);
-    res.json({ ok: true, ...snap });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-/**
- * POST /api/sync
- * Fuerza sincronización inmediata
- */
-app.post("/api/sync", requireSession, async (req, res) => {
-  try {
-    const { dns, token, django_token } = req.session;
-
-    if (!django_token) {
-      return res.status(400).json({
-        ok: false,
-        error: "Django token no configurado. Usa POST /login con django_token",
-      });
-    }
-
-    const snap = await fetchSnapshot(dns, token);
-
-    let results = {
-      clients: { synced: 0, errors: 0 },
-      sales: { synced: 0, errors: 0 },
-    };
-
-    // Sincronizar clientes
-    if (snap.prospects?.ok && snap.prospects.data?.items) {
-      const clientResults = await syncClientesToDjango(snap.prospects.data.items, django_token);
-      results.clients = clientResults;
-    }
-
-    // Sincronizar ventas (si hay clientes)
-    if (snap.sales?.ok && snap.sales.data?.items) {
-      const clientMap = {};
-      results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, clientMap);
-    }
-
-    res.json({
-      ok: true,
-      message: "Sincronización completada",
-      results,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-/**
- * GET /health
- */
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "sharkfit-data-intake",
-    status: "running",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ============================================
-// SOCKET.IO - Real-time polling
-// ============================================
-io.use((socket, next) => {
-  const sessionToken = socket.handshake.auth?.sessionToken;
-  if (!sessionToken || !sessions.has(sessionToken)) {
-    return next(new Error("Sesión inválida"));
-  }
-  socket.sessionToken = sessionToken;
-  socket.session = sessions.get(sessionToken);
-  next();
-});
-
-io.on("connection", (socket) => {
-  logger.info(`Cliente conectado: ${socket.id}`);
-
-  // Polling cada POLL_MS
-  let timer = setInterval(async () => {
-    try {
-      const { dns, token } = socket.session;
-      const snap = await fetchSnapshot(dns, token);
-      socket.emit("evo:snapshot", snap);
-    } catch (e) {
-      socket.emit("evo:error", {
-        ts: new Date().toISOString(),
-        message: e.message,
-      });
-    }
-  }, POLL_MS);
-
-  socket.on("sync:request", async () => {
-    try {
-      const { dns, token, django_token } = socket.session;
-      const snap = await fetchSnapshot(dns, token);
-
-      let results = {
-        clients: { synced: 0, errors: 0 },
-        sales: { synced: 0, errors: 0 },
-      };
-
-      if (snap.prospects?.ok && snap.prospects.data?.items) {
-        const clientResults = await syncClientesToDjango(
-          snap.prospects.data.items,
-          django_token
-        );
-        results.clients = clientResults;
-      }
-
-      if (snap.sales?.ok && snap.sales.data?.items) {
-        const clientMap = {};
-        results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, clientMap);
-      }
-
-      socket.emit("sync:complete", {
-        ok: true,
-        results,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (e) {
-      socket.emit("sync:error", {
-        ok: false,
-        message: e.message,
-      });
-    }
-  });
-
-  socket.on("disconnect", () => {
-    clearInterval(timer);
-    logger.info(`Cliente desconectado: ${socket.id}`);
-  });
-});
 
 // ============================================
 // START SERVER
@@ -425,14 +255,154 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Conectar a MongoDB primero
-    await connectToDB();
-    logger.info('✅ MongoDB conectado');
-
-    // build app using factory
+    // build base app using factory
     app = createApp();
+
+
+    // start HTTP listener immediately so port is bound even if DB fails
+    server = http.createServer(app);
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`Puerto ${PORT} ocupado, cierra el otro backend o mata el proceso`);
+        process.exit(1);
+      } else {
+        logger.error('Error en el servidor HTTP:', err);
+        process.exit(1);
+      }
+    });
+    server.listen(PORT, "0.0.0.0", () => {
+      logger.info(`Servidor escuchando en http://0.0.0.0:${PORT}`);
+      logger.info('BOOT_OK');
+    });
+
+    // attempt DB connection in background (do not block or exit on failure)
+    connectToDB()
+      .then(ok => {
+        if (ok) logger.info('✅ MongoDB conectado');
+        else logger.error('MongoDB no disponible en el arranque');
+      })
+      .catch(err => {
+        logger.error('Error en background conectando a DB:', err);
+      });
+
+    // --- server-specific routes previously declared above ---
+    /**
+     * POST /login
+     * body: { dns, token, django_token }
+     * return: { sessionToken }
+     */
+    app.post("/login", async (req, res) => {
+      const { dns, token, django_token } = req.body || {};
+
+      if (!dns || !token) {
+        return res.status(400).json({ ok: false, error: "Falta dns o token" });
+      }
+
+      try {
+        await testCredentials(dns, token);
+
+        const sessionToken = makeSessionToken();
+        sessions.set(sessionToken, {
+          dns,
+          token,
+          django_token: django_token || process.env.DJANGO_JWT_TOKEN || "",
+          createdAt: Date.now(),
+        });
+
+        // Expirar sesión en 24 horas
+        const sessionTimer = setTimeout(() => sessions.delete(sessionToken), SESSION_TTL_MS);
+        if (sessionTimer && typeof sessionTimer.unref === 'function') sessionTimer.unref();
+
+        return res.json({ ok: true, sessionToken, message: "Sesión iniciada correctamente" });
+      } catch (e) {
+        return res.status(401).json({
+          ok: false,
+          error: "Credenciales inválidas o sin permisos",
+          detail: e.message,
+        });
+      }
+    });
+
+    /**
+     * GET /api/snapshot
+     * header: x-session-token: <sessionToken>
+     */
+    app.get("/api/snapshot", requireSession, async (req, res) => {
+      try {
+        const { dns, token } = req.session;
+        const snap = await fetchSnapshot(dns, token);
+        res.json({ ok: true, ...snap });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
+    /**
+     * POST /api/sync
+     * Fuerza sincronización inmediata
+     */
+    app.post("/api/sync", requireSession, async (req, res) => {
+      try {
+        const { dns, token, django_token } = req.session;
+
+        if (!django_token) {
+          return res.status(400).json({
+            ok: false,
+            error: "Django token no configurado. Usa POST /login con django_token",
+          });
+        }
+
+        const snap = await fetchSnapshot(dns, token);
+
+        let results = {
+          clients: { synced: 0, errors: 0 },
+          sales: { synced: 0, errors: 0 },
+        };
+
+        // Sincronizar clientes
+        if (snap.prospects?.ok && snap.prospects.data?.items) {
+          const clientResults = await syncClientesToDjango(snap.prospects.data.items, django_token);
+          results.clients = clientResults;
+        }
+
+        // Sincronizar ventas (si hay clientes)
+        if (snap.sales?.ok && snap.sales.data?.items) {
+          const clientMap = {};
+          results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, clientMap);
+        }
+
+        res.json({
+          ok: true,
+          message: "Sincronización completada",
+          results,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
+    /**
+     * GET /health
+     */
+    app.get("/health", (req, res) => {
+      res.json({
+        ok: true,
+        service: "sharkfit-data-intake",
+        status: "running",
+        timestamp: new Date().toISOString(),
+      });
+    });
+
     // mount server-specific routes not covered by createApp()
+    // the required order is documented by the caller task.  import first so
+    // nested handlers are reachable even if createApp later adds other routes.
     app.use("/api/import", importRoutes);
+    app.use("/api/settings", settingsRoutes);
+    app.use("/api/health", healthRoutes);
+    app.use("/api/clientes", clientesRoutes);
+
+    // remaining routers can be mounted in any order
     app.use("/api/sources", sourcesRoutes);
     app.use("/api/stats", statsRoutes);
     app.use("/api/sync", syncRoutes);
@@ -440,9 +410,41 @@ const startServer = async () => {
     app.use("/api/setup", apiSetupRoutes);
     app.use("/api/export", require("./routes/export"));
 
-    // healthRoutes and clientesRoutes might be duplicates; only add if not already
-    app.use("/api/health", healthRoutes);
-    app.use("/api/clientes", clientesRoutes);
+    // debugging helper: list all mounted routes (dev only)
+    if (process.env.NODE_ENV !== 'production') {
+      app.get('/api/_routes', (req, res) => {
+        const routes = [];
+        function walk(stack, prefix = '') {
+          stack.forEach((layer) => {
+            if (layer.route && layer.route.path) {
+              const path = prefix + layer.route.path;
+              const methods = Object.keys(layer.route.methods || {}).join(',').toUpperCase();
+              routes.push({ path, methods });
+            } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+              // compute prefix from regexp
+              let pathPrefix = '';
+              if (layer.regexp) {
+                pathPrefix = layer.regexp.source
+                  .replace('^', '')
+                  .replace('\/?(?=\/|$)', '')
+                  .replace('$', '')
+                  .replace(/\\\//g, '/');
+              }
+              walk(layer.handle.stack, prefix + pathPrefix);
+            }
+          });
+        }
+        if (app._router && app._router.stack) {
+          walk(app._router.stack);
+        }
+        res.json({ routes });
+      });
+    }
+
+    // place common 404 handler handled by createApp export
+    app.use(notFoundHandler);
+
+    // errorHandler is registered later after initialization logic (see bottom of startServer)
 
     // create HTTP server and socket.io
     server = http.createServer(app);
@@ -541,29 +543,9 @@ const startServer = async () => {
       logger.info('⏭️ Health checks omitidos (entorno de test o SKIP_HEALTH_CHECKS)');
     }
     
-    // interceptar errores del servidor (especialmente EADDRINUSE)
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        logger.error(`Puerto ${PORT} ocupado, cierra el otro backend o mata el proceso`);
-        process.exit(1);
-      } else {
-        logger.error('Error en el servidor HTTP:', err);
-      }
-    });
+    // register generic error handler after all routes
+    app.use(errorHandler);
 
-    server.listen(PORT, "0.0.0.0", () => {
-      logger.info(`Servidor escuchando en http://0.0.0.0:${PORT}`);
-      logger.info('API Endpoints available');
-      logger.info('   POST   /login              { dns, token, django_token } → sessionToken');
-      logger.info('   GET    /api/snapshot       (requiere header x-session-token)');
-      logger.info('   GET    /api/evo/dashboard/stats  (extractor | mongodb | demo)');
-      logger.info('   POST   /api/sync           (fuerza sincronización inmediata)');
-      logger.info('   GET    /api/health         (checkeo de salud del servicio)');
-      logger.info('   GET    /api/health/evo     (verificar EVO específicamente)');
-      logger.info('   POST   /api/webhooks/evo   (recibir webhooks de EVO)');
-      logger.info('   POST   /api/webhooks/w12   (recibir webhooks de W12)');
-      logger.info('WebSocket (Socket.IO) events: evo:snapshot, sync:request');
-    });
   } catch (error) {
     console.error('❌ Error iniciando servidor:', error);
     process.exit(1);
@@ -597,11 +579,15 @@ if (EXTERNAL_API_SYNC_MINUTES > 0 && process.env.NODE_ENV !== 'test') {
   logger.info('⏭️ Auto-sync de APIs externas omitido en entorno de test');
 }
 
-app.use(errorHandler);
-
 process.on("unhandledRejection", (err) => {
-  logger.error("❌ Unhandled Rejection:", err);
-  server.close(() => process.exit(1));
+  // Log full error including stack to help trace source
+  logger.error("❌ Unhandled Rejection", {
+    reason: err && err.message ? err.message : err,
+    stack: err && err.stack ? err.stack : undefined,
+    raw: err
+  });
+  // do not exit immediately, allow request handlers to respond
+  // the process may still be in a bad state but this avoids total crash
 });
 
 process.on("SIGTERM", () => {

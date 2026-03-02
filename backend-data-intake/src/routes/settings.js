@@ -1,56 +1,107 @@
 const express = require('express');
 const router = express.Router();
 const Setting = require('../models/Setting');
+const mongoose = require('mongoose');
 const { logger } = require('../utils/logger');
 const { requireAuth, requireStaff } = require('../middleware/auth');
 
 // shared helper functions used by both primary and alias endpoints
+// default settings object returned when no document exists
+const DEFAULT_SETTINGS = {
+  importsConnected: false,
+  providers: {},
+  lastCheckedAt: null,
+  updatedAt: null,
+};
+
 async function handleGetImports(req, res) {
+  // instrumentation: log minimal header info (boolean flags)
+  logger.info('[REQ]', {
+    path: req.path,
+    method: req.method,
+    hasCookie: !!req.headers.cookie,
+    hasAuth: !!req.headers.authorization,
+    hasSession: !!req.headers['x-session-token'],
+    contentType: req.headers['content-type'] || null
+  });
+
+  // basic DB availability guard
+  const { ok } = require('../db/db').getDbStatus();
+  if (!ok) {
+    return res.status(503).json({ ok: false, error: 'DB_NOT_READY', importsConnected: null });
+  }
+
   try {
-    let doc;
-    try {
-      doc = await Setting.findOne({ key: 'imports_connected' }).lean();
-    } catch (error) {
-      // log detailed read failure
-      logger.error('failed to read imports_connected setting', {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-      });
-      // fallback value
-      const importsConnected = true;
-      return res.json({ ok: true, importsConnected, warning: 'failed to read setting imports_connected' });
+    const doc = await Setting.findOne({ key: 'imports_connected' }).lean();
+    if (!doc) {
+      // no document -> return defaults
+      return res.json({ ok: true, ...DEFAULT_SETTINGS });
     }
 
-    const importsConnected = doc ? !!doc.value : true;
-    res.json({ ok: true, importsConnected });
+    // value may be primitive or object; normalize
+    const value = typeof doc.value === 'object' && doc.value !== null
+      ? doc.value
+      : { importsConnected: !!doc.value };
+
+    const result = {
+      importsConnected: typeof value.importsConnected === 'boolean' ? value.importsConnected : DEFAULT_SETTINGS.importsConnected,
+      providers: value.providers || DEFAULT_SETTINGS.providers,
+      lastCheckedAt: value.lastCheckedAt || DEFAULT_SETTINGS.lastCheckedAt,
+      updatedAt: value.updatedAt || DEFAULT_SETTINGS.updatedAt,
+    };
+    return res.json({ ok: true, ...result });
   } catch (err) {
-    // critical unexpected error
-    logger.error('Error reading imports connection setting', { err });
-    res.status(500).json({ ok: false, error: 'Error reading setting' });
+    logger.error('[API ERROR]', {
+      path: req.path,
+      method: req.method,
+      message: err.message,
+      stack: err.stack
+    });
+    return res.status(500).json({ ok: false, error: 'INTERNAL_SERVER_ERROR', message: err.message });
   }
 }
 
 async function handlePatchImports(req, res) {
+  // DB readiness
+  const { ok } = require('../db/db').getDbStatus();
+  if (!ok) {
+    return res.status(503).json({ ok: false, error: 'DB_NOT_READY', importsConnected: null });
+  }
+
+  const { importsConnected, providers } = req.body;
+  if (importsConnected !== undefined && typeof importsConnected !== 'boolean') {
+    return res.status(400).json({ ok: false, error: 'INVALID_BODY' });
+  }
+  if (providers !== undefined && (typeof providers !== 'object' || Array.isArray(providers))) {
+    return res.status(400).json({ ok: false, error: 'INVALID_BODY' });
+  }
+
   try {
-    const { importsConnected } = req.body;
-    if (typeof importsConnected !== 'boolean') {
-      return res.status(400).json({ ok: false, error: 'importsConnected boolean required' });
-    }
     const now = new Date();
-    const userId = req.user ? req.user.id : null;
-    const update = {
-      value: importsConnected,
-      updatedAt: now,
-      updatedBy: userId
-    };
+    const userId = req.user?.id || req.user?._id || null;
+
+    // build new value merging defaults with provided fields
+    const newValue = Object.assign({}, DEFAULT_SETTINGS, {});
+    if (importsConnected !== undefined) newValue.importsConnected = importsConnected;
+    if (providers !== undefined) newValue.providers = providers;
+    newValue.updatedAt = now;
+    newValue.updatedBy = userId;
+
     const doc = await Setting.findOneAndUpdate(
       { key: 'imports_connected' },
-      update,
+      { value: newValue, updatedAt: now, updatedBy: userId },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    logger.info('imports_connection_changed', { importsConnected, userId });
-    return res.json({ ok: true, importsConnected: !!doc.value });
+
+    logger.info('imports_connection_changed', { importsConnected: newValue.importsConnected, userId });
+    // respond with normalized structure
+    return res.json({
+      ok: true,
+      importsConnected: !!doc.value.importsConnected,
+      providers: doc.value.providers || {},
+      lastCheckedAt: doc.value.lastCheckedAt || null,
+      updatedAt: doc.value.updatedAt || null,
+    });
   } catch (err) {
     logger.error('Error updating imports connection setting', { err });
     return res.status(500).json({ ok: false, error: 'Error updating setting' });
