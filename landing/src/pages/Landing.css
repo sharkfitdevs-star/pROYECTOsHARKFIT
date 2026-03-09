@@ -1,6 +1,6 @@
 .landing-root {
   font-family: 'Inter', 'Roboto', sans-serif;
-  color: #ffffff;
+  color: var(--color-surface);
 }
 
 /* Navbar */
@@ -9,12 +9,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background: #ffffff;
-  color: #1d4ed8;
+  background: white; /* tailwind bg-white on element */
+  color: var(--color-surface);
   position: fixed;
   width: 100%;
   top: 0;
   z-index: 100;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.08);
 }
 
 .landing-navbar-logo {
@@ -30,29 +31,17 @@
 
 .landing-navbar-menu a {
   text-decoration: none;
-  color: #1d4ed8;
+  color: var(--color-surface);
   font-weight: 500;
 }
 
-.landing-navbar-button {
-  padding: 0.5rem 1rem;
-  border: 2px solid #1d4ed8;
-  background: transparent;
-  color: #1d4ed8;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
+/* buttons now replaced by ui/Button component */
 
-.landing-navbar-button:hover {
-  background: #1d4ed8;
-  color: #ffffff;
-}
 
 /* Hero */
 .landing-hero {
   height: 100vh;
-  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #5b2f80 0%, #764ba2 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -64,8 +53,8 @@
 }
 
 .landing-badge {
-  background: #93c5fd;
-  color: #1e40af;
+  background: var(--color-primary-light)/20;
+  color: var(--color-primary-dark);
   border-radius: 9999px;
   padding: 0.25rem 1rem;
   font-size: 0.875rem;
@@ -73,17 +62,11 @@
   display: inline-block;
 }
 
-.landing-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0.5rem 0;
-}
-
 .landing-subtitle {
   font-size: 1.125rem;
   max-width: 600px;
   margin-bottom: 2rem;
-  color: #e0e7ff;
+  color: rgba(255,255,255,0.8);
 }
 
 .landing-actions {
@@ -93,33 +76,8 @@
   justify-content: center;
 }
 
-.btn-primary {
-  background: #ffffff;
-  color: #1d4ed8;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-}
+/* legacy button classes no longer used; replaced by ui/Button */
 
-.btn-primary:hover {
-  opacity: 0.9;
-}
-
-.btn-secondary {
-  background: transparent;
-  color: #ffffff;
-  padding: 0.75rem 1.5rem;
-  border: 2px solid #ffffff;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
 /* Stats */
 .landing-stats {
@@ -127,8 +85,8 @@
   justify-content: center;
   gap: 2rem;
   padding: 3rem 1rem;
-  background: #ffffff;
-  color: #1d4ed8;
+  background: var(--color-bg);
+  color: var(--color-primary);
 }
 
 .landing-stat-item {
@@ -154,10 +112,6 @@
     gap: 1rem;
   }
 
-  .landing-title {
-    font-size: 2rem;
-  }
-
   .landing-subtitle {
     font-size: 1rem;
   }
@@ -166,4 +120,25 @@
     flex-direction: column;
     gap: 1.5rem;
   }
+}
+
+
+
+
+
+.landing-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0.5rem 0;
+  color: #ffffff;
+}
+
+.landing-badge {
+  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.15);
+  border-radius: 9999px;
+  padding: 0.25rem 1rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  display: inline-block;
 }
