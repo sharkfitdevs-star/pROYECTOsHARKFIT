@@ -287,26 +287,26 @@ export default function AlertasRenovacionPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Sede</TableHead>
-                  <TableHead>Días Vencido</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Asignado a</TableHead>
-                  <TableHead>Fecha Alerta</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b hover:bg-gray-50">
+                  <th className="text-left p-2 font-medium">Cliente</th>
+                  <th className="text-left p-2 font-medium">Sede</th>
+                  <th className="text-left p-2 font-medium">Días Vencido</th>
+                  <th className="text-left p-2 font-medium">Prioridad</th>
+                  <th className="text-left p-2 font-medium">Estado</th>
+                  <th className="text-left p-2 font-medium">Asignado a</th>
+                  <th className="text-left p-2 font-medium">Fecha Alerta</th>
+                  <th className="text-left p-2 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
                 {alertasFiltradas.length === 0 ? (
-                  <TableRow>
+                  <tr className="border-b hover:bg-gray-50">
                     <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                       No hay alertas
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : (
                   alertasFiltradas.map(alerta => {
                     const cliente = clientes.find(c => c.id === alerta.cliente_id);
@@ -315,16 +315,16 @@ export default function AlertasRenovacionPage() {
 
                     return (
                       <TableRow key={alerta.id}>
-                        <TableCell className="font-medium">{cliente?.nombre_cliente || '-'}</TableCell>
-                        <TableCell>{sede?.nombre_sede || '-'}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium">{cliente?.nombre_cliente || '-'}</td>
+                        <td className="p-2">{sede?.nombre_sede || '-'}</td>
+                        <td className="p-2">
                           <Badge variant="outline">{alerta.dias_vencido} días</Badge>
-                        </TableCell>
-                        <TableCell>{getBadgePrioridad(alerta.prioridad)}</TableCell>
-                        <TableCell>{getBadgeEstado(alerta.estado)}</TableCell>
-                        <TableCell>{asignado?.nombre || 'Sin asignar'}</TableCell>
-                        <TableCell>{moment(alerta.fecha_alerta).format('DD/MM/YYYY')}</TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="p-2">{getBadgePrioridad(alerta.prioridad)}</td>
+                        <td className="p-2">{getBadgeEstado(alerta.estado)}</td>
+                        <td className="p-2">{asignado?.nombre || 'Sin asignar'}</td>
+                        <td className="p-2">{moment(alerta.fecha_alerta).format('DD/MM/YYYY')}</td>
+                        <td className="p-2">
                           <div className="flex gap-2">
                             {alerta.estado === 'Pendiente' && (
                               <>
@@ -371,13 +371,13 @@ export default function AlertasRenovacionPage() {
                               </Button>
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

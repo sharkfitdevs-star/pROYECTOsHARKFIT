@@ -1428,42 +1428,42 @@ export default function DashboardComercial() {
                     </CollapsibleContent>
                   </Collapsible>
                   <div className="overflow-x-auto">
-                    <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Sede</TableHead>
-                        <TableHead className="text-right">Leads</TableHead>
-                        <TableHead className="text-right">Agendados</TableHead>
-                        <TableHead className="text-right">Asistieron</TableHead>
-                        <TableHead className="text-right">Ventas Total</TableHead>
-                        <TableHead className="text-right">Con Agenda</TableHead>
-                        <TableHead className="text-right">Sin Agenda</TableHead>
-                        <TableHead className="text-right">Clientes Nuevos</TableHead>
-                        <TableHead className="text-right">% Agendamiento</TableHead>
-                        <TableHead className="text-right">% Asistencia</TableHead>
-                        <TableHead className="text-right">% Conversión</TableHead>
-                        <TableHead className="text-right">% Conv. por Agendado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                    <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b hover:bg-gray-50">
+                        <th className="text-left p-2 font-medium">Sede</th>
+                        <TableHead className="text-right">Leads</th>
+                        <TableHead className="text-right">Agendados</th>
+                        <TableHead className="text-right">Asistieron</th>
+                        <TableHead className="text-right">Ventas Total</th>
+                        <TableHead className="text-right">Con Agenda</th>
+                        <TableHead className="text-right">Sin Agenda</th>
+                        <TableHead className="text-right">Clientes Nuevos</th>
+                        <TableHead className="text-right">% Agendamiento</th>
+                        <TableHead className="text-right">% Asistencia</th>
+                        <TableHead className="text-right">% Conversión</th>
+                        <TableHead className="text-right">% Conv. por Agendado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {metricasPorSede.map((m) => (
                         <TableRow key={m.sede}>
-                          <TableCell className="font-medium">{m.sede}</TableCell>
-                          <TableCell className="text-right">{m.leads}</TableCell>
-                          <TableCell className="text-right">{m.agendados}</TableCell>
-                          <TableCell className="text-right">{m.asistieron}</TableCell>
-                          <TableCell className="text-right font-bold">{m.ventas}</TableCell>
-                          <TableCell className="text-right text-blue-600">{m.ventasConAgendamiento}</TableCell>
-                          <TableCell className="text-right text-gray-500">{m.ventasSinAgendamiento}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{m.clientesNuevos}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{m.tasaAgendamiento}%</TableCell>
-                          <TableCell className="text-right text-purple-600 font-medium">{m.tasaAsistencia}%</TableCell>
-                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</TableCell>
-                          <TableCell className="text-right text-pink-600 font-medium">{m.tasaConversionPorAgendado}%</TableCell>
-                        </TableRow>
+                          <TableCell className="font-medium">{m.sede}</td>
+                          <TableCell className="text-right">{m.leads}</td>
+                          <TableCell className="text-right">{m.agendados}</td>
+                          <TableCell className="text-right">{m.asistieron}</td>
+                          <TableCell className="text-right font-bold">{m.ventas}</td>
+                          <TableCell className="text-right text-blue-600">{m.ventasConAgendamiento}</td>
+                          <TableCell className="text-right text-gray-500">{m.ventasSinAgendamiento}</td>
+                          <TableCell className="text-right text-green-600 font-medium">{m.clientesNuevos}</td>
+                          <TableCell className="text-right text-green-600 font-medium">{m.tasaAgendamiento}%</td>
+                          <TableCell className="text-right text-purple-600 font-medium">{m.tasaAsistencia}%</td>
+                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</td>
+                          <TableCell className="text-right text-pink-600 font-medium">{m.tasaConversionPorAgendado}%</td>
+                        </tr>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                   </div>
                 </>
               )}
@@ -1484,34 +1484,34 @@ export default function DashboardComercial() {
                 <div className="text-center py-8 text-gray-500">No hay datos</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Vendedor</TableHead>
-                        <TableHead className="text-right">Leads</TableHead>
-                        <TableHead className="text-right">Agendados</TableHead>
-                        <TableHead className="text-right">Ventas</TableHead>
-                        <TableHead className="text-right">% Agendamiento</TableHead>
-                        <TableHead className="text-right">% Conversión</TableHead>
-                        <TableHead className="text-right">% Conv. por Agendado</TableHead>
-                        <TableHead className="text-right">% Conv. por Leads</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b hover:bg-gray-50">
+                        <th className="text-left p-2 font-medium">Vendedor</th>
+                        <TableHead className="text-right">Leads</th>
+                        <TableHead className="text-right">Agendados</th>
+                        <TableHead className="text-right">Ventas</th>
+                        <TableHead className="text-right">% Agendamiento</th>
+                        <TableHead className="text-right">% Conversión</th>
+                        <TableHead className="text-right">% Conv. por Agendado</th>
+                        <TableHead className="text-right">% Conv. por Leads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {metricasPorVendedor.map((m, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="font-medium">{m.vendedorNombre}</TableCell>
-                          <TableCell className="text-right">{m.leads}</TableCell>
-                          <TableCell className="text-right">{m.agendados}</TableCell>
-                          <TableCell className="text-right">{m.ventas}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{m.tasaAgendamiento}%</TableCell>
-                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</TableCell>
-                          <TableCell className="text-right text-pink-600 font-medium">{m.tasaConversionPorAgendado}%</TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">{m.tasaConversionPorLeads}%</TableCell>
-                        </TableRow>
+                          <TableCell className="font-medium">{m.vendedorNombre}</td>
+                          <TableCell className="text-right">{m.leads}</td>
+                          <TableCell className="text-right">{m.agendados}</td>
+                          <TableCell className="text-right">{m.ventas}</td>
+                          <TableCell className="text-right text-green-600 font-medium">{m.tasaAgendamiento}%</td>
+                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</td>
+                          <TableCell className="text-right text-pink-600 font-medium">{m.tasaConversionPorAgendado}%</td>
+                          <TableCell className="text-right text-blue-600 font-medium">{m.tasaConversionPorLeads}%</td>
+                        </tr>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
@@ -1531,22 +1531,22 @@ export default function DashboardComercial() {
                 <div className="text-center py-8 text-gray-500">No hay datos de cerradores</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Cerrador</TableHead>
-                        <TableHead className="text-right">Ventas Totales</TableHead>
-                        <TableHead className="text-right">Directas</TableHead>
-                        <TableHead className="text-right">Post-Asistencia</TableHead>
-                        <TableHead className="text-right">% Conversión</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b hover:bg-gray-50">
+                        <th className="text-left p-2 font-medium">Cerrador</th>
+                        <TableHead className="text-right">Ventas Totales</th>
+                        <TableHead className="text-right">Directas</th>
+                        <TableHead className="text-right">Post-Asistencia</th>
+                        <TableHead className="text-right">% Conversión</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {metricasPorCerrador.map((m, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="font-medium">{m.cerradorNombre}</TableCell>
-                          <TableCell className="text-right font-bold">{m.ventasCerradas}</TableCell>
-                          <TableCell className="text-right text-green-600">{m.ventasDirectas}</TableCell>
+                          <TableCell className="font-medium">{m.cerradorNombre}</td>
+                          <TableCell className="text-right font-bold">{m.ventasCerradas}</td>
+                          <TableCell className="text-right text-green-600">{m.ventasDirectas}</td>
                           <TableCell className="text-right text-blue-600">
                             {m.ventasPostAsistencia > 0 && (
                               <span className="inline-flex items-center">
@@ -1557,12 +1557,12 @@ export default function DashboardComercial() {
                               </span>
                             )}
                             {m.ventasPostAsistencia === 0 && '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</TableCell>
-                        </TableRow>
+                          </td>
+                          <TableCell className="text-right text-orange-600 font-medium">{m.tasaConversion}%</td>
+                        </tr>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                   <div className="mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded text-sm">
                     <p className="font-medium text-blue-900">ℹ️ Interpretación:</p>
                     <ul className="mt-2 space-y-1 text-blue-800">
@@ -1594,22 +1594,22 @@ export default function DashboardComercial() {
               ) : (
                 <>
                   <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Responsable</TableHead>
-                          <TableHead className="text-right">Ventas Apoyadas</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b hover:bg-gray-50">
+                          <th className="text-left p-2 font-medium">Responsable</th>
+                          <TableHead className="text-right">Ventas Apoyadas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {metricasSeguimiento.map((m, idx) => (
                           <TableRow key={idx}>
-                            <TableCell className="font-medium">{m.responsableNombre}</TableCell>
-                            <TableCell className="text-right text-blue-600 font-bold">{m.contribuciones}</TableCell>
-                          </TableRow>
+                            <TableCell className="font-medium">{m.responsableNombre}</td>
+                            <TableCell className="text-right text-blue-600 font-bold">{m.contribuciones}</td>
+                          </tr>
                         ))}
-                      </TableBody>
-                    </Table>
+                      </tbody>
+                    </table>
                   </div>
                   <div className="mt-4 p-3 bg-green-50 border-l-4 border-green-500 rounded text-sm">
                     <p className="font-medium text-green-900">✅ Impacto del Seguimiento Online:</p>

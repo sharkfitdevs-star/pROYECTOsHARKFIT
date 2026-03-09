@@ -226,6 +226,18 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/clientes/importados — debe ir ANTES de /:id para no ser capturado como ID
+router.delete('/importados', requireAuth, async (req, res) => {
+  try {
+    const result = await Cliente.deleteMany({ source: 'import_excel' });
+    logger.info(`[clientes] eliminados ${result.deletedCount} clientes importados`);
+    res.json({ ok: true, deleted: result.deletedCount });
+  } catch (error) {
+    logger.error('[clientes] error eliminando importados:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 /**
  * DELETE /api/clientes/:id
  * Eliminar cliente

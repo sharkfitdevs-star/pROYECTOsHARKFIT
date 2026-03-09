@@ -6,6 +6,7 @@ const { logger } = require('../utils/logger');
 const Cliente = require('../models/Cliente');
 const Venta = require('../models/Venta');
 const AccessLog = require('../models/AccessLog');
+const EvoSyncService = require('../services/EvoSyncService');
 
 const router = express.Router();
 
@@ -135,6 +136,21 @@ router.get('/dashboard/stats', async (req, res) => {
   } catch (error) {
     logger.error('Error en /api/evo/dashboard/stats', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/evo/sync-kpi
+router.post('/sync-kpi', async (req, res) => {
+  try {
+    const config = req.body;
+    if (!config || !config.baseUrl || !config.auth) {
+      return res.status(400).json({ success: false, error: 'Falta configuración en body' });
+    }
+    const result = await EvoSyncService.syncTodo(config);
+    res.json(result);
+  } catch (err) {
+    logger.error('Error en /api/evo/sync-kpi', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

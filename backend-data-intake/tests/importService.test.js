@@ -82,4 +82,23 @@ describe('_importarClientes logic', () => {
     expect(r.insertedCount).toBe(0);
     expect(r.invalidCount).toBe(1);
   });
+
+  it('builds full name using reg.lastname when provided', async () => {
+    // nameFromReg is empty, but reg.name and reg.lastname available
+    const reg = { idMember: 'X', email: 'x@x', name: 'Juan', lastname: 'Perez' };
+    const r = await ImportService._importarClientes([reg], 'sync');
+    expect(r.insertedCount).toBe(1);
+    // verify stored cliente has name concatenated (mock doesn't persist state easily but we can infer debug output?)
+    // since our fake Cliente.create pushes the doc, inspect it:
+    expect(clienteStore.length).toBe(1);
+    expect(clienteStore[0].name).toBe('Juan Perez');
+  });
+
+  it('also respects camelCase lastName key', async () => {
+    const reg = { idMember: 'Y', email: 'y@x', name: 'Ana', lastName: 'Lopez' };
+    const r = await ImportService._importarClientes([reg], 'sync');
+    expect(r.insertedCount).toBe(1);
+    // only one row in store; index 0
+    expect(clienteStore[0].name).toBe('Ana Lopez');
+  });
 });

@@ -514,32 +514,32 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Responsable (RS)</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Responsable (RS)</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {sucursales.map((sede) => (
                     <TableRow key={sede.id}>
-                      <TableCell>{sede.nombre_sede}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{sede.nombre_sede}</td>
+                      <td className="p-2">
                         {sede.responsable_sede ? (
                           <Badge variant="outline">{getStaffName(sede.responsable_sede)}</Badge>
                         ) : (
                           <span className="text-muted-foreground text-sm">Sin asignar</span>
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <Badge variant={sede.activa ? 'default' : 'secondary'}>
                           {sede.activa ? 'Activa' : 'Inactiva'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditSede(sede)}>
                             <Pencil className="h-4 w-4" />
@@ -548,11 +548,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -643,25 +643,25 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Sede Principal</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Rol Personalizado</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Email</th>
+                    <th className="text-left p-2 font-medium">Sede Principal</th>
+                    <th className="text-left p-2 font-medium">Roles</th>
+                    <th className="text-left p-2 font-medium">Rol Personalizado</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {staff.map((staffMember) => (
                     <TableRow key={staffMember.id}>
-                      <TableCell>{staffMember.nombre}</TableCell>
-                      <TableCell>{staffMember.email || 'N/A'}</TableCell>
-                      <TableCell>{getSedeName(staffMember.sede_principal)}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{staffMember.nombre}</td>
+                      <td className="p-2">{staffMember.email || 'N/A'}</td>
+                      <td className="p-2">{getSedeName(staffMember.sede_principal)}</td>
+                      <td className="p-2">
                         <div className="flex flex-wrap gap-1">
                           {staffMember.roles?.map((rol) => (
                             <Badge key={rol} variant="outline" className="text-xs">
@@ -669,20 +669,20 @@ export default function Configuracion() {
                             </Badge>
                           ))}
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         {staffMember.rol_personalizado ? (
                           <Badge variant="secondary">{getRolName(staffMember.rol_personalizado)}</Badge>
                         ) : (
                           'N/A'
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <Badge variant={staffMember.activo ? 'default' : 'secondary'}>
                           {staffMember.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditStaff(staffMember)}>
                             <Pencil className="h-4 w-4" />
@@ -691,11 +691,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -749,26 +749,26 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Staff Relacionado</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Staff Relacionado</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {cerradores.map((cerrador) => (
                     <TableRow key={cerrador.id}>
-                      <TableCell>{cerrador.nombre_cerrador}</TableCell>
-                      <TableCell>{getStaffName(cerrador.staff_relacionado)}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{cerrador.nombre_cerrador}</td>
+                      <td className="p-2">{getStaffName(cerrador.staff_relacionado)}</td>
+                      <td className="p-2">
                         <Badge variant={cerrador.activo ? 'default' : 'secondary'}>
                           {cerrador.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditCerrador(cerrador)}>
                             <Pencil className="h-4 w-4" />
@@ -777,11 +777,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -865,38 +865,38 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Duración</TableHead>
-                    <TableHead>Modalidad</TableHead>
-                    <TableHead>Precio</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Tipo</th>
+                    <th className="text-left p-2 font-medium">Duración</th>
+                    <th className="text-left p-2 font-medium">Modalidad</th>
+                    <th className="text-left p-2 font-medium">Precio</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {planes.map((plan) => (
                     <TableRow key={plan.id}>
-                      <TableCell>{plan.nombre_plan}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{plan.nombre_plan}</td>
+                      <td className="p-2">
                         <Badge variant="outline">{plan.tipo_item || plan.tipo || 'Plan'}</Badge>
-                      </TableCell>
-                      <TableCell>{plan.duracion_meses ? `${plan.duracion_meses} ${plan.duracion_meses === 1 ? 'mes' : 'meses'}` : 'N/A'}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">{plan.duracion_meses ? `${plan.duracion_meses} ${plan.duracion_meses === 1 ? 'mes' : 'meses'}` : 'N/A'}</td>
+                      <td className="p-2">
                         <Badge variant={plan.modalidad_cobro === 'Suscripción' ? 'default' : 'secondary'}>
                           {plan.modalidad_cobro || 'N/A'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>{plan.precio ? `$${plan.precio.toLocaleString()}` : 'N/A'}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">{plan.precio ? `$${plan.precio.toLocaleString()}` : 'N/A'}</td>
+                      <td className="p-2">
                         <Badge variant={plan.activo ? 'default' : 'secondary'}>
                           {plan.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditPlan(plan)}>
                             <Pencil className="h-4 w-4" />
@@ -905,11 +905,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -957,26 +957,26 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Descripción</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {clases.map((clase) => (
                     <TableRow key={clase.id}>
-                      <TableCell>{clase.nombre_clase}</TableCell>
-                      <TableCell>{clase.descripcion || 'N/A'}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{clase.nombre_clase}</td>
+                      <td className="p-2">{clase.descripcion || 'N/A'}</td>
+                      <td className="p-2">
                         <Badge variant={clase.activa ? 'default' : 'secondary'}>
                           {clase.activa ? 'Activa' : 'Inactiva'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditClase(clase)}>
                             <Pencil className="h-4 w-4" />
@@ -985,11 +985,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1037,26 +1037,26 @@ export default function Configuracion() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">Descripción</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {roles.map((rol) => (
                     <TableRow key={rol.id}>
-                      <TableCell>{rol.nombre_rol}</TableCell>
-                      <TableCell>{rol.descripcion || 'N/A'}</TableCell>
-                      <TableCell>
+                      <td className="p-2">{rol.nombre_rol}</td>
+                      <td className="p-2">{rol.descripcion || 'N/A'}</td>
+                      <td className="p-2">
                         <Badge variant={rol.activo ? 'default' : 'secondary'}>
                           {rol.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditRol(rol)}>
                             <Pencil className="h-4 w-4" />
@@ -1065,11 +1065,11 @@ export default function Configuracion() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </TabsContent>

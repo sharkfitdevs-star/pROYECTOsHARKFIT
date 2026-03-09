@@ -2116,9 +2116,9 @@ export default function Prospectos() {
 
               {/* Vista de Tabla para Desktop */}
               <div className="hidden md:block overflow-x-auto">
-                <Table>
-                <TableHeader>
-                  <TableRow>
+                <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
                     <TableHead className="w-12">
                       <input
                         type="checkbox"
@@ -2127,48 +2127,48 @@ export default function Prospectos() {
                         className="rounded border-gray-300"
                         title="Seleccionar página actual"
                       />
-                    </TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>RUT</TableHead>
-                    <TableHead>Edad</TableHead>
-                    <TableHead>Fecha Ingreso</TableHead>
-                    <TableHead>WhatsApp</TableHead>
-                    <TableHead>Clase</TableHead>
-                    <TableHead>Sede</TableHead>
-                    <TableHead>Vendedor</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Fecha Visita</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-center">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                 <TableBody>
+                    </th>
+                    <th className="text-left p-2 font-medium">Nombre</th>
+                    <th className="text-left p-2 font-medium">RUT</th>
+                    <th className="text-left p-2 font-medium">Edad</th>
+                    <th className="text-left p-2 font-medium">Fecha Ingreso</th>
+                    <th className="text-left p-2 font-medium">WhatsApp</th>
+                    <th className="text-left p-2 font-medium">Clase</th>
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <th className="text-left p-2 font-medium">Vendedor</th>
+                    <th className="text-left p-2 font-medium">Tipo</th>
+                    <th className="text-left p-2 font-medium">Fecha Visita</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <TableHead className="text-center">Acciones</th>
+                  </tr>
+                </thead>
+                 <tbody>
                   {prospectosPaginados.map((prospecto) => (
                     <TableRow 
                       key={prospecto.id}
                       id={`prospecto-${prospecto.id}`}
                       className="transition-all duration-300"
                     >
-                      <TableCell>
+                      <td className="p-2">
                         <input
                           type="checkbox"
                           checked={selectedProspectos.includes(prospecto.id)}
                           onChange={(e) => handleSelectProspecto(prospecto.id, e.target.checked)}
                           className="rounded border-gray-300"
                         />
-                      </TableCell>
-                      <TableCell className="font-medium">{prospecto.nombre}</TableCell>
-                      <TableCell>{prospecto.rut || '-'}</TableCell>
-                      <TableCell>{prospecto.edad ? `${prospecto.edad} años` : '-'}</TableCell>
-                      <TableCell>{prospecto.fecha_ingreso ? format(new Date(prospecto.fecha_ingreso), 'dd/MM/yyyy') : '-'}</TableCell>
-                      <TableCell>{prospecto.whatsapp}</TableCell>
-                      <TableCell>{getClaseName(prospecto.clase_asistira)}</TableCell>
-                      <TableCell>{getSedeName(prospecto.sede)}</TableCell>
-                      <TableCell>{getStaffName(prospecto.vendedor_asignado)}</TableCell>
-                      <TableCell>
+                      </td>
+                      <TableCell className="font-medium">{prospecto.nombre}</td>
+                      <td className="p-2">{prospecto.rut || '-'}</td>
+                      <td className="p-2">{prospecto.edad ? `${prospecto.edad} años` : '-'}</td>
+                      <td className="p-2">{prospecto.fecha_ingreso ? format(new Date(prospecto.fecha_ingreso), 'dd/MM/yyyy') : '-'}</td>
+                      <td className="p-2">{prospecto.whatsapp}</td>
+                      <td className="p-2">{getClaseName(prospecto.clase_asistira)}</td>
+                      <td className="p-2">{getSedeName(prospecto.sede)}</td>
+                      <td className="p-2">{getStaffName(prospecto.vendedor_asignado)}</td>
+                      <td className="p-2">
                         <Badge variant="outline">{prospecto.tipo_invitacion}</Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         {prospecto.fecha_visita ? (
                           <span className="text-sm">
                             {prospecto.fecha_visita.includes('T') 
@@ -2177,13 +2177,13 @@ export default function Prospectos() {
                             }
                           </span>
                         ) : '-'}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <Badge className={getEstadoBadgeColor(prospecto.estado_pipeline)}>
                           {prospecto.estado_pipeline}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <div className="flex gap-1 justify-center">
                           {tienePermiso('editar_prospectos') && (
                             <Button
@@ -2299,11 +2299,11 @@ export default function Prospectos() {
                             </Button>
                           )}
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
               </div>
 
               {/* Pagination Controls */}

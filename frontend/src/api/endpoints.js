@@ -105,7 +105,7 @@ export const HTTP_STATUS = {
  */
 export const QUERY_PARAMS = {
   PAGINATE: (page = 1, limit = 50) => ({
-    page,
+    skip: (page - 1) * limit,
     limit,
   }),
   SEARCH: (q) => ({

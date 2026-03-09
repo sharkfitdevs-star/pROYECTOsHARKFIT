@@ -1,0 +1,129 @@
+/* ── OverviewCharts ─────────────────────────────────────────────── */
+
+.ov-charts-wrapper {
+  margin-top: 0.5rem;
+}
+
+/* Tabs */
+.ov-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ov-tab {
+  padding: 0.45rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid #3d3d58;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ov-tab:hover {
+  border-color: #a78bfa;
+  color: #e2e8f0;
+}
+
+.ov-tab.active {
+  background: #a78bfa22;
+  border-color: #a78bfa;
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+/* Chart card */
+.ov-chart-card {
+  background: #1e1e2e;
+  border: 1px solid #2d2d44;
+  border-radius: 14px;
+  padding: 1.5rem;
+  animation: fadeInUp 0.35s ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ov-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.ov-chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0 0 0.2rem 0;
+}
+
+.ov-chart-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Badge variación */
+.ov-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ov-badge.pos {
+  background: #4ade8022;
+  color: #4ade80;
+  border: 1px solid #4ade8044;
+}
+.ov-badge.neg {
+  background: #f8717122;
+  color: #f87171;
+  border: 1px solid #f8717144;
+}
+
+/* Tooltip */
+.ov-tooltip {
+  background: #1a1a2e;
+  border: 1px solid #3d3d58;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.ov-tooltip-label {
+  color: #94a3b8;
+  font-weight: 600;
+  margin: 0 0 0.35rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ov-tooltip-row {
+  margin: 0.2rem 0;
+}
+
+/* Skeleton */
+.ov-skeleton {
+  padding: 0.5rem 0;
+}
+
+.ov-skeleton-bar {
+  background: linear-gradient(90deg, #2d2d44 25%, #3d3d58 50%, #2d2d44 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

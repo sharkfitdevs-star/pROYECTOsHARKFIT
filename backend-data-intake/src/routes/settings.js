@@ -15,6 +15,11 @@ const DEFAULT_SETTINGS = {
 };
 
 async function handleGetImports(req, res) {
+  // add anti-cache headers so clients always get fresh JSON
+  res.set('Cache-Control', 'no-store');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   // instrumentation: log minimal header info (boolean flags)
   logger.info('[REQ]', {
     path: req.path,
@@ -25,17 +30,30 @@ async function handleGetImports(req, res) {
     contentType: req.headers['content-type'] || null
   });
 
-  // basic DB availability guard
-  const { ok } = require('../db/db').getDbStatus();
-  if (!ok) {
-    return res.status(503).json({ ok: false, error: 'DB_NOT_READY', importsConnected: null });
-  }
-
   try {
+    // basic DB availability guard
+    const { ok } = require('../db/db').getDbStatus();
+    if (!ok) {
+      return res.status(503).json({
+        ok: false,
+        error: 'DB_NOT_READY',
+        importsConnected: false,
+        providers: {},
+        lastCheckedAt: null,
+        updatedAt: null,
+      });
+    }
+
     const doc = await Setting.findOne({ key: 'imports_connected' }).lean();
     if (!doc) {
-      // no document -> return defaults
-      return res.json({ ok: true, ...DEFAULT_SETTINGS });
+      // no document -> return defaults (guaranteed non-null fields)
+      return res.json({
+        ok: true,
+        importsConnected: DEFAULT_SETTINGS.importsConnected,
+        providers: DEFAULT_SETTINGS.providers,
+        lastCheckedAt: DEFAULT_SETTINGS.lastCheckedAt,
+        updatedAt: DEFAULT_SETTINGS.updatedAt,
+      });
     }
 
     // value may be primitive or object; normalize
@@ -43,11 +61,21 @@ async function handleGetImports(req, res) {
       ? doc.value
       : { importsConnected: !!doc.value };
 
+    const providers = value.providers || {};
+    let importsConnected;
+    if (typeof value.importsConnected === 'boolean') {
+      // explicit flag wins
+      importsConnected = value.importsConnected;
+    } else {
+      // infer from presence of providers
+      importsConnected = Object.keys(providers).length > 0;
+    }
+
     const result = {
-      importsConnected: typeof value.importsConnected === 'boolean' ? value.importsConnected : DEFAULT_SETTINGS.importsConnected,
-      providers: value.providers || DEFAULT_SETTINGS.providers,
-      lastCheckedAt: value.lastCheckedAt || DEFAULT_SETTINGS.lastCheckedAt,
-      updatedAt: value.updatedAt || DEFAULT_SETTINGS.updatedAt,
+      importsConnected,
+      providers,
+      lastCheckedAt: value.lastCheckedAt || null,
+      updatedAt: value.updatedAt || null,
     };
     return res.json({ ok: true, ...result });
   } catch (err) {
@@ -111,13 +139,13 @@ async function handlePatchImports(req, res) {
 /**
  * canonical routes
  */
-router.get('/imports-connection', handleGetImports);
+router.get('/imports-connection', requireAuth, handleGetImports);
 router.patch('/imports-connection', requireAuth, requireStaff, handlePatchImports);
 
 /**
  * backward-compatible aliases
  */
-router.get('/imports-connected', handleGetImports);
+router.get('/imports-connected', requireAuth, handleGetImports);
 router.patch('/imports-connected', requireAuth, requireStaff, handlePatchImports);
 
 

@@ -47,7 +47,7 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  background: linear-gradient(135deg, #c2185b 0%, #e91e63 50%, #d81b60 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 50%, #d81b60 100%);
   padding: 2.5rem 2rem;
   display: flex;
   justify-content: center;
@@ -261,3 +261,4 @@ button[type="submit"]:disabled {
   background: #fff5f5;
   color: #c53030;
 }
+

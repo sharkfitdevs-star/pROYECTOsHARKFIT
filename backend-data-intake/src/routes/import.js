@@ -485,49 +485,59 @@ router.post('/preview', requireAuth, uploadHandler, async (req, res) => {
   const syncId = req.body.importId || uuidv4();
   const entidad = req.body.entity || req.body.entidad || 'clientes';
 
-  // log the upload for debugging
-  logger.info({ hasFile: !!req.file, fileField: req.file?.fieldname, original: req.file?.originalname, size: req.file?.size }, 'preview upload');
-
-  if (!req.file) {
-    try {
-      const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
-      if (logResult && logResult.ok === false) {
-        logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
-      }
-    } catch (err) {
-      logger.warn('createSyncLog failed', { syncId, err: err.message });
-    }
-    return res.status(400).json({ ok: false, importId: syncId, error: 'NO_FILE', details: "No file received. Expected multipart/form-data field 'file'." });
-  }
-
   try {
-    const preview = await ImportService.previewExcelFile(req.file);
+    logger.info(`[preview] hasFile=${!!req.file} original=${req.file?.originalname || 'n/a'} size=${req.file?.size || 0}`);
+
+    if (!req.file) {
+      try {
+        await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
+      } catch (logErr) {
+        logger.warn(`[preview] createSyncLog failed: ${logErr.message}`);
+      }
+      return res.status(400).json({
+        ok: false,
+        importId: syncId,
+        error: 'NO_FILE',
+        details: "No file received. Expected multipart/form-data field 'file'."
+      });
+    }
+
+    // Detectar si es CSV o Excel por extensión
+    const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
+    let preview;
+    if (ext === 'csv') {
+      preview = await ImportService.previewCSVFile(req.file);
+    } else {
+      preview = await ImportService.previewExcelFile(req.file);
+    }
+
     const headers = preview.columnas || [];
     const normalizedHeaders = headers.map((h) => normalizeHeader(h || ''));
-    const sampleRows = (preview.primerosRegistros || []).slice(0,3);
-    const suggestedMapping = require('../utils/importUtils').suggestMapping(headers, entidad);
+    const sampleRows = (preview.primerosRegistros || []).slice(0, 3);
+    const { suggestMapping } = require('../utils/importUtils');
+    const suggestedMapping = suggestMapping(headers, entidad);
 
-    const empty = (!headers.length) && (!sampleRows.length);
+    const empty = !headers.length && !sampleRows.length;
     if (empty) {
       try {
-        const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'Archivo vacío' });
-        if (logResult && logResult.ok === false) {
-          logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
-        }
-      } catch (err) {
-        logger.warn('createSyncLog failed', { syncId, err: err.message });
+        await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Fallido', errorMessage: 'Archivo vacío' });
+      } catch (logErr) {
+        logger.warn(`[preview] createSyncLog failed: ${logErr.message}`);
       }
-      return res.json({ ok: false, importId: syncId, error: 'EMPTY', details: { headers: headers.length, rows: sampleRows.length } });
+      return res.json({
+        ok: false,
+        importId: syncId,
+        error: 'EMPTY',
+        details: { headers: headers.length, rows: sampleRows.length }
+      });
     }
 
     try {
-      const logResult = await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Exitoso' });
-      if (logResult && logResult.ok === false) {
-        logger.warn('could not write preview sync log', { syncId, reason: logResult.error });
-      }
-    } catch (err) {
-      logger.warn('createSyncLog failed', { syncId, err: err.message });
+      await createSyncLog({ syncId, fuente: 'Preview', estatus: 'Exitoso' });
+    } catch (logErr) {
+      logger.warn(`[preview] createSyncLog failed: ${logErr.message}`);
     }
+
     return res.json({
       ok: true,
       importId: syncId,
@@ -538,10 +548,18 @@ router.post('/preview', requireAuth, uploadHandler, async (req, res) => {
       previewRows: preview.primerosRegistros || [],
       timestamp: new Date().toISOString()
     });
+
   } catch (error) {
-    logger.error('Error en preview:', error, { syncId });
-    try { await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: error.message, errorStack: error.stack }); } catch {}
-    return res.status(200).json({ ok: false, importId: syncId, error: error.message, details: error.stack });
+    logger.error(`[preview] error: ${error.message}`, { syncId, stack: error.stack });
+    try {
+      await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: error.message, errorStack: error.stack });
+    } catch (_ ) {}
+    return res.status(500).json({
+      ok: false,
+      importId: syncId,
+      error: error.message,
+      details: error.stack
+    });
   }
 });
 

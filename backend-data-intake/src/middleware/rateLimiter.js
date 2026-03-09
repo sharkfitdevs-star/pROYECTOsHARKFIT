@@ -9,14 +9,15 @@ const rateLimit = require('express-rate-limit');
  * Rate limiter general (100 requests por 15 min)
  */
 const rateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 100 : 2000,
   message: {
     exito: false,
     error: 'Demasiadas solicitudes, intenta de nuevo más tarde'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production'
 });
 
 /**
@@ -24,7 +25,7 @@ const rateLimiter = rateLimit({
  */
 const importRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 5,
+  max: process.env.NODE_ENV === 'production' ? 5 : 100,
   message: {
     exito: false,
     error: 'Máximo 5 importaciones por hora'

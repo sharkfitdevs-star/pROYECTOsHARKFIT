@@ -14,6 +14,8 @@ export default defineConfig({
     strictPort: false,
     host: true,
     cors: true,
+    force: true,
+    hmr: true,
     proxy: {
       // authentication requests should hit the users microservice (default port 4000)
       '/api/auth': {
@@ -34,6 +36,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+  },
+  optimizeDeps: {
+    force: true
   },
   define: {
     'process.env': {}

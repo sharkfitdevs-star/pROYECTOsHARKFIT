@@ -317,50 +317,50 @@ export default function DashboardRetencionSede({
 
     return (
       <div className="max-h-[60vh] overflow-y-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead>WhatsApp</TableHead>
-              <TableHead>Sede</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              {dialogTipo === 'bajas' && <TableHead>Fecha Baja</TableHead>}
-              {dialogTipo === 'deudores' && <TableHead>Monto</TableHead>}
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b hover:bg-gray-50">
+              <th className="text-left p-2 font-medium">Cliente</th>
+              <th className="text-left p-2 font-medium">WhatsApp</th>
+              <th className="text-left p-2 font-medium">Sede</th>
+              <th className="text-left p-2 font-medium">Plan</th>
+              <th className="text-left p-2 font-medium">Vencimiento</th>
+              {dialogTipo === 'bajas' && <th className="text-left p-2 font-medium">Fecha Baja</th>}
+              {dialogTipo === 'deudores' && <th className="text-left p-2 font-medium">Monto</th>}
+              <th className="text-left p-2 font-medium">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
             {dialogData.map((cliente) => (
               <TableRow key={cliente.id}>
-                <TableCell className="font-medium">{cliente.nombre_cliente}</TableCell>
-                <TableCell>{cliente.whatsapp}</TableCell>
-                <TableCell>{getNombreSede(cliente.sede)}</TableCell>
-                <TableCell>{getNombrePlan(cliente.plan_actual)}</TableCell>
-                <TableCell>
+                <TableCell className="font-medium">{cliente.nombre_cliente}</td>
+                <td className="p-2">{cliente.whatsapp}</td>
+                <td className="p-2">{getNombreSede(cliente.sede)}</td>
+                <td className="p-2">{getNombrePlan(cliente.plan_actual)}</td>
+                <td className="p-2">
                   {cliente.fecha_fin_plan_actual 
                     ? moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')
                     : '-'
                   }
-                </TableCell>
+                </td>
                 {dialogTipo === 'bajas' && (
-                  <TableCell>
+                  <td className="p-2">
                     <Badge variant="outline" className="bg-purple-50 text-purple-700">
                       {cliente.bajaProgramada?.fecha_baja_programada 
                         ? moment(cliente.bajaProgramada.fecha_baja_programada).format('DD/MM/YYYY')
                         : '-'
                       }
                     </Badge>
-                  </TableCell>
+                  </td>
                 )}
                 {dialogTipo === 'deudores' && (
-                  <TableCell>
+                  <td className="p-2">
                     <Badge variant="outline" className="bg-orange-50 text-orange-700">
                       ${cliente.deudaInfo?.monto_adeudado?.toLocaleString() || 0}
                     </Badge>
-                  </TableCell>
+                  </td>
                 )}
-                <TableCell>
+                <td className="p-2">
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -412,11 +412,11 @@ export default function DashboardRetencionSede({
                       </Button>
                     )}
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     );
   };

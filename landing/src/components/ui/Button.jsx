@@ -10,11 +10,11 @@ export function Button({
   const baseStyles = 'font-medium rounded-lg transition-colors focus:outline-none';
   
   const variants = {
-    default: 'bg-blue-600 text-white hover:bg-blue-700',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300',
-    ghost: 'hover:bg-gray-100 text-gray-900',
-    destructive: 'bg-red-600 text-white hover:bg-red-700',
-    outline: 'border border-gray-300 text-gray-900 hover:bg-gray-50',
+    default: 'bg-primary text-white hover:bg-primary-dark',
+    secondary: 'bg-neutral-bg text-surface text-surface hover:bg-neutral-muted',
+    ghost: 'hover:bg-neutral-bg text-surface',
+    destructive: 'bg-danger text-white hover:bg-danger',
+    outline: 'border border-neutral-border text-surface hover:bg-neutral-bg',
   };
 
   const sizes = {

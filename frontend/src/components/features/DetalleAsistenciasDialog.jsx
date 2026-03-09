@@ -124,25 +124,25 @@ export default function DetalleAsistenciasDialog({
 
         {/* Tabla */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Fecha Visita</TableHead>
-                <TableHead>Sede</TableHead>
-                <TableHead>Vendedor</TableHead>
-                <TableHead>Cerrador</TableHead>
-                <TableHead>Tipo Visita</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b hover:bg-gray-50">
+                <th className="text-left p-2 font-medium">Nombre</th>
+                <th className="text-left p-2 font-medium">WhatsApp</th>
+                <th className="text-left p-2 font-medium">Fecha Visita</th>
+                <th className="text-left p-2 font-medium">Sede</th>
+                <th className="text-left p-2 font-medium">Vendedor</th>
+                <th className="text-left p-2 font-medium">Cerrador</th>
+                <th className="text-left p-2 font-medium">Tipo Visita</th>
+              </tr>
+            </thead>
+            <tbody>
               {filteredData.length === 0 ? (
-                <TableRow>
+                <tr className="border-b hover:bg-gray-50">
                   <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No hay asistencias para mostrar
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 filteredData.map((agendamiento) => {
                   const prospecto = prospectosData.find(p => p.id === agendamiento.prospecto_id);
@@ -152,25 +152,25 @@ export default function DetalleAsistenciasDialog({
                   
                   return (
                     <TableRow key={agendamiento.id}>
-                      <TableCell className="font-medium">{prospecto?.nombre || 'N/A'}</TableCell>
-                      <TableCell>{prospecto?.whatsapp || 'N/A'}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium">{prospecto?.nombre || 'N/A'}</td>
+                      <td className="p-2">{prospecto?.whatsapp || 'N/A'}</td>
+                      <td className="p-2">
                         {agendamiento.fecha_hora ? format(new Date(agendamiento.fecha_hora), 'dd/MM/yyyy HH:mm') : 'N/A'}
-                      </TableCell>
-                      <TableCell>{sedeNombre}</TableCell>
-                      <TableCell>{vendedorNombre}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">{sedeNombre}</td>
+                      <td className="p-2">{vendedorNombre}</td>
+                      <td className="p-2">
                         <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
                           {cerradorNombre}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{agendamiento.tipo_visita || 'N/A'}</TableCell>
-                    </TableRow>
+                      </td>
+                      <TableCell className="text-sm">{agendamiento.tipo_visita || 'N/A'}</td>
+                    </tr>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,5 @@
 const express = require('express');
+const fetch = global.fetch || require('node-fetch');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
@@ -39,45 +40,84 @@ router.post('/register', async (req, res) => {
 
 // Login de usuario (acepta email o username en identifier/email/username)
 router.post('/login', async (req, res) => {
+  const requestId = req.headers['x-request-id'] || '<none>';
   try {
-    const { identifier, email, username, password } = req.body;
+    const { identifier, email, username, password } = req.body || {};
     const loginIdentifier = identifier || email || username;
 
+    // basic validation
     if (!loginIdentifier || !password) {
-      return res.status(400).json({
-        error: 'Email/usuario y contraseña son obligatorios',
-      });
+      console.warn('[LOGIN] missing fields', { requestId, loginIdentifier });
+      return res.status(400).json({ ok: false, error: 'VALIDATION_ERROR' });
     }
 
-    console.log('[LOGIN] Intento de login para:', loginIdentifier);
+    console.log('[LOGIN] attempt', { requestId, identifier: loginIdentifier });
 
-    const user = await User.findOne({
-      $or: [
-        { username: loginIdentifier },
-        { email: loginIdentifier },
-      ],
-    });
+    let user;
+    try {
+      user = await User.findOne({
+        $or: [
+          { username: loginIdentifier },
+          { email: loginIdentifier },
+        ],
+      });
+    } catch (dbErr) {
+      console.error('[LOGIN] DB error', { requestId, err: dbErr.message });
+      return res.status(503).json({ ok: false, error: 'DB_NOT_READY' });
+    }
 
     if (!user) {
-      return res.status(400).json({ error: 'Usuario no encontrado' });
+      console.warn('[LOGIN] invalid creds', { requestId, identifier: loginIdentifier });
+      return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
     }
 
-    const isMatch = await (user.comparePassword
-      ? user.comparePassword(password)
-      : require('bcryptjs').compare(password, user.password));
+    let isMatch;
+    try {
+      isMatch = await (user.comparePassword
+        ? user.comparePassword(password)
+        : require('bcryptjs').compare(password, user.password));
+    } catch (bcryptErr) {
+      console.error('[LOGIN] bcrypt error', { requestId, err: bcryptErr.message });
+      return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
+    }
 
     if (!isMatch) {
-      return res.status(400).json({ error: 'Contraseña incorrecta' });
+      console.warn('[LOGIN] invalid creds - wrong password', { requestId, identifier: loginIdentifier });
+      return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+    // derive secret from env (single source of truth)
+    const secret = process.env.JWT_ACCESS_SECRET || process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[LOGIN] server misconfig: missing JWT secret', { requestId });
+      return res.status(500).json({ ok: false, error: 'SERVER_MISCONFIG' });
+    }
+
+    // include both `id` and `userId` claims so downstream services can
+    // use whichever they expect (intake checks both).
+    const payload = {
+      id: user._id,
+      userId: user._id,
+      username: user.username,
+      role: user.role || 'user'
+    };
+
+    let token;
+    try {
+      token = jwt.sign(payload, secret, { expiresIn: '1d' });
+    } catch (jwtErr) {
+      console.error('[LOGIN] jwt sign error', { requestId, err: jwtErr.message });
+      return res.status(500).json({ ok: false, error: 'SERVER_MISCONFIG' });
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      // help developers see what's being embedded
+      console.debug('[LOGIN] jwt payload:', payload);
+    }
 
     res.json({
-      token,
+      success: true,
+      accessToken: token,
       user: {
         username: user.username,
         email: user.email,
@@ -85,9 +125,36 @@ router.post('/login', async (req, res) => {
         role: user.role,
       },
     });
+
+    // fire-and-forget sync to intake service so it has a local copy of user
+    (async () => {
+      try {
+        const intakeUrl = 'http://localhost:3005/api/internal/users/upsert';
+        await fetch(intakeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-api-key': process.env.INTERNAL_API_KEY || ''
+          },
+          body: JSON.stringify({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role
+          })
+        });
+      } catch (e) {
+        console.warn('[AUTH] failed to notify intake:', e.message || e);
+      }
+    })();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// simple health check for proxy verification
+router.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'users-microservice' });
 });
 
 module.exports = router;

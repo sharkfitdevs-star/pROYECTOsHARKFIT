@@ -44,7 +44,12 @@ export default function Login() {
     }
   };
 
-  // (Eliminada duplicidad y cierre inválido)
+  // validate form fields for login/register
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!isLogin) {
+      // registration-specific checks
       if (!formData.email) {
         newErrors.email = 'El email es requerido';
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {

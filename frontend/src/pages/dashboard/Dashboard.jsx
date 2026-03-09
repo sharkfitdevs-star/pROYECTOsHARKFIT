@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ExportarDatos from './ExportarDatos'
 import '../../styles/Dashboard.css'
+import { fetchDashboardOverview } from '../../services/dashboardApi';
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
@@ -13,28 +14,86 @@ export default function Dashboard() {
     overview: {
       title: '📊 Dashboard',
       content: () => (
-        <div className="overview-grid">
-          <div className="card">
-            <h3>Ventas Este Mes</h3>
-            <p className="large-number">$45,230</p>
-            <span className="trend positive">↑ 12% vs mes anterior</span>
+          {/* ── Overview KPI Cards ────────────────────────────── */}
+          <div className="overview-cards">
+
+            {/* Tarjeta 1: Ventas Este Mes */}
+            <div className="overview-card">
+              <span className="overview-card-title">Ventas Este Mes</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {fmt$(overview?.ventasEsteMes?.monto)}
+                  </span>
+                  {overview?.ventasEsteMes?.variacion != null && (
+                    <span className={`overview-card-sub ${parseFloat(overview.ventasEsteMes.variacion) >= 0 ? 'positive' : 'negative'}`}>
+                      {fmtPct(overview.ventasEsteMes.variacion)} vs mes anterior
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Tarjeta 2: Clientes Activos */}
+            <div className="overview-card">
+              <span className="overview-card-title">Clientes Activos</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.clientesActivos?.total ?? '—'}
+                  </span>
+                  {overview?.clientesActivos?.nuevosEsteMes != null && (
+                    <span className="overview-card-sub positive">
+                      +{overview.clientesActivos.nuevosEsteMes} nuevos
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Tarjeta 3: Tareas Pendientes */}
+            <div className="overview-card">
+              <span className="overview-card-title">Tareas Pendientes</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.tareasPendientes?.total ?? '—'}
+                  </span>
+                  {overview?.tareasPendientes?.requiereAtencion && (
+                    <span className="overview-card-sub negative">
+                      ⚠ Requiere atención
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Tarjeta 4: Tasa de Conversión */}
+            <div className="overview-card">
+              <span className="overview-card-title">Tasa de Conversión</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.tasaConversion?.porcentaje ?? '—'}%
+                  </span>
+                  {overview?.tasaConversion?.variacion != null && (
+                    <span className={`overview-card-sub ${parseFloat(overview.tasaConversion.variacion) >= 0 ? 'positive' : 'negative'}`}>
+                      {fmtPct(overview.tasaConversion.variacion)} pts vs mes anterior
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
           </div>
-          <div className="card">
-            <h3>Clientes Activos</h3>
-            <p className="large-number">328</p>
-            <span className="trend positive">↑ 8 nuevos</span>
-          </div>
-          <div className="card">
-            <h3>Tareas Pendientes</h3>
-            <p className="large-number">47</p>
-            <span className="trend neutral">⏳ Requiere atención</span>
-          </div>
-          <div className="card">
-            <h3>Tasa de Conversión</h3>
-            <p className="large-number">24%</p>
-            <span className="trend positive">↑ 3% vs mes anterior</span>
-          </div>
-        </div>
       )
     },
     clients: {
@@ -71,6 +130,20 @@ export default function Dashboard() {
   }
 
   const currentSection = sections[activeSection]
+
+  const [overview, setOverview] = useState(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardOverview()
+      .then(data => setOverview(data))
+      .catch(err => console.error('Overview error:', err))
+      .finally(() => setLoadingOverview(false));
+  }, []);
+
+  // Helpers para formatear
+  const fmt$ = (n) => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—';
+  const fmtPct = (n) => n != null ? `${n > 0 ? '+' : ''}${n}%` : null;
 
   return (
     <div className="dashboard-container">

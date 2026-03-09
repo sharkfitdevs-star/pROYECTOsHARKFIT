@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Fragment } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from 'react-router-dom';
 import { fetchClientes, normalizeClientesResponse } from "../../services/clientesApi";
 import { createToast } from "@/components/ui/use-toast";
@@ -129,11 +129,6 @@ export default function ClientesSection() {
     });
   }, [busqueda, clientes]);
 
-  // control de filas expandidas para mostrar detalles técnicos
-  const [expanded, setExpanded] = useState({});
-  const toggleExpand = (idx) => {
-    setExpanded((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  };
 
   // banner si más del 10% de los clientes importados tienen nombre vacío o placeholder
   const missingNameCount = clientes.filter(c => {
@@ -226,6 +221,34 @@ export default function ClientesSection() {
         >
           {importsConnected ? 'Desconectar importaciones' : 'Conectar importaciones'}
         </button>
+        <button
+          className="btn-danger"
+          style={{ marginLeft: '0.5rem' }}
+          disabled={cargando}
+          onClick={async () => {
+            if (!window.confirm('¿Eliminar TODOS los clientes importados? Esta acción no se puede deshacer.')) return;
+            try {
+              const token = localStorage.getItem('authToken');
+              const res = await fetch('/api/clientes/importados', {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              const json = await res.json();
+              if (json.ok) {
+                createToast({ title: 'Listo', description: `${json.deleted} clientes eliminados` });
+                setClientes([]);
+                setTotalCount(0);
+                setSkip(0);
+              } else {
+                createToast({ title: 'Error', description: json.error || 'No se pudo limpiar', variant: 'destructive' });
+              }
+            } catch (e) {
+              createToast({ title: 'Error', description: e.message, variant: 'destructive' });
+            }
+          }}
+        >
+          🗑️ Limpiar datos importados
+        </button>
       </div>
       {importsConnected && showNameBanner && (
         <div className="warning-banner">
@@ -288,41 +311,21 @@ export default function ClientesSection() {
                 {columnasDef.map((c) => (
                   <th key={c.key}>{c.label}</th>
                 ))}
-                <th>...</th>
               </tr>
             </thead>
             <tbody>
               {filtrados.map((cli, idx) => {
-                const hasName = cli.nombre;
                 const rowKey = cli._id || cli.uniqueId || cli.idMember || `${cli.email||''}-${idx}`;
                 return (
-                  <Fragment key={rowKey}>
-                    <tr key={rowKey} className="cursor-pointer" onClick={() => toggleExpand(idx)}>
-                      <td>{hasName ? cli.nombre : '(sin nombre)'}</td>
-                      <td>{cli.email || '—'}</td>
-                      <td>{cli.telefono || '—'}</td>
-                      <td>{cli.estado ? (String(cli.estado).toLowerCase() === 'activo' || String(cli.estado).toLowerCase() === 'true' ? 'Activo' : 'Inactivo') : '—'}</td>
-                      <td>{cli.fuente || '—'}</td>
-                      <td>{cli.createdAt ? new Date(cli.createdAt).toLocaleDateString() : '—'}</td>
-                      <td>{cli.updatedAt ? new Date(cli.updatedAt).toLocaleDateString() : '—'}</td>
-                      <td>{expanded[idx] ? '-' : '+'}</td>
-                    </tr>
-                    {expanded[idx] && (
-                      <tr key={`${rowKey}-details`} className="details-row">
-                        <td colSpan={columnasDef.length + 1}>
-                          <pre className="small-text">
-{JSON.stringify(
-  Object.fromEntries(
-    Object.entries(cli).filter(([k]) => !columnas.includes(k))
-  ),
-  null,
-  2
-)}
-                          </pre>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                  <tr key={rowKey} className="hover:bg-gray-50">
+                    <td>{cli.nombre || cli.nombre_cliente || cli.name || '(sin nombre)'}</td>
+                    <td>{cli.email || '—'}</td>
+                    <td>{cli.telefono || cli.cellPhone || '—'}</td>
+                    <td>{(cli.estado || cli.status) ? (String(cli.estado || cli.status).toLowerCase() === 'activo' || String(cli.estado || cli.status).toLowerCase() === 'true' ? 'Activo' : 'Inactivo') : '—'}</td>
+                    <td>{cli.fuente || cli.source || '—'}</td>
+                    <td>{cli.createdAt ? new Date(cli.createdAt).toLocaleDateString() : '—'}</td>
+                    <td>{cli.updatedAt ? new Date(cli.updatedAt).toLocaleDateString() : '—'}</td>
+                  </tr>
                 );
               })}
             </tbody>

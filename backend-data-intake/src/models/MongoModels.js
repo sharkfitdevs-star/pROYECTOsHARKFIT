@@ -58,7 +58,7 @@ const webhookSchema = new Schema({
 const syncLogSchema = new Schema({
   sync_id: { type: String, unique: true, required: true, index: true },
   tenant_id: { type: String, required: true, index: true },
-  fuente: { type: String, enum: ['EVO', 'W12', 'ARCHIVO', 'BD', 'API'], required: true },
+  fuente: { type: String, enum: ['EVO', 'W12', 'ARCHIVO', 'BD', 'API', 'Excel', 'CSV', 'Preview'], required: true },
   tipo: { type: String, enum: ['full', 'incremental', 'webhook'], default: 'incremental' },
   endpoint: String,
   
@@ -81,7 +81,33 @@ const syncLogSchema = new Schema({
   },
   
   errores: [String],
-  
+
+  // Campos de importación
+  entidad: { type: String, default: null },
+  estatus: { type: String, default: 'Procesando' },
+  total_rows: { type: Number, default: 0 },
+  inserted_count: { type: Number, default: 0 },
+  updated_count: { type: Number, default: 0 },
+  skipped_count: { type: Number, default: 0 },
+  invalid_count: { type: Number, default: 0 },
+  registos_procesados: { type: Number, default: 0 },
+  registos_inseridos: { type: Number, default: 0 },
+  registos_actualizados: { type: Number, default: 0 },
+  registos_fallidos: { type: Number, default: 0 },
+  warnings: { type: String, default: '[]' },
+  mapping_used: { type: String, default: '{}' },
+  detected_headers: { type: String, default: '[]' },
+  sheet_name: { type: String, default: null },
+  file_meta: { type: String, default: '{}' },
+  error_message: { type: String, default: null },
+  error_code: { type: String, default: null },
+  error_stack: { type: String, default: null },
+  iniciado: { type: Date, default: null },
+  finalizado: { type: Date, default: null },
+  duracion_ms: { type: Number, default: null },
+  cambios: { type: String, default: '{}' },
+  reintento_count: { type: Number, default: 0 },
+
   // Performance
   iniciado_en: { type: Date, default: Date.now },
   completado_en: Date,

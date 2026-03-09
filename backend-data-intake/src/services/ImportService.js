@@ -7,6 +7,13 @@ const ExcelJS = require('exceljs');
 const csv = require('csv-parser');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const _logger = require('../utils/logger');
+const logger = {
+  info:  (...a) => (_logger.info  ? _logger.info(...a)  : console.log(...a)),
+  warn:  (...a) => (_logger.warn  ? _logger.warn(...a)  : console.warn(...a)),
+  error: (...a) => (_logger.error ? _logger.error(...a) : console.error(...a)),
+  debug: (...a) => (_logger.debug ? _logger.debug(...a) : console.debug(...a)),
+};
 const {
   findClienteByIdentifiers,
   upsertCliente,
@@ -15,15 +22,22 @@ const {
   updateSyncLog,
   findClienteByEmail
 } = require('../db/repositories');
-const { normalizeHeader, detectMapping } = require('../utils/importUtils');
+const { normalizeHeader: importedNormalizeHeader, detectMapping } = require('../utils/importUtils');
 
-// mongoose model for clientes storage
-const Cliente = require('../models/Cliente');
-const { logger } = require('../utils/logger');
+// helper for normalizing headers/maps (also available via import but
+// defined locally to guarantee consistency and allow in-file use):
+function normalizeHeader(str) {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // quita acentos
+    .replace(/[^a-z0-9]+/g, '_')      // espacios y especiales → _
+    .replace(/^_+|_+$/g, '');         // trim underscores
+}
 
+// start of ImportService class
 class ImportService {
-  /**
-   * Procesar archivo Excel
+/**
    * @param {File} file - Archivo subido
    * @param {Object} mapeo - Mapeo de columnas { 'Nombre Excel': 'campo.schema' }
    * @param {String} entidad - 'clientes', 'ventas', 'leads'
@@ -59,16 +73,29 @@ class ImportService {
       const headersNorm = headers.map(h => normalizeHeader(h || ''));
       console.debug('Headers normalizados:', headersNorm);
 
-      // normalize mapping keys as well
+      // El frontend envía { "ColExcel": "campoInterno" }
+      // Pasamos tal cual a detectMapping que ya normaliza internamente los values
       const mappingNormalized = {};
       if (mapeo && typeof mapeo === 'object') {
         Object.entries(mapeo).forEach(([k, v]) => {
-          mappingNormalized[normalizeHeader(k)] = v;
+          if (v) mappingNormalized[k] = v;
         });
       }
-      console.debug('Mapping normalizado:', mappingNormalized);
+      console.debug('Mapping recibido del frontend:', JSON.stringify(mappingNormalized));
+      // temporary debug: show headers and mapping after normalization is ready
+      console.log('=== DEBUG IMPORT ===');
+      console.log('Headers raw:', JSON.stringify(headers));
+      console.log('Headers norm:', JSON.stringify(headersNorm));
+      console.log('Mapping recibido:', JSON.stringify(mappingNormalized));
+      console.log('===================\n');
 
       const { mapping: mappingUsed, detectedHeaders, warnings: mappingWarnings } = detectMapping(headers, mappingNormalized, entidad);
+      // compute normalized version of mappingUsed so row processing can use it
+      const mappingUsedNormalized = {};
+      Object.entries(mappingUsed).forEach(([rawHeader, field]) => {
+        const norm = normalizeHeader(rawHeader || '');
+        mappingUsedNormalized[norm] = field;
+      });
       // add warning if required field missing (name for clientes)
       if (entidad === 'clientes') {
         const mappedFields = Object.values(mappingUsed).map(f => normalizeHeader(f));
@@ -94,18 +121,22 @@ class ImportService {
 
         procesados++;
         const objeto = {};
-        // build object according to mappingUsed
-        Object.entries(mappingUsed).forEach(([rawHeader, field]) => {
-          const colIndex = headers.findIndex((h) => h === rawHeader) + 1;
+        // build object according to normalized mapping
+        Object.entries(mappingUsedNormalized).forEach(([normHeader, field]) => {
+          const colIndex = headersNorm.findIndex((h) => h === normHeader) + 1;
           if (colIndex > 0) {
             const valor = row.getCell(colIndex).value;
+            console.log('MAPPING', { normHeader, field, valor });
             this._asignarValor(objeto, field, valor);
           }
         });
+        console.log('OBJETO CONSTRUIDO:', JSON.stringify(objeto, null, 2));
 
         // validate required for clientes
         if (entidad === 'clientes') {
-          const hasId = objeto.name || objeto.email || objeto.phone;
+          console.debug('objeto construido en fila ' + rowNumber + ':', JSON.stringify(objeto));
+          const hasId = objeto.name || objeto.email || objeto.phone ||
+                        objeto.cellphone || objeto.cellPhone || objeto.idMember;
           if (!hasId) {
             invalidCount++;
             invalidRows.push({ fila: rowNumber, motivo: 'missing identity fields' });
@@ -129,6 +160,14 @@ class ImportService {
         inseridos = resultado.inseridos;
         actualizados = resultado.actualizados;
         // ventas importer already handles its own errors but could be extended similarly
+      } else if (entidad === 'leads') {
+        const resultado = await this._importarLeads(registros, syncId);
+        inseridos = resultado.inseridos;
+        actualizados = resultado.actualizados;
+      } else if (entidad === 'agendamientos') {
+        const resultado = await this._importarAgendamientos(registros, syncId);
+        inseridos = resultado.inseridos;
+        actualizados = resultado.actualizados;
       }
 
       // Registrar en syncLog
@@ -234,7 +273,9 @@ class ImportService {
       let skippedCount = 0;
       let invalidCount = 0;
       let detectedHeaders = [];
+      let rawHeaders = [];
       let mappingUsed = {};
+      let mappingUsedNormalized = {};
       let mappingWarnings = [];
 
       const stream = fs.createReadStream(file.path)
@@ -243,21 +284,28 @@ class ImportService {
           procesados++; // count every row read
           if (procesados === 1) {
             // first data row gives headers
-            const rawHeaders = Object.keys(row);
+            rawHeaders = Object.keys(row);
             detectedHeaders = rawHeaders.map((h) => normalizeHeader(h));
             console.debug('CSV headers normalizados:', detectedHeaders);
 
             // normalize provided mapping keys
+            // El mapeo viene como { campoInterno: 'ColumnaExcel' }
+            // detectMapping internamente invierte, pero necesita las values normalizadas
             const mappingNormalized = {};
             if (mapeo && typeof mapeo === 'object') {
               Object.entries(mapeo).forEach(([k, v]) => {
-                mappingNormalized[normalizeHeader(k)] = v;
+                if (v) mappingNormalized[k] = v;
               });
             }
             console.debug('CSV mapping normalizado:', mappingNormalized);
 
             const { mapping, warnings } = detectMapping(rawHeaders, mappingNormalized, entidad);
             mappingUsed = mapping;
+            // build normalized version for row parsing
+            Object.entries(mappingUsed).forEach(([hdr, field]) => {
+              const nh = normalizeHeader(hdr || '');
+              mappingUsedNormalized[nh] = field;
+            });
             mappingWarnings = warnings;
             if (entidad === 'clientes') {
               const mappedFields = Object.values(mapping).map(f => normalizeHeader(f));
@@ -268,12 +316,19 @@ class ImportService {
           }
           try {
             const objeto = {};
-            Object.entries(mappingUsed).forEach(([hdr, field]) => {
-              objeto[field] = row[hdr];
+            Object.entries(mappingUsedNormalized).forEach(([normHdr, field]) => {
+              const idx = detectedHeaders.findIndex(h => h === normHdr);
+              if (idx >= 0) {
+                const rawHdr = rawHeaders[idx];
+                objeto[field] = row[rawHdr];
+              }
             });
             // validate
             if (entidad === 'clientes') {
-              if (!objeto.name && !objeto.email && !objeto.phone) {
+              console.debug('objeto CSV fila ' + procesados + ':', JSON.stringify(objeto));
+              const hasId = objeto.name || objeto.email || objeto.phone ||
+                            objeto.cellphone || objeto.cellPhone || objeto.idMember;
+              if (!hasId) {
                 invalidCount++;
                 invalidRows.push({ fila: procesados, motivo: 'missing identity fields' });
                 return;
@@ -302,6 +357,14 @@ class ImportService {
               invalidCount += resultado.invalidCount || 0;
             } else if (entidad === 'ventas') {
               const resultado = await this._importarVentas(registros, syncId);
+              inseridos = resultado.inseridos;
+              actualizados = resultado.actualizados;
+            } else if (entidad === 'leads') {
+              const resultado = await this._importarLeads(registros, syncId);
+              inseridos = resultado.inseridos;
+              actualizados = resultado.actualizados;
+            } else if (entidad === 'agendamientos') {
+              const resultado = await this._importarAgendamientos(registros, syncId);
               inseridos = resultado.inseridos;
               actualizados = resultado.actualizados;
             }
@@ -423,140 +486,78 @@ class ImportService {
    * @private
    */
   async _importarClientes(registros, syncId) {
-    // counters required by caller
     let insertedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
     let invalidCount = 0;
 
-    for (const reg of registros) {
-      // only handle objects
+    for (let reg of registros) {
       if (!reg || typeof reg !== 'object') continue;
 
-      // derive required values for schema
-      const {
-        // legacy / español
-        nombre,
-        apellido,
-        telefono,
-        rut,
-        direccion,
-        fechaRegistro,
-        origen,
+      console.log('RAW REGISTRO KEYS:', Object.keys(registros[0] || {}));
+      console.log('RAW REGISTRO SAMPLE:', JSON.stringify(registros[0], null, 2));
 
-        // modern / frontend mapping
-        firstName,
-        lastName,
-        cellPhone,
-        cellphone,
-        phone,
-        mobile,
-        cpf,
-        address,
-        registrationDate,
-        source,
+      // Normalizar TODAS las keys a minúscula
+      const r = Object.fromEntries(
+        Object.entries(reg).map(([k, v]) => [k.toLowerCase(), v])
+      );
 
-        // identifiers
-        email,
-        uniqueId: uidFromReg,
-        idMember: idFromReg,
+      const email       = r.email || null;
+      const idMemberRaw = r.idmember || r.id_miembro || null;
+      const rutRaw      = r.rut || r.cpf || null;
 
-        // already-mapped direct field
-        name: nameFromReg,
+      const hasIdentifier = !!email || !!rutRaw || !!idMemberRaw;
+      if (!hasIdentifier) { invalidCount++; continue; }
 
-        ...rest
-      } = reg;
+      // El objeto 'r' ya tiene todas las keys en minúscula (por el Object.fromEntries toLowerCase)
+      // por eso buscamos solo en minúscula. detectMapping mapea a 'name' y 'lastName',
+      // pero tras el toLowerCase 'lastName' se convierte en 'lastname'.
+      const firstName = (r.name    || r.nombre   || r.firstname || '').toString().trim();
+      const lastName  = (r.lastname || r.apellido || r.surname   || '').toString().trim();
+      const fullName  = lastName ? `${firstName} ${lastName}`.trim() : firstName;
 
-      const metadata = { ...rest };
+      const telefono = r.cellphone || r.telefono || r.teléfono || r.celular || r.phone || r.mobile || null;
 
-      // normalize equivalences
-      const computedNombre = (nameFromReg ? '' : (nombre ?? firstName ?? '')).toString().trim();
-      const computedApellido = (apellido ?? lastName ?? '').toString().trim();
+      const uniqueId = r.uniqueid || idMemberRaw || email || uuidv4();
+      const idMember = idMemberRaw || uniqueId;
 
-      const computedTelefono = telefono ?? cellPhone;
-      const computedRut = rut ?? cpf;
-      const computedDireccion = direccion ?? (address?.street ?? address);
-      const computedFechaRegistro = fechaRegistro ?? registrationDate;
-      const computedOrigen = origen ?? source;
-
-      // compute identifiers from provided data; we'll still generate defaults
-      // later, but validity is based only on what was supplied.
-      const hasIdentifier = !!email || !!computedRut || !!idFromReg || !!uidFromReg;
-      if (!hasIdentifier) {
-        invalidCount++;
-        continue;
-      }
-
-      // compute identifiers (defaults allowed after validation)
-      const uniqueId = uidFromReg || idFromReg || uuidv4();
-      const idMember = idFromReg || uniqueId || `import_${uuidv4()}`;
-
-      // compute name field
-      let name = (nameFromReg ?? `${computedNombre} ${computedApellido}`).trim();
-      // if no name we do not fill a placeholder; email/phone will serve as identifier or row may be marked invalid
+      console.log('AUDIT name:', fullName, '| email:', email, '| idMember:', idMember);
 
       const docData = {
-        uniqueId,
-        idMember,
-        name,
+        uniqueId, idMember,
+        name: fullName,
+        nombre_cliente: fullName,
         email,
-        cellPhone: computedTelefono,
-        cpf: computedRut,
-        address: computedDireccion ? { street: computedDireccion } : undefined,
-        registrationDate: computedFechaRegistro,
-        origen: computedOrigen,
+        correo: email,
+        cellPhone: telefono,
+        telefono: telefono,
+        cpf: rutRaw,
+        rut: rutRaw,
+        registrationDate: r.registrationdate || r.fecharegistro || null,
+        fecha_registro: r.registrationdate || r.fecharegistro || null,
+        origen: r.origen || r.source || null,
         source: 'import_excel',
-        customFields: metadata
+        customFields: r
       };
 
       try {
-        // find existing record by idMember first, then email (to avoid duplicates)
         let cliente = null;
-        if (idMember) {
-          cliente = await Cliente.findOne({ idMember });
-        }
-        if (!cliente && email) {
-          cliente = await Cliente.findOne({ email });
-        }
+        if (idMember) cliente = await Cliente.findOne({ idMember });
+        if (!cliente && email) cliente = await Cliente.findOne({ email });
 
         if (cliente) {
-          // ensure idMember/email consistency
-          if (idMember && cliente.idMember !== idMember) cliente.idMember = idMember;
-          if (email && cliente.email !== email) cliente.email = email;
-          if (name) cliente.name = name;
-          if (computedTelefono !== undefined) cliente.cellPhone = computedTelefono;
-          if (computedDireccion !== undefined) cliente.address = computedDireccion ? { street: computedDireccion } : undefined;
-          if (computedFechaRegistro !== undefined) cliente.registrationDate = computedFechaRegistro;
-          if (computedOrigen !== undefined) cliente.origen = computedOrigen;
-          cliente.customFields = { ...cliente.customFields, ...metadata };
-          await cliente.save();
-          updatedCount++;
+        cliente.name           = fullName || cliente.name;
+        cliente.nombre_cliente = fullName || cliente.nombre_cliente;
+        if (email) { cliente.email = email; cliente.correo = email; }
+        if (telefono != null) { cliente.cellPhone = telefono; cliente.telefono = telefono; }
+        if (rutRaw) { cliente.cpf = rutRaw; cliente.rut = rutRaw; }
+        cliente.customFields = { ...cliente.customFields, ...r };
+        await cliente.save();
+        updatedCount++;
         } else {
-          try {
-            await Cliente.create(docData);
-            insertedCount++;
-          } catch (err) {
-            // handle rare duplicate key errors by falling back to update
-            if (err && err.code === 11000) {
-              const exist = await Cliente.findOne({ $or: [{ idMember }, { email }] });
-              if (exist) {
-                if (idMember && exist.idMember !== idMember) exist.idMember = idMember;
-                if (email && exist.email !== email) exist.email = email;
-                if (name) exist.name = name;
-                if (computedTelefono !== undefined) exist.cellPhone = computedTelefono;
-                if (computedDireccion !== undefined) exist.address = computedDireccion ? { street: computedDireccion } : undefined;
-                if (computedFechaRegistro !== undefined) exist.registrationDate = computedFechaRegistro;
-                if (computedOrigen !== undefined) exist.origen = computedOrigen;
-                exist.customFields = { ...exist.customFields, ...metadata };
-                await exist.save();
-                updatedCount++;
-              } else {
-                skippedCount++;
-              }
-            } else {
-              throw err;
-            }
-          }
+          console.log('ABOUT TO CREATE docData.name:', docData.name);
+          await Cliente.create(docData);
+          insertedCount++;
         }
       } catch (error) {
         logger.error('Error importando cliente:', error, { registro: reg });
@@ -564,102 +565,372 @@ class ImportService {
       }
     }
 
-    return {
-      totalRows: registros.length,
-      insertedCount,
-      updatedCount,
-      skippedCount,
-      invalidCount
-    };
+    return { totalRows: registros.length, insertedCount, updatedCount, skippedCount, invalidCount };
   }
 
   /**
    * Importar ventas
    * @private
    */
+  // ─── REEMPLAZA el método _importarVentas en importService.js ─────────────────
+  // Los campos mapeados por detectMapping con las columnas del Excel son:
+  //   memberName, whatsapp, saleDate, dueDate, saleType,
+  //   paymentStatus, employeeName, fechaCompra, planName,
+  //   amount, discount, tax, branchName
+
   async _importarVentas(registros, syncId) {
+    const Venta = require('../models/Venta');
     let inseridos = 0;
     let actualizados = 0;
+    let errores = 0;
+    const erroresDetalle = [];
 
     for (const reg of registros) {
       try {
-        // Buscar cliente por email o clienteId
-        let cliente = await findClienteByIdentifiers({
-          email: reg.emailCliente,
-          clienteId: reg.clienteId
+        // Normalizar keys a lowercase para acceso uniforme
+        const r = {};
+        Object.entries(reg).forEach(([k, v]) => { r[k.toLowerCase()] = v; });
+
+        console.log('[_importarVentas] fila raw keys:', Object.keys(r));
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+        const parseFecha = (v) => {
+          if (!v) return null;
+          // ExcelJS puede devolver Date directamente
+          if (v instanceof Date) return isNaN(v) ? null : v;
+          const d = new Date(v);
+          return isNaN(d) ? null : d;
+        };
+
+        const parseNum = (v) => {
+          const n = Number(String(v).replace(/[^0-9.\-]/g, ''));
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        // ── Extraer campos (nombres en minúscula tras toLowerCase) ───────────
+        // detectMapping mapea a: memberName→membername, employeeName→employeename, etc.
+        const memberName   = r.membername   || r.memberName   || null;
+        const whatsapp     = r.whatsapp     || r.cellphone    || null;
+        const saleDate     = parseFecha(r.saledate     || r.fecha_de_ingreso) || new Date();
+        const dueDate      = parseFecha(r.duedate      || r.fecha_de_visita__hora) || null;
+        const saleType     = r.saletype     || r.tipo_de_invitacion || null;
+        const paymentStatus= r.paymentstatus|| r.estado_asistiono_asistio || 'Pendiente';
+        const employeeName = r.employeename || r.vendedor     || null;
+        const fechaCompra  = parseFecha(r.fechacompra  || r.fecha_de_compra) || null;
+        const planName     = r.planname     || r.plan          || null;
+        const amount       = parseNum(r.amount    || r.monto);
+        const discount     = parseNum(r.discount  || r.descuento);
+        const tax          = parseNum(r.tax        || r.inscripcion);
+        const branchName   = r.branchname   || r.sede          || null;
+
+        // idSale estable: memberName + saleDate + amount
+        const idSale = [
+          memberName || '',
+          saleDate ? saleDate.toISOString().slice(0, 10) : '',
+          amount,
+        ].join('|') || uuidv4();
+
+        console.log('[_importarVentas] procesando:', {
+          memberName, saleDate, saleType, paymentStatus, employeeName, planName,
+          amount, discount, tax, branchName, idSale,
         });
-        if (!cliente) cliente = await findClienteByEmail(reg.emailCliente);
 
-        if (!cliente) {
-          logger.warn('Cliente no encontrado para venta:', reg);
-          continue;
-        }
+        const docData = {
+          idSale,
+          memberName,
+          cellPhone:     whatsapp,
+          saleDate,
+          dueDate,
+          fechaCompra,
+          saleType,
+          paymentStatus,
+          employeeName,
+          planName,
+          amount,
+          discount,
+          tax,
+          totalAmount:   amount - discount + tax,
+          branchName,
+          source:        'import_excel',
+          lastSyncAt:    new Date(),
+        };
 
-        // Buscar venta existente
-        const resultado = await upsertVenta({
-          ...reg,
-          clienteId: cliente.id,
-          ventaId: reg.ventaId || uuidv4(),
-          syncedAt: new Date(),
-          fuente: 'importación'
-        });
-
-        if (resultado.updated) {
+        const existing = await Venta.findOne({ idSale }).lean();
+        if (existing) {
+          await Venta.findByIdAndUpdate(existing._id, { $set: docData });
           actualizados++;
-        }
-        if (resultado.inserted) {
+        } else {
+          await Venta.create(docData);
           inseridos++;
         }
+
       } catch (error) {
-        logger.error('Error importando venta:', error, { registro: reg });
+        errores++;
+        erroresDetalle.push(error.message);
+        if (errores <= 5) {
+          console.error('[_importarVentas] error fila:', error.message, JSON.stringify(reg));
+        }
       }
     }
 
-    return { inseridos, actualizados };
+    console.log(`[_importarVentas] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    if (erroresDetalle.length > 0) {
+      console.error('[_importarVentas] Errores:', erroresDetalle.slice(0, 5));
+    }
+
+    return { inseridos, actualizados, errores };
+  }
+
+  /**
+   * Importar leads
+   * @private
+   */
+  async _importarLeads(registros, syncId) {
+    const Lead = require('../models/Lead');
+    let inseridos = 0;
+    let actualizados = 0;
+    let errores = 0;
+    const erroresDetalle = [];
+
+    for (const reg of registros) {
+      try {
+        // Normalizar keys a lowercase para acceso uniforme
+        const r = {};
+        Object.entries(reg).forEach(([k, v]) => { r[k.toLowerCase()] = v; });
+
+        const parseNum = (v) => {
+          const n = Number(String(v).replace(/[^0-9.\-]/g, ''));
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const nombre   = r.nombre || r.name || r.firstname || null;
+        const email    = r.email || null;
+        const telefono = r.telefono || r.phone || r.cellphone || r.whatsapp || null;
+        const fuente   = r.fuente || r.source || r.origen || 'import_excel';
+        const estatus  = r.estatus || r.status || r.estado || 'Nuevo';
+        const leadScore = parseNum(r.leadscore || r.score || 0);
+
+        const leadId = [nombre || '', email || '', telefono || ''].join('|') || uuidv4();
+
+        const docData = {
+          leadId,
+          nombre,
+          email,
+          telefono,
+          fuente,
+          estatus,
+          leadScore,
+          source: 'import_excel',
+          lastSyncAt: new Date(),
+        };
+
+        const existing = await Lead.findOne({ leadId }).lean();
+        if (existing) {
+          await Lead.findByIdAndUpdate(existing._id, { $set: docData });
+          actualizados++;
+        } else {
+          await Lead.create(docData);
+          inseridos++;
+        }
+      } catch (error) {
+        errores++;
+        erroresDetalle.push(error.message);
+        if (errores <= 5) {
+          console.error('[_importarLeads] error fila:', error.message, JSON.stringify(reg));
+        }
+      }
+    }
+
+    console.log(`[_importarLeads] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    if (erroresDetalle.length > 0) {
+      console.error('[_importarLeads] Errores:', erroresDetalle.slice(0, 5));
+    }
+
+    return { inseridos, actualizados, errores };
+  }
+
+  /**
+   * Importar agendamientos
+   * @private
+   */
+  async _importarAgendamientos(registros, syncId) {
+    const Agendamiento = require('../models/Agendamiento');
+    let inseridos = 0;
+    let actualizados = 0;
+    let errores = 0;
+    const erroresDetalle = [];
+
+    for (const reg of registros) {
+      try {
+        // Normalizar keys a lowercase
+        const r = {};
+        Object.entries(reg).forEach(([k, v]) => { r[k.toLowerCase()] = v; });
+
+        const parseFecha = (v) => {
+          if (!v) return null;
+          if (v instanceof Date) return isNaN(v) ? null : v;
+          const d = new Date(v);
+          return isNaN(d) ? null : d;
+        };
+
+        const memberName      = r.membername || r.nombre || r.name || null;
+        const idBranch        = r.idbranch || r.sede || r.branch || null;
+        const branchName      = r.branchname || r.nombresede || null;
+        const appointmentType = r.appointmenttype || r.tipo || 'evaluacion';
+        const startDate       = parseFecha(r.startdate || r.fecha || r.fechainicio) || new Date();
+        const endDate         = parseFecha(r.enddate || r.fechafin) || startDate;
+        let status            = r.status || r.estado || r.estadoasistio || 'programado';
+        // normalize status to 'completado' if matches attended variations
+        const stLower = (status || '').toString().toLowerCase();
+        if (stLower.includes('asist') || stLower === 'completado') {
+          status = 'completado';
+        }
+        const checkedIn = ['completado','asistio','attended'].includes(stLower);
+
+        const title = r.title || r.titulo || memberName || 'Agendamiento';
+
+        const idAppointment = [memberName || '', startDate.toISOString().slice(0,10), idBranch || ''].join('|') || uuidv4();
+
+        const docData = {
+          idAppointment,
+          memberName,
+          idBranch,
+          branchName,
+          appointmentType,
+          title,
+          startDate,
+          endDate,
+          status,
+          checkedIn,
+          source: 'import_excel',
+          lastSyncAt: new Date()
+        };
+
+        const existing = await Agendamiento.findOne({ idAppointment }).lean();
+        if (existing) {
+          await Agendamiento.findByIdAndUpdate(existing._id, { $set: docData });
+          actualizados++;
+        } else {
+          await Agendamiento.create(docData);
+          inseridos++;
+        }
+      } catch (error) {
+        errores++;
+        erroresDetalle.push(error.message);
+        if (errores <= 5) {
+          console.error('[_importarAgendamientos] error fila:', error.message, JSON.stringify(reg));
+        }
+      }
+    }
+
+    console.log(`[_importarAgendamientos] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    if (erroresDetalle.length > 0) {
+      console.error('[_importarAgendamientos] Errores:', erroresDetalle.slice(0, 5));
+    }
+
+    return { inseridos, actualizados, errores };
   }
 
   /**
    * Obtener preview de archivo antes de importar
    */
   async previewExcelFile(file) {
-    try {
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(file.path);
-      const worksheet = workbook.getWorksheet(1);
+  let filePath = file.path;
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const absolutePath = require('path').resolve(filePath);
+    console.log('[PREVIEW] reading file:', absolutePath, 'exists:', require('fs').existsSync(absolutePath));
+    await workbook.xlsx.readFile(absolutePath);
+    
+    const worksheet = workbook.getWorksheet(1);
+    if (!worksheet) throw new Error('No se encontró hoja en el archivo');
 
+    const columnas = [];
+    const primerosRegistros = [];
+
+    // Obtener encabezados usando getCell para no saltarse columnas vacías
+    const headerRow = worksheet.getRow(1);
+    const lastCol = worksheet.columnCount || headerRow.cellCount;
+    
+    for (let c = 1; c <= lastCol; c++) {
+      const cell = headerRow.getCell(c);
+      const val = cell.value;
+      columnas.push(val !== null && val !== undefined ? String(val).trim() : '');
+    }
+
+    // Filtrar columnas completamente vacías del final
+    while (columnas.length > 0 && columnas[columnas.length - 1] === '') {
+      columnas.pop();
+    }
+
+    // Obtener primeras 10 filas de datos
+    let count = 0;
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1 || count >= 10) return;
+      const valores = {};
+      for (let c = 1; c <= columnas.length; c++) {
+        const cell = row.getCell(c);
+        let val = cell.value;
+        // ExcelJS puede devolver objetos richText o formula
+        if (val && typeof val === 'object') {
+          if (val.richText) val = val.richText.map(r => r.text).join('');
+          else if (val.result !== undefined) val = val.result;
+          else if (val.text !== undefined) val = val.text;
+          else val = String(val);
+        }
+        valores[columnas[c - 1]] = val ?? null;
+      }
+      primerosRegistros.push(valores);
+      count++;
+    });
+
+    return { columnas, primerosRegistros };
+  } catch (error) {
+    logger.error('Error en preview:', error);
+    throw error;
+  } finally {
+    try {
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch {}
+  }
+}
+
+  /**
+   * Preview de archivo CSV (primeras 10 filas)
+   */
+  async previewCSVFile(file) {
+    const csvParser = require('csv-parser');
+    const fs = require('fs');
+    const filePath = file.path;
+    return new Promise((resolve, reject) => {
       const columnas = [];
       const primerosRegistros = [];
-
-      // Obtener encabezados
-      worksheet.getRow(1).eachCell((cell) => {
-        columnas.push(cell.value);
-      });
-
-      // Obtener primeros 10 registros
       let count = 0;
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
-        if (count >= 10) return;
+      let headersDetected = false;
 
-        const valores = [];
-        row.eachCell((cell) => {
-          valores.push(cell.value);
+      fs.createReadStream(filePath)
+        .pipe(csvParser())
+        .on('headers', (hdrs) => {
+          hdrs.forEach(h => columnas.push(h));
+          headersDetected = true;
+        })
+        .on('data', (row) => {
+          if (count < 10) {
+            primerosRegistros.push(row);
+            count++;
+          }
+        })
+        .on('end', () => {
+          try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+          resolve({ columnas, primerosRegistros });
+        })
+        .on('error', (err) => {
+          try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+          reject(err);
         });
-
-        primerosRegistros.push(valores);
-        count++;
-      });
-
-      return { columnas, primerosRegistros };
-    } catch (error) {
-      logger.error('Error en preview:', error);
-      throw error;
-    } finally {
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
-      }
-    }
+    });
   }
 }
 
 module.exports = new ImportService();
+

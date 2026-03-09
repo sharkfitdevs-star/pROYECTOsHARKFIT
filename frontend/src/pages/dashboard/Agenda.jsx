@@ -1007,21 +1007,21 @@ export default function Agenda() {
 
                 {/* Vista de Tabla para Desktop */}
                 <div className="hidden md:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Prospecto</TableHead>
-                        <TableHead>Tipo Visita</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Vendedor</TableHead>
-                        <TableHead>Clase</TableHead>
-                        <TableHead>Cerrador</TableHead>
-                        <TableHead>Notas</TableHead>
-                        <TableHead className="text-center">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b hover:bg-gray-50">
+                        <th className="text-left p-2 font-medium">Hora</th>
+                        <th className="text-left p-2 font-medium">Prospecto</th>
+                        <th className="text-left p-2 font-medium">Tipo Visita</th>
+                        <th className="text-left p-2 font-medium">Estado</th>
+                        <th className="text-left p-2 font-medium">Vendedor</th>
+                        <th className="text-left p-2 font-medium">Clase</th>
+                        <th className="text-left p-2 font-medium">Cerrador</th>
+                        <th className="text-left p-2 font-medium">Notas</th>
+                        <TableHead className="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {agendamientosPorSede[sede].map((agenda) => {
                         // Buscar el prospecto y su vendedor
                         const prospecto = prospectos.find(p => p.id === agenda.prospecto_id);
@@ -1040,18 +1040,18 @@ export default function Agenda() {
                           >
                             <TableCell className="font-medium">
                               {format(new Date(agenda.fecha_hora), 'HH:mm')}
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               <div className="flex items-center gap-1">
                                 {agenda.prospecto_nombre}
                                 {prospecto && clientes.some(c => c.whatsapp === prospecto.whatsapp) && (
                                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               <Badge variant="outline">{agenda.tipo_visita}</Badge>
-                            </TableCell>
+                            </td>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2">
                                 <Badge 
@@ -1070,13 +1070,13 @@ export default function Agenda() {
                                   </Badge>
                                 ) : null}
                               </div>
-                            </TableCell>
+                            </td>
                             <TableCell className="text-sm text-gray-600">
                               {vendedorNombre}
-                            </TableCell>
+                            </td>
                             <TableCell className="text-sm text-gray-600">
                               {claseNombre}
-                            </TableCell>
+                            </td>
                             <TableCell className="text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2">
                                 <span>{cerradorNombre}</span>
@@ -1100,7 +1100,7 @@ export default function Agenda() {
                                   </Button>
                                 )}
                               </div>
-                            </TableCell>
+                            </td>
                             <TableCell className="text-sm text-gray-600">
                               <div className="flex items-center gap-2">
                                 <span className="flex-1">{agenda.notas || '-'}</span>
@@ -1117,8 +1117,8 @@ export default function Agenda() {
                                   <Info className="w-4 h-4 text-blue-600" />
                                 </Button>
                               </div>
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               <div className="flex gap-2 justify-center">
                                 <AccionesAgendamientoMenu
                                   agendamiento={agenda}
@@ -1155,12 +1155,12 @@ export default function Agenda() {
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         );
                       })}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

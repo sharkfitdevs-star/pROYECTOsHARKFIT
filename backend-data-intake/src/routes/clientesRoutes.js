@@ -60,7 +60,8 @@ router.get("/", requireAuth, async (req, res) => {
     });
 
     const data = sanitized;
-    const total = data.length;
+    // count total matching documents (not just page size)
+    const total = await Cliente.countDocuments(filter);
 
     // attach paging metadata
     const meta = { limit: numLimit, skip: numSkip, count: total };
@@ -82,6 +83,18 @@ router.get("/", requireAuth, async (req, res) => {
       return res.status(503).json({ ok: false, error: 'DB_UNAVAILABLE', message: 'MongoDB not connected' });
     }
     res.status(500).json({ ok: false, error: 'INTERNAL_SERVER_ERROR', message: error.message });
+  }
+});
+
+// DELETE /api/clientes/importados — elimina todos los clientes de fuente import_excel
+router.delete('/importados', requireAuth, async (req, res) => {
+  try {
+    const result = await Cliente.deleteMany({ source: 'import_excel' });
+    logger.info(`[clientes] eliminados ${result.deletedCount} clientes importados`);
+    res.json({ ok: true, deleted: result.deletedCount });
+  } catch (error) {
+    logger.error('[clientes] error eliminando importados:', error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 

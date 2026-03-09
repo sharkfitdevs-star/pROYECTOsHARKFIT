@@ -30,7 +30,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: Number(process.env.VITE_PORT) || 5173,
-    strictPort: true,
+    strictPort: false,
     host: true,
     cors: true,
     proxy: {
@@ -39,6 +39,16 @@ export default defineConfig({
         target: 'http://127.0.0.1:4001',
         changeOrigin: true,
         secure: false,
+        // ensure explicit path rewrite is not needed but keep for clarity
+        rewrite: (path) => path, // preserve /api/auth/* exactly
+        configure: (proxy) => {
+          if (process.env.NODE_ENV === 'production') return;
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.url && req.url.startsWith('/api/auth')) {
+              console.log('[VITE PROXY AUTH REQ] ->', req.method, req.url);
+            }
+          });
+        }
       },
       // route all other API requests to the main backend server
       '/api': {
@@ -50,6 +60,10 @@ export default defineConfig({
           proxy.on('error', (err, req) => console.log('[VITE PROXY ERROR]', err.message, req && req.url));
           proxy.on('proxyReq', (proxyReq, req) => {
             console.log('[VITE PROXY REQ]', req.method, req.url);
+            if (req.url && req.url.startsWith('/api/auth')) {
+              // this should never fire because /api/auth is handled above
+              console.warn('[VITE PROXY WARNING] auth path reached /api rule', req.url);
+            }
             if (req.url && req.url.startsWith('/api/clientes')) {
               console.log('[VITE PROXY CLIENTES ->]', proxyReq.getHeader('host'));
             }
@@ -65,3 +79,4 @@ export default defineConfig({
     },
   },
 });
+

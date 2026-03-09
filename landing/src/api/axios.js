@@ -41,10 +41,16 @@ export function setAuthHooks({ markImportsForbidden }) {
 // request interceptor: attach token from memory or storage, log in dev
 api.interceptors.request.use((config) => {
   // ensure auth header present if we have a token stored or persisted
-  const token = accessToken || localStorage.getItem('authToken');
+  const POSSIBLE_KEYS = ['authToken', 'accessToken', 'token', 'jwt'];
+  const storedToken = POSSIBLE_KEYS.reduce(
+    (found, key) => found || localStorage.getItem(key), null
+  );
+  const token = accessToken || storedToken;
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
+    // keep in-memory ref in sync so subsequent calls don't re-read storage
+    if (!accessToken && token) accessToken = token;
   }
   if (process.env.NODE_ENV === 'development') {
     console.debug('[AXIOS REQ]', config.method, config.url, 'headers', {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Venta } = require('../models');
+const { requireAuth } = require('../middleware/auth');
 
 /**
  * GET /api/ventas
@@ -141,30 +142,15 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/ventas/:id
- * Eliminar venta
+ * DELETE /api/ventas/importados
+ * Eliminar todas las ventas importadas
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/importados', requireAuth, async (req, res) => {
   try {
-    const venta = await Venta.findByIdAndDelete(req.params.id);
-    
-    if (!venta) {
-      return res.status(404).json({
-        error: true,
-        message: 'Venta no encontrada'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Venta eliminada'
-    });
+    const result = await Venta.deleteMany({ source: 'import_excel' });
+    res.json({ ok: true, deleted: result.deletedCount });
   } catch (error) {
-    logger.error('Error deleting venta:', { error });
-    res.status(500).json({
-      error: true,
-      message: 'Error al eliminar venta'
-    });
+    res.status(500).json({ ok: false, error: 'Error al eliminar ventas importadas' });
   }
 });
 
@@ -199,6 +185,36 @@ router.get('/stats/resumen', async (req, res) => {
     });
   }
 });
+
+/**
+ * DELETE /api/ventas/:id
+ * Eliminar venta
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const venta = await Venta.findByIdAndDelete(req.params.id);
+    
+    if (!venta) {
+      return res.status(404).json({
+        error: true,
+        message: 'Venta no encontrada'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Venta eliminada'
+    });
+  } catch (error) {
+    logger.error('Error deleting venta:', { error });
+    res.status(500).json({
+      error: true,
+      message: 'Error al eliminar venta'
+    });
+  }
+});
+
+
 
 
 module.exports = router;

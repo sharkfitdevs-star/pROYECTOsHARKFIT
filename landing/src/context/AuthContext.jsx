@@ -44,17 +44,7 @@ import { getAccessToken, setAccessToken, clearAccessToken, TOKEN_KEY } from "../
 import { getImportsConnection, setImportsConnection } from "../services/settingsApi";
 import { createToast } from "@/components/ui/use-toast";
 
-// helper that wraps fetch/axios calls and never throws
-async function safeFetchJson(url, options = {}) {
-  try {
-    const resp = await fetch(url, options);
-    let data = null;
-    try { data = await resp.json(); } catch {};
-    return { ok: resp.ok, status: resp.status, data };
-  } catch (err) {
-    return { ok: false, status: null, error: err.message || String(err) };
-  }
-}
+// safeFetchJson removed; use getImportsConnection from services/settingsApi
 
 const AuthContext = createContext(null);
 
@@ -105,6 +95,17 @@ export function AuthProvider({ children }) {
 
   // fetch importsConnected flag once on mount and set up polling & cross-tab sync
   useEffect(() => {
+    // if there's no auth token we are on login/unauthed page; disable polling
+    const storedToken = getAccessToken();
+    if (!storedToken) {
+      setImportsConnected(false);
+      setSettingsLoaded(true);
+      setLoading(false);
+      return;
+    }
+    // garantiza que axios tenga el token antes del primer fetch de settings
+    setApiToken(storedToken);
+
     const importsConnectedRef = { current: importsConnected };
     const togglingRef = { current: isTogglingImports };
 
@@ -123,13 +124,13 @@ export function AuthProvider({ children }) {
       // initial fetch (only set settingsLoaded on a successful response)
       if (!settingsLoaded) {
         try {
-          const resp = await safeFetchJson('/api/settings/imports-connection');
-          if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
-            setImportsConnected(resp.data.importsConnected);
+          const val = await getImportsConnection();
+          if (typeof val === 'boolean') {
+            setImportsConnected(val);
             setImportsConnectionError(null);
             setSettingsLoaded(true); // mark only after we know it succeeded
           } else {
-            throw new Error(resp.error || `HTTP ${resp.status}`);
+            throw new Error('unexpected value from getImportsConnection');
           }
         } catch (e) {
           setImportsConnected(null);
@@ -167,9 +168,8 @@ export function AuthProvider({ children }) {
       if (togglingRef.current) return;
 
       try {
-        const resp = await safeFetchJson('/api/settings/imports-connection');
-        if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
-          const val = resp.data.importsConnected;
+        const val = await getImportsConnection();
+        if (typeof val === 'boolean') {
           if (val !== importsConnectedRef.current) {
             _syncImportsConnected(val);
             createToast({
@@ -178,13 +178,6 @@ export function AuthProvider({ children }) {
               variant: 'info'
             });
           }
-        } else {
-          if (resp.status === 403) {
-            markImportsForbidden();
-            if (pollId) clearInterval(pollId);
-            return;
-          }
-          throw new Error(resp.error || `HTTP ${resp.status}`);
         }
       } catch (e) {
         if (e.status === 401 || (e.response && e.response.status === 401)) {
@@ -204,9 +197,8 @@ export function AuthProvider({ children }) {
       if (ev.key !== 'importsConnectedUpdatedAt') return;
       if (togglingRef.current) return;
       try {
-        const resp = await safeFetchJson('/api/settings/imports-connection');
-        if (resp.ok && resp.data && typeof resp.data.importsConnected === 'boolean') {
-          const val = resp.data.importsConnected;
+        const val = await getImportsConnection();
+        if (typeof val === 'boolean') {
           if (val !== importsConnectedRef.current) {
             _syncImportsConnected(val);
             createToast({
@@ -223,7 +215,7 @@ export function AuthProvider({ children }) {
     };
 
     load();
-    pollId = setInterval(load, 25000);
+    pollId = setInterval(load, 60000);
     window.addEventListener('storage', onStorage);
     return () => {
       if (pollId) clearInterval(pollId);
@@ -233,19 +225,18 @@ export function AuthProvider({ children }) {
 
   const login = async ({ identifier, password }) => {
     setError(null);
-    try {
-      // The backend expects either { email, password } or { username, password }.
-      // Our form collects a single "identifier" string (email OR username).
-      // Translate it here and drop the helper field so Joi validation does not
-      // reject the request with 400 "Campos desconocidos".
-      const payload = { password };
-      const trimmed = (identifier || '').trim();
-      if (trimmed.includes('@')) {
-        payload.email = trimmed.toLowerCase();
-      } else {
-        payload.username = trimmed;
-      }
 
+    // prepare payload outside of try/catch so it is always in scope
+    const trimmed = (identifier || '').trim();
+    const payload = {
+      ...(trimmed.includes('@') ? { email: trimmed } : { username: trimmed }),
+      password,
+    };
+
+    try {
+      // the backend contract is { identifier, password }
+      // axios already has baseURL `/api`; request path should be relative
+      // otherwise we risk `/api/api/auth/login` in some environments.
       const res = await api.post('/auth/login', payload);
       // backend replies with `{ success:true, accessToken, user }`
       const newToken = res.data.accessToken || res.data.token;
@@ -266,7 +257,19 @@ export function AuthProvider({ children }) {
       }
       return loggedUser;
     } catch (err) {
-      const msg = err?.response?.data?.error || err.message || 'Error al iniciar sesión';
+      const status = err?.response?.status;
+      // guard-log for server errors
+      if (status >= 500) {
+        const cfg = err.config || {};
+        const resolved = (cfg.baseURL || '') + (cfg.url || '');
+        const safeKeys = Object.keys(payload).filter(k => k !== 'password');
+        console.error('[LOGIN SERVER ERROR]', { status, resolvedUrl: resolved, payloadKeys: safeKeys });
+      }
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err.message ||
+        'Error al iniciar sesión';
       setError(msg);
       throw err;
     }

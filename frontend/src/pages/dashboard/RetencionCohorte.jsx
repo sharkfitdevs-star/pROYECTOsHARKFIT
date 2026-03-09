@@ -409,36 +409,36 @@ export default function RetencionCohorte() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cohorte (Mes)</TableHead>
-                  <TableHead className="text-center">Clientes</TableHead>
-                  <TableHead className="text-center">Mes 2</TableHead>
-                  <TableHead className="text-center">Mes 3</TableHead>
-                  <TableHead className="text-center">Mes 4</TableHead>
-                  <TableHead className="text-center">Mes 5</TableHead>
-                  <TableHead className="text-center">Mes 6</TableHead>
-                  <TableHead className="text-center">Mes 7</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b hover:bg-gray-50">
+                  <th className="text-left p-2 font-medium">Cohorte (Mes)</th>
+                  <TableHead className="text-center">Clientes</th>
+                  <TableHead className="text-center">Mes 2</th>
+                  <TableHead className="text-center">Mes 3</th>
+                  <TableHead className="text-center">Mes 4</th>
+                  <TableHead className="text-center">Mes 5</th>
+                  <TableHead className="text-center">Mes 6</th>
+                  <TableHead className="text-center">Mes 7</th>
+                </tr>
+              </thead>
+              <tbody>
                 {cohortes.length === 0 ? (
-                  <TableRow>
+                  <tr className="border-b hover:bg-gray-50">
                     <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No hay datos para mostrar con los filtros seleccionados
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : (
                   <>
                     {cohortes.map((cohorte) => (
                       <TableRow key={cohorte.mes}>
                         <TableCell className="font-medium">
                           {formatMesCohorte(cohorte.mes)}
-                        </TableCell>
+                        </td>
                         <TableCell className="text-center">
                           <Badge variant="outline">{cohorte.totalClientes}</Badge>
-                        </TableCell>
+                        </td>
                         {[2, 3, 4, 5, 6, 7].map(mes => {
                           const datos = cohorte.retencionPorMes[mes];
                           const porcentaje = datos?.porcentaje;
@@ -463,17 +463,17 @@ export default function RetencionCohorte() {
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
-                            </TableCell>
+                            </td>
                           );
                         })}
-                      </TableRow>
+                      </tr>
                     ))}
                     
                     {/* Fila de Promedios */}
                     {metricsResumen.promediosPorMes && (
                       <TableRow className="bg-muted/50 font-semibold border-t-2">
-                        <TableCell className="font-bold">PROMEDIO</TableCell>
-                        <TableCell className="text-center">-</TableCell>
+                        <TableCell className="font-bold">PROMEDIO</td>
+                        <TableCell className="text-center">-</td>
                         {[2, 3, 4, 5, 6, 7].map(mes => {
                           const promedio = metricsResumen.promediosPorMes[mes];
                           
@@ -490,15 +490,15 @@ export default function RetencionCohorte() {
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
-                            </TableCell>
+                            </td>
                           );
                         })}
-                      </TableRow>
+                      </tr>
                     )}
                   </>
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

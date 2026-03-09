@@ -478,63 +478,63 @@ export default function Ventas() {
 
               {/* Vista de Tabla para Desktop */}
               <div className="hidden md:block overflow-x-auto">
-                <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Vencimiento</TableHead>
-                    <TableHead>Prospecto</TableHead>
-                    <TableHead>Sede</TableHead>
-                    <TableHead>Tipo Venta</TableHead>
-                    <TableHead>Vendedor</TableHead>
-                    <TableHead>Cerrador</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead className="text-right">Descuento</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Notas</TableHead>
-                    <TableHead className="text-center">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Fecha</th>
+                    <th className="text-left p-2 font-medium">Vencimiento</th>
+                    <th className="text-left p-2 font-medium">Prospecto</th>
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <th className="text-left p-2 font-medium">Tipo Venta</th>
+                    <th className="text-left p-2 font-medium">Vendedor</th>
+                    <th className="text-left p-2 font-medium">Cerrador</th>
+                    <th className="text-left p-2 font-medium">Plan</th>
+                    <th className="text-left p-2 font-medium">Monto</th>
+                    <TableHead className="text-right">Descuento</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Notas</th>
+                    <TableHead className="text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {ventas.map((venta) => {
                     const sede = sucursales.find(s => s.id === venta.sede);
                     const vendedor = staff.find(s => s.id === venta.vendedor);
                     return (
                       <TableRow key={venta.id}>
-                        <TableCell>{moment(venta.fecha_venta).format('DD/MM/YYYY')}</TableCell>
-                        <TableCell>
+                        <td className="p-2">{moment(venta.fecha_venta).format('DD/MM/YYYY')}</td>
+                        <td className="p-2">
                           {venta.fecha_vencimiento ? moment(venta.fecha_vencimiento).format('DD/MM/YYYY') : '-'}
-                        </TableCell>
-                        <TableCell className="font-medium">{venta.prospecto_nombre}</TableCell>
-                        <TableCell>{sede?.nombre_sede || venta.sede}</TableCell>
-                        <TableCell>
+                        </td>
+                        <TableCell className="font-medium">{venta.prospecto_nombre}</td>
+                        <td className="p-2">{sede?.nombre_sede || venta.sede}</td>
+                        <td className="p-2">
                           <Badge className={getTipoVentaBadgeColor(venta.tipo_venta)}>
                             {venta.tipo_venta}
                           </Badge>
-                        </TableCell>
-                        <TableCell>{vendedor?.nombre || venta.vendedor}</TableCell>
-                       <TableCell>{venta.cerrador || '-'}</TableCell>
-                      <TableCell>
+                        </td>
+                        <td className="p-2">{vendedor?.nombre || venta.vendedor}</td>
+                       <td className="p-2">{venta.cerrador || '-'}</td>
+                      <td className="p-2">
                         {(() => {
                           const plan = planes.find(p => p.id === venta.plan);
                           return plan?.nombre_plan || venta.plan || '-';
                         })()}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right font-medium">
                         {venta.monto ? `$${venta.monto.toLocaleString('es-CL')}` : '-'}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right font-medium">
                         {venta.descuento ? `$${venta.descuento.toLocaleString('es-CL')}` : '-'}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <Badge className={getEstadoBadgeColor(venta.estado)}>
                           {venta.estado}
                         </Badge>
-                      </TableCell>
+                      </td>
                       <TableCell className="text-sm text-gray-600">
                         {venta.notas || '-'}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-center">
                         <div className="flex gap-1 justify-center">
                           <Button
@@ -556,12 +556,12 @@ export default function Ventas() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
               </div>
             </>
           )}

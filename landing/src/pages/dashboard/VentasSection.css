@@ -1,0 +1,247 @@
+﻿.vt-container {
+  animation: fadeInUp 0.3s ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.vt-periodo {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0 0 1rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .vt-grid { grid-template-columns: 1fr; }
+}
+
+.vt-kpi-col,
+.vt-donut-col,
+.vt-ranking-col {
+  background: #1e1e2e;
+  border: 1px solid #2d2d44;
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.vt-col-label {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.75rem;
+}
+
+.vt-kpi-label {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+}
+
+.vt-kpi-value {
+  display: block;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.1;
+  margin-bottom: 0.3rem;
+}
+
+.vt-kpi-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.vt-variacion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.vt-variacion-text {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.vt-delta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.vt-delta.pos {
+  background: #4ade8022;
+  color: #4ade80;
+  border: 1px solid #4ade8033;
+}
+
+.vt-delta.neg {
+  background: #f8717122;
+  color: #f87171;
+  border: 1px solid #f8717133;
+}
+
+.vt-progress-wrap {
+  position: relative;
+  height: 8px;
+  background: #2d2d44;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.vt-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+
+.vt-progress-bar.pos { background: #4ade80; }
+.vt-progress-bar.neg { background: #f87171; }
+
+.vt-progress-label {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.vt-comparativa {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.vt-sep { color: #3d3d58; }
+
+.vt-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.vt-ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #16162a;
+  border-radius: 8px;
+  border: 1px solid #2d2d44;
+  transition: border-color 0.2s;
+}
+
+.vt-ranking-item:hover { border-color: #a78bfa44; }
+
+.vt-ranking-pos {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #a78bfa22;
+  color: #a78bfa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #a78bfa44;
+}
+
+.vt-ranking-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vt-ranking-nombre {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vt-ranking-montos {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.vt-tooltip {
+  background: #1a1a2e;
+  border: 1px solid #3d3d58;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.vt-tooltip-label {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 0 0 0.25rem 0;
+}
+
+.vt-empty {
+  font-size: 0.8rem;
+  color: #475569;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.vt-error {
+  padding: 1rem;
+  background: #f8717122;
+  border: 1px solid #f8717144;
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+.vt-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vt-skeleton-block {
+  background: linear-gradient(90deg, #1e1e2e 25%, #2d2d44 50%, #1e1e2e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

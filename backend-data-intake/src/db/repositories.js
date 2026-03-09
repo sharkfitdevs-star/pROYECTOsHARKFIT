@@ -171,43 +171,69 @@ async function findClienteByIdentifiers({ eventoId, email, rfc, clienteId }) { c
 async function findClienteByEmail(email) { if (!email) return null; const doc = await Cliente.findOne({ email: email.toLowerCase() }).lean(); return mapCliente(doc); }
 async function upsertCliente(data) { const existing = await findClienteByIdentifiers({ eventoId: data.eventoId, email: data.email, rfc: data.rfc, clienteId: data.clienteId }); const now = new Date(); const docData = { idMember: data.clienteId || existing?.clienteId || uuidv4(), name: data.nombre || existing?.nombre || data.name || null, email: data.email ? data.email.toLowerCase() : existing?.email || null, cellPhone: data.telefono || existing?.telefono || null, branchName: data.empresa || existing?.empresa || null, cpf: data.rfc || existing?.rfc || null, status: data.estado || existing?.estado || null, source: data.fuente || existing?.fuente || 'import', membershipStatus: data.membresia?.estado || existing?.membresiaEstado || null, membershipEndDate: data.membresia?.fechaVencimiento ? new Date(data.membresia.fechaVencimiento) : existing?.membresiaFechaVencimiento || null, customFields: data.data || existing?.data || {}, lastSyncAt: data.syncedAt ? new Date(data.syncedAt) : now }; if (existing && existing.id) { const updated = await Cliente.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean(); return { id: updated._id.toString(), updated: true, inserted: false }; } const created = await Cliente.create(docData); return { id: created._id.toString(), updated: false, inserted: true }; }
 async function findVentaByIdentifiers({ eventoVentaId, ventaId }) { const or = []; if (eventoVentaId) or.push({ externalId: eventoVentaId }); if (ventaId) or.push({ idSale: ventaId }, { externalId: ventaId }); if (!or.length) return null; const doc = await Venta.findOne({ $or }).lean(); return mapVenta(doc); }
-async function upsertVenta(data) { const existing = await findVentaByIdentifiers({ eventoVentaId: data.eventoVentaId, ventaId: data.ventaId }); const now = new Date(); const docData = { idSale: data.ventaId || existing?.ventaId || uuidv4(), idMember: data.clienteId || existing?.clienteId || null, description: data.concepto || existing?.concepto || null, amount: Number.isFinite(Number(data.monto)) ? Number(data.monto) : existing?.monto || 0, totalAmount: Number.isFinite(Number(data.monto)) ? Number(data.monto) : existing?.monto || 0, currency: data.moneda || existing?.moneda || 'MXN', paymentStatus: data.estatus || existing?.estatus || 'Completada', saleDate: data.fecha ? new Date(data.fecha) : (existing?.fecha ? new Date(existing.fecha) : now), source: data.fuente || existing?.fuente || 'import', externalId: data.eventoVentaId || existing?.eventoVentaId || null, lastSyncAt: data.syncedAt ? new Date(data.syncedAt) : now }; if (existing && existing.id) { const updated = await Venta.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean(); return { id: updated._id.toString(), updated: true, inserted: false }; } const created = await Venta.create(docData); return { id: created._id.toString(), updated: false, inserted: true }; }
+async function upsertVenta(data) { const existing = await findVentaByIdentifiers({ eventoVentaId: data.eventoVentaId, ventaId: data.ventaId }); const now = new Date(); const docData = {
+    idSale: data.ventaId || data.idSale || existing?.idSale || uuidv4(),
+    idMember: data.clienteId || data.idMember || existing?.idMember || null,
+    memberName: data.memberName || data.nombreCliente || existing?.memberName || null,
+    description: data.concepto || data.description || data.planName || existing?.description || null,
+    amount: Number.isFinite(Number(data.amount || data.monto)) ? Number(data.amount || data.monto) : (existing?.amount || 0),
+    totalAmount: Number.isFinite(Number(data.totalAmount || data.monto)) ? Number(data.totalAmount || data.monto) : (existing?.totalAmount || 0),
+    discount: Number.isFinite(Number(data.discount)) ? Number(data.discount) : (existing?.discount || 0),
+    currency: data.moneda || data.currency || existing?.currency || 'MXN',
+    paymentStatus: data.paymentStatus || data.estatus || existing?.paymentStatus || 'Pendiente',
+    employeeName: data.employeeName || data.vendedor || existing?.employeeName || null,
+    branchName: data.branchName || data.sede || existing?.branchName || null,
+    planName: data.planName || data.plan || existing?.planName || null,
+    saleType: data.saleType || data.tipo || existing?.saleType || null,
+    saleDate: data.saleDate ? new Date(data.saleDate) : (data.fecha ? new Date(data.fecha) : (existing?.saleDate || now)),
+    dueDate: data.dueDate ? new Date(data.dueDate) : (existing?.dueDate || null),
+    cellPhone: data.cellPhone || data.whatsapp || existing?.cellPhone || null,
+    source: data.fuente || data.source || existing?.source || 'import',
+    externalId: data.eventoVentaId || data.externalId || existing?.externalId || null,
+    lastSyncAt: data.syncedAt ? new Date(data.syncedAt) : now
+  }; if (existing && existing.id) { const updated = await Venta.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean(); return { id: updated._id.toString(), updated: true, inserted: false }; } const created = await Venta.create(docData); return { id: created._id.toString(), updated: false, inserted: true }; }
 async function findLeadByIdentifiers({ eventoId, email, leadId }) { const or = []; if (eventoId) or.push({ eventoId }); if (email) or.push({ email: (email || '').toLowerCase() }); if (leadId) or.push({ leadId }); if (!or.length) return null; const LeadModel = mongoose.models.Lead || Lead; const doc = await LeadModel.findOne({ $or }).lean(); return mapLead(doc); }
 async function upsertLead(data) { const existing = await findLeadByIdentifiers({ eventoId: data.eventoId, email: data.email, leadId: data.leadId }); const now = new Date(); const LeadModel = mongoose.models.Lead || Lead; const docData = { leadId: data.leadId || existing?.leadId || uuidv4(), eventoId: data.eventoId || existing?.eventoId || null, clienteId: data.clienteId || existing?.clienteId || null, nombre: data.nombre || existing?.nombre || null, email: data.email ? data.email.toLowerCase() : existing?.email || null, telefono: data.telefono || existing?.telefono || null, empresa: data.empresa || existing?.empresa || null, estatus: data.estatus || existing?.estatus || 'Nuevo', probabilidad: Number.isFinite(Number(data.probabilidad)) ? Number(data.probabilidad) : existing?.probabilidad || 0, leadScore: Number.isFinite(Number(data.leadScore)) ? Number(data.leadScore) : existing?.leadScore || 0, fuente: data.fuente || existing?.fuente || 'import', data: data.data || existing?.data || {}, syncedAt: data.syncedAt ? new Date(data.syncedAt) : now }; if (existing && existing.id) { const updated = await LeadModel.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean(); return { id: updated._id.toString(), updated: true, inserted: false }; } const created = await LeadModel.create(docData); return { id: created._id.toString(), updated: false, inserted: true }; }
 
 // Helper para mapear documento `sync_logs` (forma compatible con el repo legacy)
-function mapSyncLog(row) {
-  if (!row) return null;
+function mapSyncLog(doc) {
+  if (!doc) return null;
+  const safeJson = (v, fallback) => {
+    try { return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  };
+
   return {
-    id: row._id?.toString(),
-    syncId: row.sync_id || row._id?.toString(),
-    entidad: row.entidad || null,
-    fuente: row.fuente,
-    estatus: row.estatus,
-    totalRows: row.total_rows,
-    insertedCount: row.inserted_count,
-    updatedCount: row.updated_count,
-    skippedCount: row.skipped_count,
-    invalidCount: row.invalid_count,
-    registosProcesados: row.registos_procesados,
-    registosInseridos: row.registos_inseridos,
-    registosActualizados: row.registos_actualizados,
-    registosFallidos: row.registos_fallidos,
-    errorMessage: row.error_message,
-    errorCode: row.error_code,
-    errorStack: row.error_stack,
-    warnings: parseJson(row.warnings, []),
-    mappingUsed: parseJson(row.mapping_used, {}),
-    detectedHeaders: parseJson(row.detected_headers, []),
-    sheetName: row.sheet_name,
-    fileMeta: parseJson(row.file_meta, {}),
-    errores: parseJson(row.errores, []),
-    iniciado: row.iniciado,
-    finalizado: row.finalizado,
-    duracionMs: row.duracion_ms,
-    cambios: parseJson(row.cambios, {}),
-    proximoIntento: row.proximo_intento,
-    reintentoCount: row.reintento_count
+    id: doc._id?.toString() || null,
+    syncId: doc.sync_id || doc.syncId || null,
+    fuente: doc.fuente || doc.source || null,
+    entidad: doc.entidad || doc.entity || null,
+    estatus: doc.estatus || doc.estado || doc.status || null,
+    iniciado: doc.iniciado || doc.iniciado_en || doc.createdAt || null,
+    finalizado: doc.finalizado || doc.completado_en || null,
+    totalRows: doc.total_rows || doc.registos_procesados || 0,
+    insertedCount: doc.inserted_count || doc.registos_inseridos || 0,
+    updatedCount: doc.updated_count || doc.registos_actualizados || 0,
+    skippedCount: doc.skipped_count || 0,
+    invalidCount: doc.invalid_count || 0,
+    errorMessage: doc.error_message || null,
+    errorCode: doc.error_code || null,
+    warnings: safeJson(doc.warnings, []),
+    mappingUsed: safeJson(doc.mapping_used, {}),
+    detectedHeaders: safeJson(doc.detected_headers, []),
+    sheetName: doc.sheet_name || null,
+    fileMeta: safeJson(doc.file_meta, {}),
+
+    // legacy/optional fields retained
+    registosProcesados: doc.registos_procesados,
+    registosInseridos: doc.registos_inseridos,
+    registosActualizados: doc.registos_actualizados,
+    registosFallidos: doc.registos_fallidos,
+    errorStack: doc.error_stack,
+    errores: safeJson(doc.errores, []),
+    duracionMs: doc.duracion_ms,
+    cambios: safeJson(doc.cambios, {}),
+    proximoIntento: doc.proximo_intento,
+    reintentoCount: doc.reintento_count
   };
 }
 
@@ -226,10 +252,18 @@ async function listSyncLogs({ sourceId, desde, hasta, limit = 20 } = {}) {
 async function listImportHistory(limit = 50) {
   const col = mongoose.connection.collection('sync_logs');
   if (!col || typeof col.find !== 'function') {
-    // defensive: connection may not be ready or collection not available
     return [];
   }
-  const rows = await col.find({ fuente: { $in: ['Excel', 'CSV'] } }).sort({ iniciado: -1 }).limit(Number(limit)).toArray();
+  // buscar por fuente Excel/CSV/Preview O por entidad clientes/ventas/leads
+  const rows = await col.find({
+    $or: [
+      { fuente: { $in: ['Excel', 'CSV', 'Preview'] } },
+      { entidad: { $in: ['clientes', 'ventas', 'leads'] } }
+    ]
+  })
+  .sort({ iniciado: -1, createdAt: -1 })
+  .limit(Number(limit))
+  .toArray();
   return rows.map(mapSyncLog);
 }
 

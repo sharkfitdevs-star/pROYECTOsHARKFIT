@@ -564,33 +564,33 @@ export default function LeadsDiarios() {
             <div className="text-center py-8 text-gray-500">No hay registros</div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Sede</TableHead>
-                    <TableHead>Turno</TableHead>
-                    <TableHead>Vendedor</TableHead>
-                    <TableHead className="text-right">Leads Totales</TableHead>
-                    <TableHead className="text-right">No Agendados</TableHead>
-                    <TableHead className="text-right">Invitación</TableHead>
-                    <TableHead className="text-right">Promesa Compra</TableHead>
-                    <TableHead className="text-right">Venta Online</TableHead>
-                    <TableHead className="text-center">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Fecha</th>
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <th className="text-left p-2 font-medium">Turno</th>
+                    <th className="text-left p-2 font-medium">Vendedor</th>
+                    <TableHead className="text-right">Leads Totales</th>
+                    <TableHead className="text-right">No Agendados</th>
+                    <TableHead className="text-right">Invitación</th>
+                    <TableHead className="text-right">Promesa Compra</th>
+                    <TableHead className="text-right">Venta Online</th>
+                    <TableHead className="text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {leads.map((lead) => (
                     <TableRow key={lead.id}>
-                      <TableCell>{lead.fecha ? lead.fecha.split('T')[0].split('-').reverse().join('/') : ''}</TableCell>
-                      <TableCell>{getSedeName(lead.sede)}</TableCell>
-                      <TableCell>{lead.turno || '-'}</TableCell>
-                      <TableCell>{getStaffName(lead.vendedor)}</TableCell>
-                      <TableCell className="text-right font-medium">{lead.leads_totales}</TableCell>
-                      <TableCell className="text-right">{lead.no_agendados || 0}</TableCell>
-                      <TableCell className="text-right">{lead.invitacion || 0}</TableCell>
-                      <TableCell className="text-right">{lead.promesa_compra || 0}</TableCell>
-                      <TableCell className="text-right">{lead.venta_online || 0}</TableCell>
+                      <td className="p-2">{lead.fecha ? lead.fecha.split('T')[0].split('-').reverse().join('/') : ''}</td>
+                      <td className="p-2">{getSedeName(lead.sede)}</td>
+                      <td className="p-2">{lead.turno || '-'}</td>
+                      <td className="p-2">{getStaffName(lead.vendedor)}</td>
+                      <TableCell className="text-right font-medium">{lead.leads_totales}</td>
+                      <TableCell className="text-right">{lead.no_agendados || 0}</td>
+                      <TableCell className="text-right">{lead.invitacion || 0}</td>
+                      <TableCell className="text-right">{lead.promesa_compra || 0}</td>
+                      <TableCell className="text-right">{lead.venta_online || 0}</td>
                       <TableCell className="text-center">
                         <div className="flex gap-1 justify-center">
                           <Button
@@ -608,11 +608,11 @@ export default function LeadsDiarios() {
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

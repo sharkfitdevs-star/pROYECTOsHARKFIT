@@ -498,19 +498,19 @@ export default function ClientesNuevo() {
 
               {/* Vista de Tabla para Desktop */}
               <div className="hidden md:block overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>WhatsApp</TableHead>
-                      <TableHead>Sede</TableHead>
-                      <TableHead className="text-center">Total Ventas</TableHead>
-                      <TableHead className="text-center">Renovaciones</TableHead>
-                      <TableHead className="text-right">Monto Total</TableHead>
-                      <TableHead className="text-center">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b hover:bg-gray-50">
+                      <th className="text-left p-2 font-medium">Cliente</th>
+                      <th className="text-left p-2 font-medium">WhatsApp</th>
+                      <th className="text-left p-2 font-medium">Sede</th>
+                      <TableHead className="text-center">Total Ventas</th>
+                      <TableHead className="text-center">Renovaciones</th>
+                      <TableHead className="text-right">Monto Total</th>
+                      <TableHead className="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {paginatedClientes.map((cliente) => {
                       const sede = sucursales.find(s => s.id === cliente.sede_id);
                       const isExpanded = expandedCliente === cliente.whatsapp;
@@ -522,15 +522,15 @@ export default function ClientesNuevo() {
                       
                       return (
                         <React.Fragment key={cliente.whatsapp}>
-                          <TableRow>
-                            <TableCell className="font-medium">{cliente.nombre}</TableCell>
-                            <TableCell>{cliente.whatsapp}</TableCell>
-                            <TableCell>{sede?.nombre_sede || '-'}</TableCell>
+                          <tr className="border-b hover:bg-gray-50">
+                            <TableCell className="font-medium">{cliente.nombre}</td>
+                            <td className="p-2">{cliente.whatsapp}</td>
+                            <td className="p-2">{sede?.nombre_sede || '-'}</td>
                             <TableCell className="text-center">
                               <Badge className="bg-blue-100 text-blue-800">
                                 {totalVentas}
                               </Badge>
-                            </TableCell>
+                            </td>
                             <TableCell className="text-center">
                               {renovaciones > 0 ? (
                                 <Badge className="bg-green-100 text-green-800">
@@ -539,10 +539,10 @@ export default function ClientesNuevo() {
                               ) : (
                                 <span className="text-gray-400">-</span>
                               )}
-                            </TableCell>
+                            </td>
                             <TableCell className="text-right font-semibold text-green-600">
                               ${montoTotal.toLocaleString('es-CL')}
-                            </TableCell>
+                            </td>
                             <TableCell className="text-center">
                               <Button
                                 variant="ghost"
@@ -555,11 +555,11 @@ export default function ClientesNuevo() {
                                   <ChevronDown className="w-4 h-4" />
                                 )}
                               </Button>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                           
                           {isExpanded && (
-                            <TableRow>
+                            <tr className="border-b hover:bg-gray-50">
                               <TableCell colSpan={7} className="bg-gray-50">
                                 <div className="p-4">
                                   <h4 className="font-semibold mb-3">Historial de Ventas</h4>
@@ -618,14 +618,14 @@ export default function ClientesNuevo() {
                                       })}
                                   </div>
                                 </div>
-                              </TableCell>
-                            </TableRow>
+                              </td>
+                            </tr>
                           )}
                         </React.Fragment>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
 
               {/* Pagination */}

@@ -1,153 +1,42 @@
 const mongoose = require('mongoose');
 
 const syncLogSchema = new mongoose.Schema({
-  // Tipo de sincronización
-  syncType: { 
-    type: String, 
-    enum: ['clientes', 'ventas', 'agendamientos', 'full', 'manual'],
-    required: true,
-    index: true 
-  },
-  
-  // Estado
-  status: { 
-    type: String, 
-    enum: ['iniciado', 'en_proceso', 'completado', 'error', 'parcial'],
-    default: 'iniciado',
-    index: true 
-  },
-  
-  // Sucursal
-  idBranch: String,
-  branchName: String,
-  
-  // Fechas
-  startedAt: { 
-    type: Date, 
-    default: Date.now,
-    index: true 
-  },
-  completedAt: Date,
-  duration: Number, // en milisegundos
-  
-  // Resultados
-  recordsProcessed: { 
-    type: Number, 
-    default: 0 
-  },
-  recordsCreated: { 
-    type: Number, 
-    default: 0 
-  },
-  recordsUpdated: { 
-    type: Number, 
-    default: 0 
-  },
-  recordsSkipped: { 
-    type: Number, 
-    default: 0 
-  },
-  recordsError: { 
-    type: Number, 
-    default: 0 
-  },
-  
-  // Detalles
-  errors: [{
-    timestamp: Date,
-    message: String,
-    stack: String,
-    record: mongoose.Schema.Types.Mixed
-  }],
-  
-  warnings: [{
-    timestamp: Date,
-    message: String,
-    record: mongoose.Schema.Types.Mixed
-  }],
-  
-  // Configuración de la sincronización
-  config: {
-    source: String,
-    filters: mongoose.Schema.Types.Mixed,
-    batchSize: Number,
-    timeout: Number
-  },
-  
-  // Usuario que inició (si es manual)
-  initiatedBy: String,
-  initiatedByName: String,
-  
-  // Metadata adicional
-  metadata: mongoose.Schema.Types.Mixed,
-  
-  // Notas
-  notes: String
+  sync_id:               { type: String, unique: true, sparse: true },
+  entidad:               { type: String, default: null },
+  fuente:                { type: String, default: 'API' },
+  estatus:               { type: String, default: 'Procesando' },
+  registos_procesados:   { type: Number, default: 0 },
+  registos_inseridos:    { type: Number, default: 0 },
+  registos_actualizados: { type: Number, default: 0 },
+  registos_fallidos:     { type: Number, default: 0 },
+  errores:               { type: String, default: '[]' },
+  total_rows:            { type: Number, default: 0 },
+  inserted_count:        { type: Number, default: 0 },
+  updated_count:         { type: Number, default: 0 },
+  skipped_count:         { type: Number, default: 0 },
+  invalid_count:         { type: Number, default: 0 },
+  warnings:              { type: String, default: '[]' },
+  mapping_used:          { type: String, default: '{}' },
+  detected_headers:      { type: String, default: '[]' },
+  sheet_name:            { type: String, default: null },
+  file_meta:             { type: String, default: '{}' },
+  error_message:         { type: String, default: null },
+  error_code:            { type: String, default: null },
+  error_stack:           { type: String, default: null },
+  iniciado:              { type: Date,   default: null },
+  finalizado:            { type: Date,   default: null },
+  duracion_ms:           { type: Number, default: null },
+  cambios:               { type: String, default: '{}' },
+  proximo_intento:       { type: Date,   default: null },
+  reintento_count:       { type: Number, default: 0 },
 }, {
   timestamps: true,
   collection: 'sync_logs'
 });
 
-// Índices
-// aseguramos unicidad de sync_id para evitar errores E11000
-syncLogSchema.index({ sync_id: 1 }, { unique: true });
-syncLogSchema.index({ syncType: 1, startedAt: -1 });
-syncLogSchema.index({ status: 1, startedAt: -1 });
-syncLogSchema.index({ idBranch: 1, startedAt: -1 });
+syncLogSchema.index({ sync_id: 1 }, { unique: true, sparse: true });
+syncLogSchema.index({ estatus: 1, createdAt: -1 });
+syncLogSchema.index({ entidad: 1, createdAt: -1 });
 
-// Métodos de instancia
-syncLogSchema.methods.toJSON = function() {
-  const obj = this.toObject();
-  delete obj.__v;
-  return obj;
-};
-
-// Método para marcar como completado
-syncLogSchema.methods.markCompleted = function(results) {
-  this.status = 'completado';
-  this.completedAt = new Date();
-  this.duration = this.completedAt - this.startedAt;
-  
-  if (results) {
-    this.recordsProcessed = results.processed || 0;
-    this.recordsCreated = results.created || 0;
-    this.recordsUpdated = results.updated || 0;
-    this.recordsSkipped = results.skipped || 0;
-  }
-};
-
-// Método para marcar error
-syncLogSchema.methods.markError = function(error) {
-  this.status = 'error';
-  this.completedAt = new Date();
-  this.duration = this.completedAt - this.startedAt;
-  
-  this.errors.push({
-    timestamp: new Date(),
-    message: error.message,
-    stack: error.stack
-  });
-};
-
-// Método para añadir error
-syncLogSchema.methods.addError = function(error, record) {
-  this.recordsError += 1;
-  this.errors.push({
-    timestamp: new Date(),
-    message: error.message,
-    stack: error.stack,
-    record
-  });
-};
-
-// Método para añadir warning
-syncLogSchema.methods.addWarning = function(message, record) {
-  this.warnings.push({
-    timestamp: new Date(),
-    message,
-    record
-  });
-};
-
-// Export as a legacy model name to avoid colliding with the new MongoModels.SyncLog
-module.exports = mongoose.models.LegacySyncLog || mongoose.model('LegacySyncLog', syncLogSchema);
+module.exports = mongoose.models.SyncLog || 
+  mongoose.model('SyncLog', syncLogSchema);

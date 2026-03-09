@@ -1,157 +1,139 @@
-const express = require('express');
-const router = express.Router();
-const { Alerta } = require('../models');
-
 /**
- * GET /api/alertas
- * Listar alertas
+ * RUTAS DE ALERTAS
+ * GET    /api/alertas              – listar con filtros y paginación
+ * GET    /api/alertas/:id          – obtener una alerta
+ * POST   /api/alertas              – crear alerta manual
+ * PUT    /api/alertas/:id          – actualizar alerta
+ * POST   /api/alertas/:id/resolver – marcar como resuelta
+ * POST   /api/alertas/calcular-kpis – disparar motor de KPIs automático ← NUEVO
  */
+
+const express = require('express');
+const router  = express.Router();
+const { Alerta } = require('../models');
+const { calcularYGenerarAlertas } = require('../services/kpiAlertasService');
+
+// ── GET /api/alertas ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 10, type, status, priority, idBranch } = req.query;
-    
-    const query = {};
-    
-    if (type) query.type = type;
-    if (status) query.status = status;
-    if (priority) query.priority = priority;
-    if (idBranch) query.idBranch = idBranch;
-    
-    const alertas = await Alerta.find(query)
-      .sort({ priority: -1, createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
-    const count = await Alerta.countDocuments(query);
-    
+    const {
+      page = 1, limit = 50,
+      status, type, priority, idBranch,
+      search,
+    } = req.query;
+
+    const filtro = {};
+    if (status)   filtro.status   = status;
+    if (type)     filtro.type     = type;
+    if (priority) filtro.priority = priority;
+    if (idBranch) filtro.idBranch = idBranch;
+    if (search) {
+      filtro.$or = [
+        { title:       { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { memberName:  { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip  = (Number(page) - 1) * Number(limit);
+    const total = await Alerta.countDocuments(filtro);
+    const data  = await Alerta.find(filtro)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
     res.json({
       success: true,
-      data: alertas,
-      total: count,
-      page: parseInt(page),
-      pages: Math.ceil(count / limit)
+      data,
+      total,
+      page:  Number(page),
+      pages: Math.ceil(total / Number(limit)),
     });
-  } catch (error) {
-    console.error('Error listing alertas:', error);
-    res.status(500).json({
-      error: true,
-      message: 'Error al listar alertas'
-    });
+  } catch (err) {
+    res.status(500).json({ error: true, message: err.message });
   }
 });
 
-/**
- * GET /api/alertas/:id
- * Obtener alerta por ID
- */
+// ── POST /api/alertas/calcular-kpis ─────────────────────────────────────────
+// IMPORTANTE: debe ir ANTES de /:id para que Express no lo confunda con un id
+router.post('/calcular-kpis', async (req, res) => {
+  try {
+    const { desde, hasta } = req.body;
+    const opts = {};
+    if (desde) opts.desde = new Date(desde);
+    if (hasta) opts.hasta = new Date(hasta);
+
+    const resumen = await calcularYGenerarAlertas(opts);
+
+    res.json({
+      success: true,
+      message: `KPIs calculados. ${resumen.alertasCreadas.length} alerta(s) creada(s).`,
+      resumen,
+    });
+  } catch (err) {
+    console.error('[KPI] Error calculando alertas:', err);
+    res.status(500).json({ error: true, message: err.message });
+  }
+});
+
+// ── GET /api/alertas/:id ─────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const alerta = await Alerta.findById(req.params.id);
-    
-    if (!alerta) {
-      return res.status(404).json({
-        error: true,
-        message: 'Alerta no encontrada'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: alerta
-    });
-  } catch (error) {
-    console.error('Error getting alerta:', error);
-    res.status(500).json({
-      error: true,
-      message: 'Error al obtener alerta'
-    });
+    const alerta = await Alerta.findOne({ idAlert: req.params.id })
+      || await Alerta.findById(req.params.id);
+    if (!alerta) return res.status(404).json({ error: true, message: 'Alerta no encontrada' });
+    res.json({ success: true, data: alerta });
+  } catch (err) {
+    res.status(500).json({ error: true, message: err.message });
   }
 });
 
-/**
- * POST /api/alertas
- * Crear nueva alerta
- */
+// ── POST /api/alertas ────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const nuevaAlerta = new Alerta(req.body);
-    await nuevaAlerta.save();
-    
-    res.status(201).json({
-      success: true,
-      data: nuevaAlerta
+    const { v4: uuidv4 } = require('uuid');
+    const alerta = new Alerta({
+      idAlert: req.body.idAlert || uuidv4(),
+      ...req.body,
+      automatic: false,
+      source: 'manual',
     });
-  } catch (error) {
-    console.error('Error creating alerta:', error);
-    res.status(500).json({
-      error: true,
-      message: 'Error al crear alerta'
-    });
+    await alerta.save();
+    res.status(201).json({ success: true, data: alerta });
+  } catch (err) {
+    res.status(400).json({ error: true, message: err.message });
   }
 });
 
-/**
- * PUT /api/alertas/:id
- * Actualizar alerta
- */
+// ── PUT /api/alertas/:id ─────────────────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
-    const alerta = await Alerta.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+    const alerta = await Alerta.findOneAndUpdate(
+      { $or: [{ idAlert: req.params.id }, { _id: req.params.id }] },
+      { ...req.body, updatedAt: new Date() },
+      { new: true }
     );
-    
-    if (!alerta) {
-      return res.status(404).json({
-        error: true,
-        message: 'Alerta no encontrada'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: alerta
-    });
-  } catch (error) {
-    console.error('Error updating alerta:', error);
-    res.status(500).json({
-      error: true,
-      message: 'Error al actualizar alerta'
-    });
+    if (!alerta) return res.status(404).json({ error: true, message: 'Alerta no encontrada' });
+    res.json({ success: true, data: alerta });
+  } catch (err) {
+    res.status(500).json({ error: true, message: err.message });
   }
 });
 
-/**
- * POST /api/alertas/:id/resolver
- * Resolver alerta
- */
+// ── POST /api/alertas/:id/resolver ──────────────────────────────────────────
 router.post('/:id/resolver', async (req, res) => {
   try {
-    const { userId, userName, notes } = req.body;
-    
-    const alerta = await Alerta.findById(req.params.id);
-    
-    if (!alerta) {
-      return res.status(404).json({
-        error: true,
-        message: 'Alerta no encontrada'
-      });
-    }
-    
-    alerta.resolve(userId, userName, notes);
+    const { resolvedBy, resolvedByName, resolutionNotes } = req.body;
+    const alerta = await Alerta.findOne({
+      $or: [{ idAlert: req.params.id }, { _id: req.params.id }]
+    });
+    if (!alerta) return res.status(404).json({ error: true, message: 'Alerta no encontrada' });
+
+    alerta.resolve(resolvedBy, resolvedByName, resolutionNotes);
     await alerta.save();
-    
-    res.json({
-      success: true,
-      data: alerta
-    });
-  } catch (error) {
-    console.error('Error resolving alerta:', error);
-    res.status(500).json({
-      error: true,
-      message: 'Error al resolver alerta'
-    });
+    res.json({ success: true, data: alerta });
+  } catch (err) {
+    res.status(500).json({ error: true, message: err.message });
   }
 });
 

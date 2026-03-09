@@ -149,28 +149,28 @@ export default function DetalleVentasDialog({
 
         {/* Tabla */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Sede</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-                <TableHead>Vendedor</TableHead>
-                <TableHead>Cerrador</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b hover:bg-gray-50">
+                <th className="text-left p-2 font-medium">Cliente</th>
+                <th className="text-left p-2 font-medium">WhatsApp</th>
+                <th className="text-left p-2 font-medium">Fecha</th>
+                <th className="text-left p-2 font-medium">Tipo</th>
+                <th className="text-left p-2 font-medium">Sede</th>
+                <th className="text-left p-2 font-medium">Plan</th>
+                <TableHead className="text-right">Monto</th>
+                <th className="text-left p-2 font-medium">Vendedor</th>
+                <th className="text-left p-2 font-medium">Cerrador</th>
+                <th className="text-left p-2 font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
               {filteredData.length === 0 ? (
-                <TableRow>
+                <tr className="border-b hover:bg-gray-50">
                   <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                     No hay ventas para mostrar
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 filteredData.map((venta) => {
                   const prospecto = prospectosData.find(p => p.id === venta.prospecto_id);
@@ -183,12 +183,12 @@ export default function DetalleVentasDialog({
                     <TableRow key={venta.id}>
                       <TableCell className="font-medium">
                         {venta.prospecto_nombre || prospecto?.nombre || 'N/A'}
-                      </TableCell>
-                      <TableCell>{prospecto?.whatsapp || 'N/A'}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">{prospecto?.whatsapp || 'N/A'}</td>
+                      <td className="p-2">
                         {venta.fecha_venta ? format(new Date(venta.fecha_venta + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <span className={`px-2 py-1 rounded text-xs ${
                           venta.tipo_venta === 'Online' 
                             ? 'bg-blue-100 text-blue-800' 
@@ -196,15 +196,15 @@ export default function DetalleVentasDialog({
                         }`}>
                           {venta.tipo_venta || 'N/A'}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{sedeNombre}</TableCell>
-                      <TableCell className="text-sm">{planNombre}</TableCell>
+                      </td>
+                      <TableCell className="text-sm">{sedeNombre}</td>
+                      <TableCell className="text-sm">{planNombre}</td>
                       <TableCell className="text-right font-semibold">
                         ${parseFloat(venta.monto || 0).toLocaleString('es-CL')}
-                      </TableCell>
-                      <TableCell className="text-sm">{vendedorNombre}</TableCell>
-                      <TableCell className="text-sm">{cerradorNombre}</TableCell>
-                      <TableCell>
+                      </td>
+                      <TableCell className="text-sm">{vendedorNombre}</td>
+                      <TableCell className="text-sm">{cerradorNombre}</td>
+                      <td className="p-2">
                         <span className={`px-2 py-1 rounded text-xs ${
                           venta.estado === 'Cerrada' 
                             ? 'bg-green-100 text-green-800' 
@@ -212,13 +212,13 @@ export default function DetalleVentasDialog({
                         }`}>
                           {venta.estado || 'N/A'}
                         </span>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </DialogContent>
     </Dialog>

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Users, Search, Plus, Download, Upload, Calendar, AlertCircle, CheckCircle, Clock, FileDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Clientes } from '@/entities/Clientes';
@@ -1211,60 +1210,60 @@ const [sincronizando, setSincronizando] = useState(false);
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>WhatsApp</TableHead>
-                      <TableHead>Sede</TableHead>
-                      <TableHead>Plan Actual</TableHead>
-                      <TableHead>Modalidad</TableHead>
-                      <TableHead>Fecha Fin</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Baja Programada</TableHead>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b hover:bg-gray-50">
+                      <th className="text-left p-2 font-medium">Cliente</th>
+                      <th className="text-left p-2 font-medium">WhatsApp</th>
+                      <th className="text-left p-2 font-medium">Sede</th>
+                      <th className="text-left p-2 font-medium">Plan Actual</th>
+                      <th className="text-left p-2 font-medium">Modalidad</th>
+                      <th className="text-left p-2 font-medium">Fecha Fin</th>
+                      <th className="text-left p-2 font-medium">Estado</th>
+                      <th className="text-left p-2 font-medium">Baja Programada</th>
+                      <th className="text-left p-2 font-medium">Canal</th>
+                      <th className="text-left p-2 font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {paginatedClientesGeneral.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center text-gray-500 py-8">
+                      <tr className="border-b hover:bg-gray-50">
+                        <td colSpan={10} className="text-center text-gray-500 py-8">
                           No se encontraron clientes
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
                       paginatedClientesGeneral.map(cliente => {
                         const sede = sedes.find(s => s.id === cliente.sede);
                         const plan = planes.find(p => p.id === cliente.plan_actual);
 
                         return (
-                          <TableRow key={cliente.id}>
-                            <TableCell className="font-medium">{cliente.nombre_cliente}</TableCell>
-                            <TableCell>{cliente.whatsapp}</TableCell>
-                            <TableCell>{sede?.nombre_sede || '-'}</TableCell>
-                            <TableCell>{plan?.nombre_plan || '-'}</TableCell>
-                            <TableCell>
+                          <tr key={cliente.id} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-medium">{cliente.nombre_cliente || cliente.name || '(sin nombre)'}</td>
+                            <td className="p-2">{cliente.telefono || cliente.cellPhone || '—'}</td>
+                            <td className="p-2">{sede?.nombre_sede || '-'}</td>
+                            <td className="p-2">{plan?.nombre_plan || '-'}</td>
+                            <td className="p-2">
                               {cliente.modalidad_actual ? (
                                 <Badge variant="outline">{cliente.modalidad_actual}</Badge>
                               ) : '-'}
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               {cliente.fecha_fin_plan_actual
                                 ? moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')
                                 : '-'
                               }
-                            </TableCell>
-                            <TableCell>{obtenerBadgeEstado(cliente)}</TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">{obtenerBadgeEstado(cliente)}</td>
+                            <td className="p-2">
                               {obtenerBadgeBaja(cliente.id) || <span className="text-gray-400 text-sm">-</span>}
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               <Badge variant={cliente.canal_origen === 'Online' ? 'default' : 'secondary'}>
                                 {cliente.canal_origen || '-'}
                               </Badge>
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="p-2">
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
@@ -1294,13 +1293,13 @@ const [sincronizando, setSincronizando] = useState(false);
                                   Eliminar
                                 </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         );
                       })
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
               {renderPagination(currentPageGeneral, totalPagesGeneral, totalItemsGeneral, startIndexGeneral, endIndexGeneral, handlePageChangeGeneral)}
             </CardContent>
@@ -1379,34 +1378,34 @@ const [sincronizando, setSincronizando] = useState(false);
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b hover:bg-gray-50">
+                      <th className="w-12">
                         <Checkbox
                           checked={clientesSeleccionados.length === clientesVencimientoFiltrados.length && clientesVencimientoFiltrados.length > 0}
                           onCheckedChange={toggleSeleccionTodos}
                         />
-                      </TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Sede</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Vencimiento</TableHead>
-                      <TableHead>Estado Plan</TableHead>
-                      <TableHead>Estado Seguimiento</TableHead>
-                      <TableHead>Baja Programada</TableHead>
-                      <TableHead>Contactado</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                      </th>
+                      <th className="text-left p-2 font-medium">Cliente</th>
+                      <th className="text-left p-2 font-medium">Sede</th>
+                      <th className="text-left p-2 font-medium">Plan</th>
+                      <th className="text-left p-2 font-medium">Tipo</th>
+                      <th className="text-left p-2 font-medium">Vencimiento</th>
+                      <th className="text-left p-2 font-medium">Estado Plan</th>
+                      <th className="text-left p-2 font-medium">Estado Seguimiento</th>
+                      <th className="text-left p-2 font-medium">Baja Programada</th>
+                      <th className="text-left p-2 font-medium">Contactado</th>
+                      <th className="text-left p-2 font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {paginatedClientesVencimientos.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+                      <tr className="border-b hover:bg-gray-50">
+                        <td colSpan={11} className="text-center py-8 text-gray-500">
                           No hay vencimientos este mes
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
                       paginatedClientesVencimientos.map(cliente => {
                          const sede = sedes.find(s => s.id === cliente.sede);
@@ -1414,37 +1413,37 @@ const [sincronizando, setSincronizando] = useState(false);
                          const contactado = fueContactado(cliente.id);
 
                          return (
-                           <TableRow key={cliente.id}>
-                             <TableCell>
+                           <tr key={cliente.id} className="border-b hover:bg-gray-50">
+                             <td className="p-2">
                                <Checkbox
                                  checked={clientesSeleccionados.includes(cliente.id)}
                                  onCheckedChange={() => toggleSeleccionCliente(cliente.id)}
                                />
-                             </TableCell>
-                             <TableCell className="font-medium">{cliente.nombre_cliente}</TableCell>
-                             <TableCell>{sede?.nombre_sede || '-'}</TableCell>
-                             <TableCell>{plan?.nombre_plan || '-'}</TableCell>
-                             <TableCell>
+                             </td>
+                             <td className="p-2 font-medium">{cliente.nombre_cliente || cliente.name || '(sin nombre)'}</td>
+                             <td className="p-2">{sede?.nombre_sede || '-'}</td>
+                             <td className="p-2">{plan?.nombre_plan || '-'}</td>
+                             <td className="p-2">
                                <Badge variant="outline">
                                  {plan?.tipo_item === 'Plan' ? plan?.modalidad_cobro : plan?.tipo_item}
                                </Badge>
-                             </TableCell>
-                             <TableCell>{moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')}</TableCell>
-                             <TableCell>{obtenerBadgeEstado(cliente)}</TableCell>
-                             <TableCell>
+                             </td>
+                             <td className="p-2">{moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')}</td>
+                             <td className="p-2">{obtenerBadgeEstado(cliente)}</td>
+                             <td className="p-2">
                                {obtenerBadgeEstadoSeguimiento(cliente.id) || <Badge variant="outline">Sin seguimiento</Badge>}
-                             </TableCell>
-                             <TableCell>
+                             </td>
+                             <td className="p-2">
                                {obtenerBadgeBaja(cliente.id) || <span className="text-gray-400 text-sm">-</span>}
-                             </TableCell>
-                             <TableCell>
+                             </td>
+                             <td className="p-2">
                                {contactado ? (
                                  <Badge className="bg-blue-500">Sí</Badge>
                                ) : (
                                  <Badge variant="outline">No</Badge>
                                )}
-                             </TableCell>
-                             <TableCell>
+                             </td>
+                             <td className="p-2">
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
@@ -1471,13 +1470,13 @@ const [sincronizando, setSincronizando] = useState(false);
                                     </Button>
                                   )}
                                 </div>
-                              </TableCell>
-                           </TableRow>
+                              </td>
+                           </tr>
                          );
                       })
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
               {renderPagination(currentPageVencimientos, totalPagesVencimientos, totalItemsVencimientos, startIndexVencimientos, endIndexVencimientos, handlePageChangeVencimientos)}
             </CardContent>

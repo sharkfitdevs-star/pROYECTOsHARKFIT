@@ -115,27 +115,27 @@ export default function DetalleLeadsDialog({ open, onOpenChange, leadsData, sucu
 
         {/* Tabla */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Sede</TableHead>
-                <TableHead>Vendedor</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">No Agendados</TableHead>
-                <TableHead className="text-right">Invitación</TableHead>
-                <TableHead className="text-right">Promesa</TableHead>
-                <TableHead className="text-right">Venta Online</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b hover:bg-gray-50">
+                <th className="text-left p-2 font-medium">Fecha</th>
+                <th className="text-left p-2 font-medium">Sede</th>
+                <th className="text-left p-2 font-medium">Vendedor</th>
+                <th className="text-left p-2 font-medium">Turno</th>
+                <TableHead className="text-right">Total</th>
+                <TableHead className="text-right">No Agendados</th>
+                <TableHead className="text-right">Invitación</th>
+                <TableHead className="text-right">Promesa</th>
+                <TableHead className="text-right">Venta Online</th>
+              </tr>
+            </thead>
+            <tbody>
               {filteredData.length === 0 ? (
-                <TableRow>
+                <tr className="border-b hover:bg-gray-50">
                   <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                     No hay leads para mostrar
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 filteredData.map((lead, idx) => {
                   const sedeNombre = sucursales.find(s => s.id === lead.sede)?.nombre_sede || 'N/A';
@@ -143,21 +143,21 @@ export default function DetalleLeadsDialog({ open, onOpenChange, leadsData, sucu
                   
                   return (
                     <TableRow key={idx}>
-                      <TableCell>{lead.fecha ? format(new Date(lead.fecha + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</TableCell>
-                      <TableCell>{sedeNombre}</TableCell>
-                      <TableCell>{vendedorNombre}</TableCell>
-                      <TableCell>{lead.turno || 'N/A'}</TableCell>
-                      <TableCell className="text-right font-semibold">{lead.leads_totales || 0}</TableCell>
-                      <TableCell className="text-right">{lead.leads_no_agendados || 0}</TableCell>
-                      <TableCell className="text-right">{lead.leads_invitacion || 0}</TableCell>
-                      <TableCell className="text-right">{lead.leads_promesa_compra || 0}</TableCell>
-                      <TableCell className="text-right">{lead.leads_venta_online || 0}</TableCell>
-                    </TableRow>
+                      <td className="p-2">{lead.fecha ? format(new Date(lead.fecha + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</td>
+                      <td className="p-2">{sedeNombre}</td>
+                      <td className="p-2">{vendedorNombre}</td>
+                      <td className="p-2">{lead.turno || 'N/A'}</td>
+                      <TableCell className="text-right font-semibold">{lead.leads_totales || 0}</td>
+                      <TableCell className="text-right">{lead.leads_no_agendados || 0}</td>
+                      <TableCell className="text-right">{lead.leads_invitacion || 0}</td>
+                      <TableCell className="text-right">{lead.leads_promesa_compra || 0}</td>
+                      <TableCell className="text-right">{lead.leads_venta_online || 0}</td>
+                    </tr>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </DialogContent>
     </Dialog>

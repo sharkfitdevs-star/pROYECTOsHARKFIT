@@ -1,6 +1,8 @@
 // sencillo cliente de importación para el frontend "landing"
 // no utiliza axios (fetch nativo) para mantener coherencia con Login.jsx
 
+import { getAccessToken } from '../config/authStorage';
+
 const BASE_URL = '/api/import'; // proxy de Vite redirige a data-intake
 
 export async function previewImport(file, options = {}) {
@@ -10,7 +12,7 @@ export async function previewImport(file, options = {}) {
   formData.append('entity', entity);
   formData.append('mapping', JSON.stringify(mapping));
   const headers = {};
-  const token = localStorage.getItem('authToken');
+  const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}/preview`, {
     method: 'POST',
@@ -43,7 +45,7 @@ export async function commitImport(file, options = {}) {
 
   const route = file.name.toLowerCase().endsWith('.csv') ? 'csv/commit' : 'excel/commit';
   const headers = {};
-  const token = localStorage.getItem('authToken');
+  const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}/${route}`, {
     method: 'POST',
@@ -67,7 +69,7 @@ export async function importFile(file, options = {}) {
 
 export async function fetchImportHistory() {
   const headers = {};
-  const token = localStorage.getItem('authToken');
+  const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}/history`, { headers });
   if (!res.ok) {
@@ -84,7 +86,7 @@ export async function fetchImportHistory() {
 
 export async function setImportVisibility(importId, visible) {
   const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('authToken');
+  const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/api/imports/${importId}/visibility`, {
     method: 'PATCH',
@@ -102,7 +104,7 @@ export async function setImportVisibility(importId, visible) {
 
 export async function deleteImport(importId) {
   const headers = {};
-  const token = localStorage.getItem('authToken');
+  const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/api/imports/${importId}`, { method: 'DELETE', headers });
   if (!res.ok) {

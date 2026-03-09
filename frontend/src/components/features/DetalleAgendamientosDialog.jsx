@@ -110,26 +110,26 @@ export default function DetalleAgendamientosDialog({ open, onOpenChange, prospec
 
         {/* Tabla */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Correo</TableHead>
-                <TableHead>Fecha Ingreso</TableHead>
-                <TableHead>Sede</TableHead>
-                <TableHead>Vendedor</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Tipo Invitación</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b hover:bg-gray-50">
+                <th className="text-left p-2 font-medium">Nombre</th>
+                <th className="text-left p-2 font-medium">WhatsApp</th>
+                <th className="text-left p-2 font-medium">Correo</th>
+                <th className="text-left p-2 font-medium">Fecha Ingreso</th>
+                <th className="text-left p-2 font-medium">Sede</th>
+                <th className="text-left p-2 font-medium">Vendedor</th>
+                <th className="text-left p-2 font-medium">Estado</th>
+                <th className="text-left p-2 font-medium">Tipo Invitación</th>
+              </tr>
+            </thead>
+            <tbody>
               {filteredData.length === 0 ? (
-                <TableRow>
+                <tr className="border-b hover:bg-gray-50">
                   <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     No hay prospectos agendados para mostrar
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 filteredData.map((prospecto) => {
                   const sedeNombre = sucursales.find(s => s.id === prospecto.sede)?.nombre_sede || 'N/A';
@@ -137,26 +137,26 @@ export default function DetalleAgendamientosDialog({ open, onOpenChange, prospec
                   
                   return (
                     <TableRow key={prospecto.id}>
-                      <TableCell className="font-medium">{prospecto.nombre || 'N/A'}</TableCell>
-                      <TableCell>{prospecto.whatsapp || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{prospecto.correo || 'N/A'}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium">{prospecto.nombre || 'N/A'}</td>
+                      <td className="p-2">{prospecto.whatsapp || 'N/A'}</td>
+                      <TableCell className="text-sm">{prospecto.correo || 'N/A'}</td>
+                      <td className="p-2">
                         {prospecto.fecha_ingreso ? format(new Date(prospecto.fecha_ingreso + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}
-                      </TableCell>
-                      <TableCell>{sedeNombre}</TableCell>
-                      <TableCell>{vendedorNombre}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">{sedeNombre}</td>
+                      <td className="p-2">{vendedorNombre}</td>
+                      <td className="p-2">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
                           {prospecto.estado_pipeline || 'N/A'}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{prospecto.tipo_invitacion || 'N/A'}</TableCell>
-                    </TableRow>
+                      </td>
+                      <TableCell className="text-sm">{prospecto.tipo_invitacion || 'N/A'}</td>
+                    </tr>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import exportService from '@/api/services/exportService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { useNavigate } from 'react-router-dom'
