@@ -36,6 +36,9 @@ function normalizeHeader(str) {
 }
 
 // start of ImportService class
+// simple in-memory cache of recently processed imports (registros array keyed by syncId)
+const importCache = new Map();
+
 class ImportService {
 /**
    * @param {File} file - Archivo subido
@@ -43,6 +46,7 @@ class ImportService {
    * @param {String} entidad - 'clientes', 'ventas', 'leads'
    */
   async processExcelFile(file, mapeo, entidad = 'clientes', providedSyncId) {
+    // ensure cache entry will be available even if caller doesn't access it immediately
     const syncId = providedSyncId || uuidv4();
     const fileMeta = {
       originalName: file.originalname,
@@ -181,6 +185,9 @@ class ImportService {
         estatusFinal = 'Fallido';
       }
 
+      // cache registros so duplicate endpoint can inspect them later
+      importCache.set(syncId, registros);
+
       await updateSyncLog(syncId, {
         entidad,
         estatus: estatusFinal,
@@ -224,7 +231,8 @@ class ImportService {
         registosActualizados: actualizados,
         registosFallidos: totalFallidos,
         errores,
-        estatus: estatusFinal
+        estatus: estatusFinal,
+        registros // expose for callers
       };
     } catch (error) {
       logger.error('❌ Error en importación Excel:', error, { syncId });
@@ -237,6 +245,8 @@ class ImportService {
 
       throw error;
     } finally {
+      // the service is responsible for cleaning up cache entries if needed by caller
+      // (we keep them until explicitly removed)
       // Limpiar archivo temporal
       if (fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
@@ -248,6 +258,7 @@ class ImportService {
    * Procesar archivo CSV
    */
   async processCSVFile(file, mapeo, entidad = 'clientes', delimitador = ',', providedSyncId) {
+    // TODO: similar caching could be applied here if needed in the future
     const syncId = providedSyncId || uuidv4();
     const fileMeta = {
       originalName: file.originalname,
@@ -485,7 +496,12 @@ class ImportService {
    * Importar clientes (detectar duplicados e insertar/actualizar)
    * @private
    */
+/**
+   * Importar clientes (detectar duplicados e insertar/actualizar)
+   * @private
+   */
   async _importarClientes(registros, syncId) {
+    const Cliente = require('../models/Cliente'); // ✅ FIX: faltaba este require
     let insertedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
@@ -509,9 +525,6 @@ class ImportService {
       const hasIdentifier = !!email || !!rutRaw || !!idMemberRaw;
       if (!hasIdentifier) { invalidCount++; continue; }
 
-      // El objeto 'r' ya tiene todas las keys en minúscula (por el Object.fromEntries toLowerCase)
-      // por eso buscamos solo en minúscula. detectMapping mapea a 'name' y 'lastName',
-      // pero tras el toLowerCase 'lastName' se convierte en 'lastname'.
       const firstName = (r.name    || r.nombre   || r.firstname || '').toString().trim();
       const lastName  = (r.lastname || r.apellido || r.surname   || '').toString().trim();
       const fullName  = lastName ? `${firstName} ${lastName}`.trim() : firstName;
@@ -546,14 +559,14 @@ class ImportService {
         if (!cliente && email) cliente = await Cliente.findOne({ email });
 
         if (cliente) {
-        cliente.name           = fullName || cliente.name;
-        cliente.nombre_cliente = fullName || cliente.nombre_cliente;
-        if (email) { cliente.email = email; cliente.correo = email; }
-        if (telefono != null) { cliente.cellPhone = telefono; cliente.telefono = telefono; }
-        if (rutRaw) { cliente.cpf = rutRaw; cliente.rut = rutRaw; }
-        cliente.customFields = { ...cliente.customFields, ...r };
-        await cliente.save();
-        updatedCount++;
+          cliente.name           = fullName || cliente.name;
+          cliente.nombre_cliente = fullName || cliente.nombre_cliente;
+          if (email) { cliente.email = email; cliente.correo = email; }
+          if (telefono != null) { cliente.cellPhone = telefono; cliente.telefono = telefono; }
+          if (rutRaw) { cliente.cpf = rutRaw; cliente.rut = rutRaw; }
+          cliente.customFields = { ...cliente.customFields, ...r };
+          await cliente.save();
+          updatedCount++;
         } else {
           console.log('ABOUT TO CREATE docData.name:', docData.name);
           await Cliente.create(docData);
@@ -932,5 +945,9 @@ class ImportService {
   }
 }
 
-module.exports = new ImportService();
+const importServiceInstance = new ImportService();
+// attach cache helpers to instance
+importServiceInstance.getCachedImport = (syncId) => importCache.get(syncId);
+importServiceInstance.deleteCachedImport = (syncId) => importCache.delete(syncId);
+module.exports = importServiceInstance;
 

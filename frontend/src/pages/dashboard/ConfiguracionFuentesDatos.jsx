@@ -52,57 +52,73 @@ function ConfiguracionFuentesDatos() {
 
   // ==================== FUNCIONES ====================
 
-  /**
+/**
    * Subir archivo Excel/CSV
+   * FIXES:
+   * 1. Endpoint cambiado a /commit (síncrono, devuelve resultado inmediato)
+   * 2. Mapeo corregido para usar campos del schema real de Cliente
+   * 3. uploadResult lee campos correctos de la respuesta
    */
   const handleUploadFile = async () => {
     if (!archivo) {
       alert('Por favor selecciona un archivo');
       return;
     }
-
     setUploading(true);
     setUploadResult(null);
-
     try {
       const formData = new FormData();
       formData.append('file', archivo);
       formData.append('entidad', 'clientes');
-      
-      // Mapeo básico (puedes mejorarlo con UI de mapeo)
+
+      // ✅ FIX: Mapeo con nombres de campo correctos del schema Cliente
       const mapeo = {
-        'Nombre': 'nombre',
-        'Nom Cliente': 'nombre',
+        'Nombre': 'name',
+        'Nom Cliente': 'name',
+        'Nombre y Apellido': 'name',
+        'Apellido': 'lastName',
         'Correo': 'email',
         'Email': 'email',
-        'Teléfono': 'telefono',
-        'Telefono': 'telefono',
-        'RFC': 'rfc',
-        'Empresa': 'empresa',
-        'Estado': 'estado'
+        'Teléfono': 'cellPhone',
+        'Telefono': 'cellPhone',
+        'WhatsApp': 'cellPhone',
+        'ID Miembro': 'idMember',
+        'ID': 'idMember',
+        'RUT': 'cpf',
+        'DNI': 'cpf',
+        'Sede': 'branchName',
+        'Plan': 'planName',
       };
-      formData.append('mapeo', JSON.stringify(mapeo));
 
-      const endpoint = tipoArchivo === 'excel' 
-        ? `${API_BASE_URL}/import/excel`
-        : `${API_BASE_URL}/import/csv`;
+      // ✅ FIX: campo 'mapping' (no 'mapeo') para el endpoint /commit
+      formData.append('mapping', JSON.stringify(mapeo));
+
+      // ✅ FIX: usar endpoint /commit que devuelve resultado inmediato
+      const endpoint = tipoArchivo === 'excel'
+        ? `${API_BASE_URL}/import/excel/commit`
+        : `${API_BASE_URL}/import/csv/commit`;
 
       const response = await axios.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
       });
 
+      const data = response.data;
+
+      // ✅ FIX: leer campos correctos que devuelve /commit
       setUploadResult({
-        exito: true,
-        ...response.data.datos
+        exito: data.ok === true,
+        registosProcesados: data.totalRows || 0,
+        registosInseridos: data.insertedCount || 0,
+        registosActualizados: data.updatedCount || 0,
+        registosFallidos: data.skippedCount || 0,
+        importId: data.importId,
+        warnings: data.warnings || [],
+        error: data.error || null,
       });
-
-      // Refrescar stats después de importar
-      setTimeout(() => {
-        window.dispatchEvent(new Event('refreshStats'));
-      }, 1000);
 
     } catch (error) {
-      console.error('Error subiendo archivo:', error);
+      console.error('Error importando archivo:', error);
       setUploadResult({
         exito: false,
         error: error.response?.data?.error || error.message

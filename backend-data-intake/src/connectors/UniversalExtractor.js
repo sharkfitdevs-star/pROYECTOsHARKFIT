@@ -1,25 +1,6 @@
 /**
- * GENERIC API CLIENT
- *
- * Transforma un `config` sencillo en un cliente que puede recorrer uno o
- * varios endpoints HTTP y regresar todos los registros, manejando paginación
- * automática y generando un informe de logs.
- *
- * Config esperado:
- * {
- *   baseUrl: 'https://api.foo.com',
- *   endpoints: [
- *     { name: 'members', path: '/v1/members', method: 'GET', headers:{}, params:{}, pagination: { type:'page-limit', pageParam:'page', limitParam:'limit', limit:100 } },
- *     // o { path:'/v2/items', pagination:{type:'cursor', cursorParam:'cursor', nextField:'nextCursor'} }
- *   ]
- * }
- *
- * Retorna
- *   { data: [...], meta:{count,pages}, logs:[{url,statusCode,bodyPreview,count,errorMessage}], sourceInfo }
- *
- * Ejemplo de uso:
- *   const extractor = new UniversalExtractor({ baseUrl:'https://api.example.com', endpoints:[{path:'/members',pagination:{type:'page-limit',limit:50}}] });
- *   const res = await extractor.extract({path:'/members'});
+ * UNIVERSAL EXTRACTOR - API REST
+ * Versión corregida: dataPath, auth, baseURL unificado, sin métodos duplicados
  */
 
 const axios = require('axios');
@@ -31,42 +12,74 @@ class UniversalExtractor {
     this.config = config || {};
     this.extractorId = uuidv4();
     this.logs = [];
-logger.info(`🚀 API Extractor initialized`, {
+
+    logger.info(`🚀 UniversalExtractor inicializado`, {
       id: this.extractorId,
-      baseUrl: this.config.baseUrl
+      baseURL: this.config.baseURL || this.config.baseUrl,
+      endpoints: (this.config.endpoints || []).length
     });
   }
 
   /**
-   * ⭐ MAIN: Extrae datos de cualquier fuente
-   * @param {String} endpoint - Nombre del endpoint o tabla
-   * @returns {Promise<Object>} { success, data, source, duration, attempts }
-   */
-  /**
-   * Extrae datos de un endpoint API.
-   * `endpoint` puede ser un objeto de configuración o una cadena que
-   * coincide con `config.endpoints[].name` o `path`.
+   * Extrae datos de un endpoint por path o nombre
+   * @returns { success, data, source, duration, dataType, records }
    */
   async extract(endpoint) {
+    const startTime = Date.now();
     const epConfig = this._resolveEndpoint(endpoint);
+
     if (!epConfig) {
-      throw new Error('Endpoint no encontrado: ' + endpoint);
+      return {
+        success: false,
+        error: `Endpoint no encontrado: ${endpoint}`,
+        data: [],
+        records: 0,
+        duration: 0
+      };
     }
 
-    const { data, meta, logs, sourceInfo } = await this._fetchAll(epConfig);
-    return { data, meta, logs, sourceInfo };
+    try {
+      logger.info(`▶ Iniciando extracción: ${epConfig.path}`);
+      const { rawData, meta, logs } = await this._fetchAll(epConfig);
+
+      // Aplicar dataPath
+      const data = this._applyDataPath(rawData, epConfig.dataPath);
+
+      // Aplicar filtro de fields
+      const filtered = this._filterFields(data, epConfig.fields);
+
+      const duration = Date.now() - startTime;
+
+      logger.info(`✅ ${epConfig.path} → ${filtered.length} registros (${duration}ms)`);
+
+      return {
+        success: true,
+        data: filtered,
+        records: filtered.length,
+        source: epConfig.path,
+        dataType: epConfig.dataType || null,
+        duration,
+        meta,
+        logs
+      };
+
+    } catch (err) {
+      const duration = Date.now() - startTime;
+      logger.error(`❌ Error en ${epConfig.path}: ${err.message}`);
+      return {
+        success: false,
+        error: err.message,
+        data: [],
+        records: 0,
+        source: epConfig.path,
+        dataType: epConfig.dataType || null,
+        duration
+      };
+    }
   }
 
-  /**
-   * Construye estrategias según tipo de fuente
-   */
-  // ya no utiliza buildStrategies
+  // ─── PRIVATE ────────────────────────────────────────────
 
-  // removed old DB and other private methods - rewritten below
-
-  /**
-   * Buscar configuración de endpoint por objeto o clave
-   */
   _resolveEndpoint(endpoint) {
     if (!endpoint) return null;
     if (typeof endpoint === 'object') return endpoint;
@@ -75,9 +88,6 @@ logger.info(`🚀 API Extractor initialized`, {
     );
   }
 
-  /**
-   * Core: recorrer paginación y juntar resultados
-   */
   async _fetchAll(epConfig) {
     const client = this._createHttpClient();
     let collected = [];
@@ -88,6 +98,7 @@ logger.info(`🚀 API Extractor initialized`, {
 
     while (true) {
       const params = Object.assign({}, epConfig.params);
+
       if (epConfig.pagination) {
         const p = epConfig.pagination;
         if (p.type === 'page-limit') {
@@ -103,40 +114,45 @@ logger.info(`🚀 API Extractor initialized`, {
 
       const url = epConfig.path;
       let resp;
+
       try {
         resp = await client.request({
           method: epConfig.method || 'GET',
           url,
           headers: epConfig.headers,
           params,
-          timeout: epConfig.timeout || 10000
+          timeout: epConfig.timeout || 15000
         });
       } catch (err) {
-        const errInfo = {
+        this.logs.push({
           url,
           statusCode: err.response?.status,
-          bodyPreview: err.response?.data,
           errorMessage: err.message
-        };
-        this.logs.push(errInfo);
+        });
         throw err;
       }
 
       const pageData = resp.data;
-      const items = Array.isArray(pageData) ? pageData : pageData.items || [];
-      collected.push(...items);
-      count += items.length;
-      this.logs.push({ url, statusCode: resp.status, bodyPreview: items.slice(0,3), count: items.length });
+      // Guardar raw completo para que dataPath lo procese después
+      collected.push(pageData);
+      count++;
 
-      // handle pagination
+      this.logs.push({
+        url,
+        statusCode: resp.status,
+        count: Array.isArray(pageData) ? pageData.length : 1
+      });
+
+      // Paginación
       if (epConfig.pagination) {
         const p = epConfig.pagination;
         if (p.type === 'page-limit') {
           totalPages = resp.data.totalPages || resp.data.pages || 0;
-          if (page >= totalPages || items.length === 0) break;
+          if (page >= totalPages || !resp.data) break;
           page++;
           continue;
         } else if (p.type === 'take-skip') {
+          const items = this._applyDataPath(pageData, epConfig.dataPath);
           if (items.length < (p.limit || 100)) break;
           page++;
           continue;
@@ -149,163 +165,85 @@ logger.info(`🚀 API Extractor initialized`, {
       break;
     }
 
+    // Si solo hay una página, devolver el objeto directo (no array de páginas)
+    const rawData = collected.length === 1 ? collected[0] : collected;
+
     return {
-      data: collected,
+      rawData,
       meta: { count, pages: totalPages },
-      logs: this.logs.slice(),
-      sourceInfo: { baseUrl: this.config.baseUrl, endpoint: epConfig.path }
+      logs: this.logs.slice()
     };
   }
 
-  /**
-   * Crea cliente HTTP con auth y headers del config
-   */
   _createHttpClient() {
+    const baseURL = this.config.baseURL || this.config.baseUrl;
+
     const client = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: 10000
-    });
-    if (this.config.headers) {
-      client.defaults.headers.common = Object.assign({}, client.defaults.headers.common, this.config.headers);
-    }
-    return client;
-  }
-
-  /**
-   * filtrar campos de un conjunto si se solicita
-   * (la versión completa está más abajo, esta es la definición antigua
-   * que se eliminó para evitar duplicados y errores de sintaxis)
-   */
-  // (el método real se encuentra más adelante, después de helpers)
-
-  /**
-   * Genera reporte detallado cuando TODO falla
-   */ 
-
-  /**
-   * Genera reporte detallado cuando TODO falla
-   */
-  buildFailureReport(result, endpoint) {
-    logger.error(`❌ Todas las estrategias fallaron`, {
-      extractorId: this.extractorId,
-      endpoint,
-      attempts: result.attempts.length
+      baseURL,
+      timeout: 15000
     });
 
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-    console.log(`❌ REPORTE DE FALLOS - ${endpoint.toUpperCase()}\n`);
-
-    result.attempts.forEach((attempt, idx) => {
-      console.log(`${idx + 1}. ${attempt.strategy}`);
-      console.log(`   ${attempt.error}`);
-      if (attempt.message) {
-        console.log(`   💬 ${attempt.message}`);
-      }
-      console.log('');
-    });
-
-    console.log(`Duración total: ${result.duration}ms`);
-    console.log(`Próximo intento: ${new Date(Date.now() + 30 * 60 * 1000).toLocaleTimeString()}`);
-    console.log('═'.repeat(75) + '\n');
-
-    result.success = false;
-    result.error = `No se pudo extraer datos de "${endpoint}" desde ${this.config.id}`;
-
-    return result;
-  }
-
-  // ─────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────
-
-  _createHttpClient() {
-    const client = axios.create({
-      baseURL: this.config.baseURL,
-      timeout: 10000
-    });
-
-    // Applicar autenticación según tipo
     const auth = this.config.auth || {};
 
     if (auth.type === 'basic') {
       client.defaults.auth = {
-        username: auth.username,
-        password: auth.password
+        username: auth.username || (auth.usernameEnv ? process.env[auth.usernameEnv] : undefined),
+        password: auth.password || (auth.passwordEnv ? process.env[auth.passwordEnv] : undefined)
       };
     } else if (auth.type === 'bearer') {
       client.defaults.headers.common['Authorization'] = `Bearer ${auth.token}`;
-    } else if (auth.type === 'apikey') {
-      client.defaults.headers.common[auth.headerName] = auth.key;
+    } else if (auth.type === 'apikey' || auth.type === 'apiKey') {
+      const headerName = auth.headerName || 'X-API-Key';
+      client.defaults.headers.common[headerName] = auth.key;
     } else if (auth.type === 'custom') {
       client.defaults.headers.common[auth.headerName] = auth.value;
+    }
+
+    if (this.config.headers) {
+      Object.assign(client.defaults.headers.common, this.config.headers);
     }
 
     return client;
   }
 
-  _extractData(rawData, config) {
-    const array = Array.isArray(rawData) ? rawData : [rawData];
-    return this._filterFields(array, config?.fields);
+  _applyDataPath(data, dataPath) {
+    if (!dataPath || dataPath === '' || dataPath === '*') {
+      return Array.isArray(data) ? data : [data];
+    }
+
+    const keys = dataPath.split('.');
+    let result = data;
+
+    for (const key of keys) {
+      if (result == null) return [];
+      result = result[key];
+    }
+
+    if (Array.isArray(result)) return result;
+    if (result != null) return [result];
+    return [];
   }
 
   _filterFields(data, fields) {
-    if (!fields || fields === '*' || fields.length === 0) {
-      return data;
-    }
+    if (!fields || fields === '*' || fields.length === 0) return data;
 
-    const isArray = Array.isArray(data);
-    const arrayData = isArray ? data : [data];
+    const fieldList = Array.isArray(fields)
+      ? fields
+      : fields.split(',').map(f => f.trim());
 
-    const filtered = arrayData.map(item => {
-      if (typeof item !== 'object') return item;
-
+    return data.map(item => {
+      if (typeof item !== 'object' || item === null) return item;
       const mapped = {};
-      (Array.isArray(fields) ? fields : fields.split(',')).forEach(field => {
-        const trimmed = field.trim();
-        mapped[trimmed] = this._getNestedValue(item, trimmed);
+      fieldList.forEach(f => {
+        mapped[f] = this._getNestedValue(item, f);
       });
       return mapped;
     });
-
-    return isArray ? filtered : filtered[0];
   }
 
   _getNestedValue(obj, path) {
     if (!obj || !path) return null;
-    return path.split('.').reduce((current, prop) => current?.[prop], obj);
-  }
-
-  _findFirstArray(obj, depth = 0) {
-    if (depth > 5) return null;
-    if (Array.isArray(obj)) return obj;
-    if (typeof obj !== 'object' || obj === null) return null;
-
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const result = this._findFirstArray(obj[key], depth + 1);
-        if (result) return result;
-      }
-    }
-
-    return null;
-  }
-
-  _cacheData(key, data) {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
-  }
-
-  _buildGraphQLQuery(entity) {
-    // Query genérico si no está definido
-    return `query { ${entity} { id created_at updated_at } }`;
-  }
-
-  _createTimeoutPromise(ms) {
-    return new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), ms)
-    );
+    return path.split('.').reduce((cur, prop) => cur?.[prop], obj);
   }
 
   _countRecords(data) {

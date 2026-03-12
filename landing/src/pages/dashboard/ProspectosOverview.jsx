@@ -37,7 +37,7 @@ export default function ProspectosOverview() {
 
   useEffect(() => {
     fetchAuth('/api/dashboard/prospectos')
-      .then(r => r.json())
+      
       .then(j => { if (j.success) setData(j.data); else setError(j.error) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
@@ -85,7 +85,7 @@ export default function ProspectosOverview() {
               </div>
             )}
             <div className="vt-progress-wrap">
-              <div className="vt-progress-bar pos" style={{ width: Math.min((data.conversiones.total / Math.max(data.conversiones.anterior, 1)) * 100, 100) + '%' }} />
+              {(data.conversiones.total > 0 || data.conversiones.anterior > 0) && <div className="vt-progress-bar pos" style={{ width: Math.min((data.conversiones.total / Math.max(data.conversiones.anterior, 1)) * 100, 100) + '%' }} />}
             </div>
             <span className="vt-sub">Mes Actual {fmt(data.conversiones.total)} / Mes Pasado {fmt(data.conversiones.anterior)}</span>
           </div>
@@ -95,3 +95,5 @@ export default function ProspectosOverview() {
     </div>
   )
 }
+
+

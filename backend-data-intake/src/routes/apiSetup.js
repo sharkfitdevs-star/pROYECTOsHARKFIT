@@ -15,6 +15,15 @@ const fs = require('fs');
 const { logger } = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { extractAndSync, extractAllApis } = require('../index');
+const { findEvoMapping, applyEvoMapping, getEvoEndpointSuggestions } = require('../connectors/EvoMappings');
+
+// models and repository helpers used by the new persistence logic
+const ApiIntegration = require('../models/ApiIntegration');
+const {
+  upsertVenta,
+  upsertCliente,
+  upsertLead
+} = require('../db/repositories.js');
 
 const router = express.Router();
 
@@ -326,6 +335,27 @@ router.post('/create', requireAuth, async (req, res) => {
 
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
+    // also persist metadata in MongoDB so the frontend can load
+    // list of integrations even after server restarts
+    try {
+      await ApiIntegration.findOneAndUpdate(
+        { tenantId: config.id },
+        {
+          tenantId: config.id,
+          name: config.name,
+          dns: config.baseURL,
+          endpointsCount: Array.isArray(endpoints) ? endpoints.length : 0,
+          status: 'active',
+          encryptedToken: JSON.stringify(auth), // TODO: encrypt later
+          updatedAt: new Date()
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } catch (err) {
+      // log warning but don't fail the request since JSON file is still valid
+      logger.warn('Mongo upsert failed for ApiIntegration', { err: err.message });
+    }
+
     logger.info(`✅ Config guardada: api-${configName}`, { userId: req.user.id });
 
     return res.json({
@@ -355,8 +385,65 @@ router.post('/extract', requireAuth, async (req, res) => {
         });
       }
 
+      // run the generic extractor which also returns raw data per endpoint
       const result = await extractAndSync(configName);
-      return res.json({ success: true, result });
+
+      // build a human-friendly summary using the returned data arrays
+      const summary = {
+        success: true,
+        inserted: { ventas: 0, clientes: 0, prospectos: 0 },
+        updated:  { ventas: 0, clientes: 0, prospectos: 0 },
+        errors: []
+      };
+
+      for (const [epName, epRes] of Object.entries(result.results || {})) {
+        if (!epRes.success || !Array.isArray(epRes.data)) continue;
+        const dt = epRes.dataType;
+        for (const item of epRes.data) {
+          try {
+            // auto mapeo EVO si existe configuración conocida
+            const mapping = findEvoMapping(epRes.source || epName);
+            const itemToProcess = mapping ? mapping.mapTo(item) : item;
+            const it = itemToProcess;
+
+            if (dt === 'ventas') {
+              const venta = {
+                ventaId: it.id || it.code || it.evo_sale_id,
+                eventoVentaId: it.id,
+                monto: it.value || it.amount || it.totalAmount || 0,
+                nombreCliente: it.prospect_name || it.memberName || it.name,
+                sede: it.branch || it.branchName || it.location,
+                fecha: it.sale_date || it.saleDate || it.date,
+                estatus: it.status || it.paymentStatus || 'Pendiente',
+                fuente: 'api-import'
+              };
+              const r = await upsertVenta(venta);
+              if (r.inserted) summary.inserted.ventas++;
+              if (r.updated) summary.updated.ventas++;
+            } else if (dt === 'clientes' || dt === 'miembros') {
+              const cliente = {
+                uniqueId: it.id || it.member_id,
+                name: it.name || (it.first_name && it.last_name ? it.first_name + ' ' + it.last_name : null),
+                email: it.email,
+                phone: it.phone || it.cellPhone,
+                registrationDate: it.registration_date || it.created_at,
+                source: 'api-import'
+              };
+              const r = await upsertCliente(cliente);
+              if (r.inserted) summary.inserted.clientes++;
+              if (r.updated) summary.updated.clientes++;
+            } else if (dt === 'prospectos') {
+              const r = await upsertLead(it);
+              if (r.inserted) summary.inserted.prospectos++;
+              if (r.updated) summary.updated.prospectos++;
+            }
+          } catch (e) {
+            summary.errors.push({ endpoint: epName, error: e.message });
+          }
+        }
+      }
+
+      return res.json(summary);
     }
 
     const results = await extractAllApis();
@@ -464,10 +551,36 @@ router.post('/extract-selective', requireAuth, async (req, res) => {
 /**
  * Listar configuraciones disponibles
  */
+// Sugerencias de endpoints EVO conocidos
+router.get('/evo-suggestions', requireAuth, (req, res) => {
+  res.json({ success: true, suggestions: getEvoEndpointSuggestions() });
+});
+
 router.get('/list', requireAuth, async (req, res) => {
   try {
+    // Try to read from MongoDB first. If anything goes wrong, fall back to JSON files.
+    try {
+      const docs = await ApiIntegration.find({}).lean();
+      if (Array.isArray(docs) && docs.length > 0) {
+        const configs = docs.map(doc => ({
+          id: doc.tenantId,
+          name: doc.name || null,
+          baseURL: doc.dns,
+          endpoints: doc.endpointsCount || 0,
+          createdAt: doc.createdAt || doc.created_at || null
+        }));
+        return res.json({ success: true, configs });
+      }
+      // if no records returned we still fall through to file system - maybe just empty
+    } catch (mongoErr) {
+      logger.warn('Mongo read of ApiIntegration failed, falling back to FS', {
+        message: mongoErr.message
+      });
+      // continue to filesystem logic below
+    }
+
+    // filesystem fallback
     const configsDir = path.join(__dirname, '../../configs');
-    
     if (!fs.existsSync(configsDir)) {
       return res.json({ success: true, configs: [] });
     }

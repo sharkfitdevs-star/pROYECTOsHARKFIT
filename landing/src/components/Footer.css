@@ -15,7 +15,7 @@
 
 .footer-section h4 {
   font-size: 20px;
-  color: #667eea;
+  color: #1e3a5f;
   margin-bottom: 12px;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .footer-section a:hover {
-  color: #667eea;
+  color: #1e3a5f;
 }
 
 .footer-bottom {
@@ -78,7 +78,7 @@
 }
 
 .socials a:hover {
-  color: #667eea;
+  color: #1e3a5f;
 }
 
 @media (max-width: 768px) {
@@ -96,3 +96,7 @@
     justify-content: center;
   }
 }
+
+
+
+

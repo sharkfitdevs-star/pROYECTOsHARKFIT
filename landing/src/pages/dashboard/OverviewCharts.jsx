@@ -4,10 +4,32 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts'
+import { getAccessToken } from '../../config/authStorage'
 import './OverviewCharts.css'
 
-// ── Tooltip personalizado ────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }) {
+const BASE = import.meta.env.VITE_API_URL || '/api'
+
+// ── Períodos disponibles ─────────────────────────────────────
+const PERIODOS = [
+  { label: '6 meses',       meses: 6   },
+  { label: '1 año',         meses: 12  },
+  { label: '1 año y medio', meses: 18  },
+  { label: '2 años',        meses: 24  },
+  { label: 'Todo',          meses: 999 },
+]
+
+// ── Fetch autenticado ────────────────────────────────────────
+async function fetchHistorico(meses) {
+  const token = getAccessToken()
+  const res = await fetch(`${BASE}/dashboard/historico?meses=${meses}`, {
+    headers: token ? { Authorization: 'Bearer ' + token } : {}
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  return res.json()
+}
+
+// ── Tooltips ─────────────────────────────────────────────────
+function TooltipMoney({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
     <div className="ov-tooltip">
@@ -21,7 +43,7 @@ function CustomTooltip({ active, payload, label }) {
   )
 }
 
-function BarTooltip({ active, payload, label }) {
+function TooltipCount({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
     <div className="ov-tooltip">
@@ -35,68 +57,81 @@ function BarTooltip({ active, payload, label }) {
   )
 }
 
-// ── Skeleton loader ──────────────────────────────────────────────────
 function ChartSkeleton() {
   return (
     <div className="ov-skeleton">
       <div className="ov-skeleton-bar" style={{ width: '40%', height: '14px', marginBottom: '12px' }} />
-      <div className="ov-skeleton-bar" style={{ width: '100%', height: '180px' }} />
+      <div className="ov-skeleton-bar" style={{ width: '100%', height: '200px' }} />
     </div>
   )
 }
 
-// ── Componente principal ─────────────────────────────────────────────
+// ── Selector de período ──────────────────────────────────────
+function PeriodSelector({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      {PERIODOS.map((p) => (
+        <button
+          key={p.meses}
+          onClick={() => onChange(p.meses)}
+          style={{
+            padding: '4px 12px',
+            fontSize: '0.78rem',
+            borderRadius: '999px',
+            border: '1px solid',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            borderColor:      value === p.meses ? '#a78bfa' : '#334155',
+            background:       value === p.meses ? '#a78bfa20' : 'transparent',
+            color:            value === p.meses ? '#a78bfa'   : '#94a3b8',
+            fontWeight:       value === p.meses ? 600 : 400,
+          }}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Componente principal ─────────────────────────────────────
 export default function OverviewCharts({ ventasMes }) {
-  const [chartData, setChartData] = useState(null)
-  const [clientesData, setClientesData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('ventas')
+  const [ventasData,   setVentasData]   = useState([])
+  const [clientesData, setClientesData] = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(null)
+  const [activeTab,    setActiveTab]    = useState('ventas')
+  const [periodo,      setPeriodo]      = useState(6)
 
+  // ── Carga datos reales al montar y al cambiar período ────
   useEffect(() => {
-    // Genera datos de los últimos 6 meses basándose en el mes actual real
-    // Si tenemos el dato del mes actual lo usamos, sino generamos tendencia
-    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-    const now = new Date()
-    const currentMonth = now.getMonth() // 0-11
+    let cancelled = false
+    setLoading(true)
+    setError(null)
 
-    // Últimos 6 meses incluyendo el actual
-    const last6 = Array.from({ length: 6 }, (_, i) => {
-      const monthIdx = (currentMonth - 5 + i + 12) % 12
-      return meses[monthIdx]
-    })
+    fetchHistorico(periodo)
+      .then((res) => {
+        if (cancelled) return
+        setVentasData(res.data?.ventas   || [])
+        setClientesData(res.data?.clientes || [])
+      })
+      .catch((err) => {
+        if (!cancelled) setError('No se pudieron cargar los datos: ' + err.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-    // Usamos el valor real del mes actual si está disponible
-    const ventaActual = ventasMes?.monto ?? 7706250
+    return () => { cancelled = true }
+  }, [periodo]) // re-fetch cada vez que cambia el período
 
-    // Simulamos tendencia creciente hacia el mes actual
-    // En producción esto vendría del endpoint /api/dashboard/ventas-historico
-    const factores = [0.42, 0.51, 0.63, 0.71, 0.85, 1.0]
-    const baseData = last6.map((mes, i) => ({
-      mes,
-      ventas: Math.round(ventaActual * factores[i]),
-      planes: Math.round(ventaActual * factores[i] * 0.65),
-      servicios: Math.round(ventaActual * factores[i] * 0.25),
-    }))
-    setChartData(baseData)
-
-    // Datos clientes últimos 6 meses (misma lógica)
-    const clientesBase = 38
-    const clientesFact = [0.55, 0.63, 0.72, 0.80, 0.91, 1.0]
-    const clientesMonth = last6.map((mes, i) => ({
-      mes,
-      activos: Math.round(clientesBase * clientesFact[i]),
-      nuevos: Math.round(clientesBase * 0.15 * (0.5 + i * 0.1)),
-    }))
-    setClientesData(clientesMonth)
-
-    setLoading(false)
-  }, [ventasMes])
-
-  const formatYAxis = (value) => {
-    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`
-    return `$${value}`
+  const formatY = (v) => {
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+    if (v >= 1_000)     return `$${(v / 1_000).toFixed(0)}K`
+    return `$${v}`
   }
+
+  const periodoLabel = PERIODOS.find(p => p.meses === periodo)?.label || ''
 
   return (
     <div className="ov-charts-wrapper">
@@ -109,7 +144,7 @@ export default function OverviewCharts({ ventasMes }) {
             className={`ov-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'ventas' ? '💰 Ventas (6 meses)' : '👥 Clientes (6 meses)'}
+            {tab === 'ventas' ? '💰 Ventas' : '👥 Clientes'}
           </button>
         ))}
       </div>
@@ -120,7 +155,7 @@ export default function OverviewCharts({ ventasMes }) {
           <div className="ov-chart-header">
             <div>
               <h3 className="ov-chart-title">Evolución de Ventas</h3>
-              <p className="ov-chart-sub">Últimos 6 meses — Planes · Servicios</p>
+              <p className="ov-chart-sub">Planes · Servicios — {periodoLabel}</p>
             </div>
             {ventasMes?.variacion != null && (
               <div className={`ov-badge ${parseFloat(ventasMes.variacion) >= 0 ? 'pos' : 'neg'}`}>
@@ -129,29 +164,45 @@ export default function OverviewCharts({ ventasMes }) {
             )}
           </div>
 
-          {loading ? <ChartSkeleton /> : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+          {/* Selector de período */}
+          <PeriodSelector value={periodo} onChange={setPeriodo} />
+
+          {loading ? <ChartSkeleton /> : error ? (
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>{error}</p>
+          ) : ventasData.length === 0 ? (
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>
+              Sin datos de ventas para este período. Importa datos desde Excel.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={230}>
+              <AreaChart data={ventasData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradPlanes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.35} />
+                    <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.35} />
                     <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradServicios" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
+                    <stop offset="5%"  stopColor="#34d399" stopOpacity={0.35} />
                     <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0f" />
-                <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={60} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  wrapperStyle={{ fontSize: '12px', color: '#94a3b8', paddingTop: '8px' }}
-                  formatter={(val) => val.charAt(0).toUpperCase() + val.slice(1)}
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fill: '#94a3b8', fontSize: periodo > 12 ? 10 : 12 }}
+                  axisLine={false} tickLine={false}
+                  interval={periodo > 18 ? 2 : 0}
                 />
-                <Area type="monotone" dataKey="planes" name="Planes" stroke="#a78bfa" strokeWidth={2} fill="url(#gradPlanes)" dot={{ fill: '#a78bfa', r: 3 }} activeDot={{ r: 5 }} />
-                <Area type="monotone" dataKey="servicios" name="Servicios" stroke="#34d399" strokeWidth={2} fill="url(#gradServicios)" dot={{ fill: '#34d399', r: 3 }} activeDot={{ r: 5 }} />
+                <YAxis tickFormatter={formatY} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
+                <Tooltip content={<TooltipMoney />} />
+                <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8', paddingTop: '8px' }}
+                  formatter={(val) => val.charAt(0).toUpperCase() + val.slice(1)} />
+                <Area type="monotone" dataKey="planes"    name="Planes"
+                  stroke="#a78bfa" strokeWidth={2} fill="url(#gradPlanes)"
+                  dot={{ fill: '#a78bfa', r: 2 }} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="servicios" name="Servicios"
+                  stroke="#34d399" strokeWidth={2} fill="url(#gradServicios)"
+                  dot={{ fill: '#34d399', r: 2 }} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -164,20 +215,34 @@ export default function OverviewCharts({ ventasMes }) {
           <div className="ov-chart-header">
             <div>
               <h3 className="ov-chart-title">Evolución de Clientes</h3>
-              <p className="ov-chart-sub">Activos totales y nuevos por mes</p>
+              <p className="ov-chart-sub">Activos acumulados · Nuevos por mes — {periodoLabel}</p>
             </div>
           </div>
 
-          {loading ? <ChartSkeleton /> : (
-            <ResponsiveContainer width="100%" height={220}>
+          {/* Selector de período */}
+          <PeriodSelector value={periodo} onChange={setPeriodo} />
+
+          {loading ? <ChartSkeleton /> : error ? (
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>{error}</p>
+          ) : clientesData.length === 0 ? (
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>
+              Sin datos de clientes para este período. Importa datos desde Excel.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={230}>
               <BarChart data={clientesData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0f" />
-                <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fill: '#94a3b8', fontSize: periodo > 12 ? 10 : 12 }}
+                  axisLine={false} tickLine={false}
+                  interval={periodo > 18 ? 2 : 0}
+                />
                 <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
-                <Tooltip content={<BarTooltip />} />
+                <Tooltip content={<TooltipCount />} />
                 <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8', paddingTop: '8px' }} />
                 <Bar dataKey="activos" name="Activos" fill="#a78bfa" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="nuevos" name="Nuevos" fill="#34d399" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="nuevos"  name="Nuevos"  fill="#34d399" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

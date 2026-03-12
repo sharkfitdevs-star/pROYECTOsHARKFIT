@@ -1,0 +1,320 @@
+=== DASHBOARD.JSX ===
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import ExportarDatos from './ExportarDatos'
+import { createToast } from '@/components/ui/use-toast'
+import ImportarExcelSection from './ImportarExcelSection'
+import ClientesSection from './ClientesSection'
+import VentasSection from './VentasSection'
+import AlertasSection from './AlertasSection'
+import OverviewCharts from './OverviewCharts'
+import VentasOverview from './VentasOverview'
+import ClientesOverview from './ClientesOverview'
+import ProspectosOverview from './ProspectosOverview'
+import './Dashboard.css'
+import { fetchDashboardOverview } from '../../services/dashboardApi'
+
+function Dashboard() {
+  const [activeSection, setActiveSection] = useState('overview')
+  const [loading, setLoading] = useState(true)
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [overview, setOverview] = useState(null)
+  const [loadingOverview, setLoadingOverview] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardOverview()
+      .then(data => setOverview(data))
+      .catch(err => console.error('Overview error:', err))
+      .finally(() => setLoadingOverview(false))
+  }, [])
+
+  const fmt$ = (n) => n != null ? '$' + Number(n).toLocaleString('es-CL') : '-'
+  const fmtPct = (n) => n != null ? (Number(n) > 0 ? '+' : '') + n + '%' : null
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(t)
+  }, [])
+
+  function ImportToggle() {
+    const { importsConnected, isTogglingImports, setImportsConnectedRemote } = useAuth()
+    const handleClick = async () => {
+      const target = !importsConnected
+      const msg = target ? 'Conectar importaciones?' : 'Desconectar importaciones?'
+      if (!window.confirm(msg)) return
+      try {
+        const val = await setImportsConnectedRemote(target)
+        createToast({ title: 'Exito', description: 'Importaciones ' + (val ? 'conectadas' : 'desconectadas') })
+      } catch (e) {}
+    }
+    return (
+      <button
+        className="nav-item"
+        onClick={handleClick}
+        disabled={isTogglingImports}
+        style={{ color: importsConnected ? 'black' : '#c53030' }}
+      >
+        Datos importados: {importsConnected ? 'ON' : 'OFF'}
+      </button>
+    )
+  }
+
+  const sections = {
+    overview: {
+      title: 'Dashboard',
+      content: () => (
+        <div>
+          <div className="overview-cards">
+            <div className="overview-card">
+              <span className="overview-card-title">Ventas Este Mes</span>
+              {loadingOverview
+                ? <span className="overview-card-value">...</span>
+                : <span className="overview-card-value">{fmt$(overview?.ventasEsteMes?.monto)}</span>
+              }
+              {!loadingOverview && overview?.ventasEsteMes?.variacion != null && (
+                <span className={'overview-card-sub ' + (parseFloat(overview.ventasEsteMes.variacion) >= 0 ? 'positive' : 'negative')}>
+                  {fmtPct(overview.ventasEsteMes.variacion)} vs mes anterior
+                </span>
+              )}
+            </div>
+            <div className="overview-card">
+              <span className="overview-card-title">Clientes Activos</span>
+              {loadingOverview
+                ? <span className="overview-card-value">...</span>
+                : <span className="overview-card-value">{overview?.clientesActivos?.total ?? '-'}</span>
+              }
+              {!loadingOverview && overview?.clientesActivos?.nuevosEsteMes != null && (
+                <span className="overview-card-sub positive">+{overview.clientesActivos.nuevosEsteMes} nuevos</span>
+              )}
+            </div>
+            <div className="overview-card">
+              <span className="overview-card-title">Tareas Pendientes</span>
+              {loadingOverview
+                ? <span className="overview-card-value">...</span>
+                : <span className="overview-card-value">{overview?.tareasPendientes?.total ?? '-'}</span>
+              }
+            </div>
+            <div className="overview-card">
+              <span className="overview-card-title">Tasa de Conversion</span>
+              {loadingOverview
+                ? <span className="overview-card-value">...</span>
+                : <span className="overview-card-value">{overview?.tasaConversion?.porcentaje ?? '-'}%</span>
+              }
+              {!loadingOverview && overview?.tasaConversion?.variacion != null && (
+                <span className={'overview-card-sub ' + (parseFloat(overview.tasaConversion.variacion) >= 0 ? 'positive' : 'negative')}>
+                  {fmtPct(overview.tasaConversion.variacion)} pts vs mes anterior
+                </span>
+              )}
+            </div>
+          </div>
+          <OverviewCharts ventasMes={overview?.ventasEsteMes} />
+          <VentasOverview />
+          <ClientesOverview />
+          <ProspectosOverview />
+        </div>
+      )
+    },
+    clients: { title: 'Clientes', content: () => <ClientesSection /> },
+    ventas: { title: 'Ventas', content: () => <VentasSection /> },
+    alerts: { title: 'Alertas', content: () => <AlertasSection /> },
+    importar: { title: 'Importar Excel', content: () => <ImportarExcelSection /> },
+    exportar: { title: 'Exportar Datos', content: () => <ExportarDatos /> }
+  }
+
+  const currentSection = sections[activeSection]
+
+  if (loading) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}><p>Cargando...</p></div>
+  }
+
+  return (
+    <div className="dashboard-container">
+      <header className="dashboard-header">
+        <div className="header-content">
+          <h1>SharkFit Dashboard</h1>
+          <p>Bienvenido, {user?.firstName || user?.username || 'Usuario'}</p>
+        </div>
+        <div className="header-actions">
+          <button className="btn-icon">
+            <span className="notification-badge">3</span>
+          </button>
+          <button className="btn-icon" onClick={() => { logout(); navigate('/login') }}>Salir</button>
+          <div className="user-menu">
+            <button className="btn-user">
+              <span className="user-avatar">{(user?.firstName || user?.username)?.charAt(0).toUpperCase() || 'U'}</span>
+              <span className="user-name">{user?.firstName || user?.username || 'Usuario'}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+      <div className="dashboard-main">
+        <aside className="dashboard-sidebar">
+          <nav className="sidebar-nav">
+            <button className={'nav-item ' + (activeSection === 'overview' ? 'active' : '')} onClick={() => setActiveSection('overview')}>Overview</button>
+            <button className={'nav-item ' + (activeSection === 'clients' ? 'active' : '')} onClick={() => setActiveSection('clients')}>Clientes</button>
+            <button className={'nav-item ' + (activeSection === 'ventas' ? 'active' : '')} onClick={() => setActiveSection('ventas')}>Ventas</button>
+            <button className={'nav-item ' + (activeSection === 'alerts' ? 'active' : '')} onClick={() => setActiveSection('alerts')}>Alertas</button>
+            <button className={'nav-item ' + (activeSection === 'importar' ? 'active' : '')} onClick={() => setActiveSection('importar')}>Importar Excel</button>
+            <div style={{ height: '1px', background: '#93509e', margin: '15px 0', opacity: 0.5 }}></div>
+            <button className={'nav-item ' + (activeSection === 'exportar' ? 'active' : '')} onClick={() => setActiveSection('exportar')}>Exportar datos</button>
+            <ImportToggle />
+          </nav>
+          <div className="sidebar-footer">
+            <div className="user-info">
+              <div className="user-avatar-small">{(user?.firstName || user?.username)?.charAt(0).toUpperCase() || 'U'}</div>
+              <div className="user-details">
+                <p className="user-name-small">{user?.firstName || user?.username || 'Usuario'}</p>
+                <p className="user-role">{user?.role || 'Staff'}</p>
+              </div>
+            </div>
+            <p className="version">v2.0.0</p>
+            <button className="btn-logout" onClick={logout}>Salir</button>
+          </div>
+        </aside>
+        <main className="dashboard-content">
+          <h2>{currentSection.title}</h2>
+          <div className="content-body">{currentSection.content()}</div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+export default Dashboard
+
+=== DASHBOARDEVO.JSX ===
+import React from 'react';
+import './DashboardEVO.css';
+
+function DashboardEVO() {
+  return (
+    <div className="dashboard-evo">
+      <header className="dashboard-header">
+        <div>
+          <h1>📊 Dashboard Vendify - EVO W12</h1>
+          <p className="last-update">Última actualización: --</p>
+        </div>
+        <button className="refresh-btn" type="button" disabled>
+          🔄 Actualizar
+        </button>
+      </header>
+
+      <div className="stats-grid">
+        <div className="stat-card prospects">
+          <div className="stat-icon">👥</div>
+          <div className="stat-content">
+            <h3>Prospectos</h3>
+            <p className="stat-number">0</p>
+            <small>Total de leads registrados</small>
+          </div>
+        </div>
+
+        <div className="stat-card sales">
+          <div className="stat-icon">💰</div>
+          <div className="stat-content">
+            <h3>Ventas</h3>
+            <p className="stat-number">0</p>
+            <small>$0 CLP total</small>
+          </div>
+        </div>
+
+        <div className="stat-card entries">
+          <div className="stat-icon">🚪</div>
+          <div className="stat-content">
+            <h3>Accesos</h3>
+            <p className="stat-number">0</p>
+            <small>Registros de entrada</small>
+          </div>
+        </div>
+
+        <div className="stat-card average">
+          <div className="stat-icon">📈</div>
+          <div className="stat-content">
+            <h3>Venta Promedio</h3>
+            <p className="stat-number">$0</p>
+            <small>CLP por transacción</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DashboardEVO;
+=== ÁRBOL SRC ===
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\App.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\App.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\index.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\main.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\api\axios.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\api\fetchAuth.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\AuthErrorBanner.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\DashboardEVO.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\DashboardEVO.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Features.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Features.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Features(1).css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Features(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Footer.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Footer.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Footer(1).css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Footer(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Header.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Header.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Header(1).css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Header(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Hero.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Hero.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Hero(1).css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Hero(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Pricing.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Pricing.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Pricing(1).css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\Pricing(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ProtectedRoute.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\shared\ProtectedRoute.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ui\Badge.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ui\Button.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ui\Card.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ui\toaster.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\components\ui\use-toast.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\config\authStorage.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\context\AuthContext.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\Admin.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\index.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\index(1).jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\Landing.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\Landing.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\LoginPage.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\PricingPage.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\RegisterPage.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\Account.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\ForgotPassword.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\Login.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\Register.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\ResetPassword.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\auth\VerifyEmail.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\AlertasSection.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ClientesOverview.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ClientesSection.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\Dashboard.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\Dashboard.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ExportarDatos.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ExportHistory.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ImportarExcelSection.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\OverviewCharts.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\OverviewCharts.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\ProspectosOverview.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\VentasOverview.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\VentasSection.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\pages\dashboard\VentasSection.jsx
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\services\clientesApi.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\services\dashboardApi.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\services\importApi.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\services\settingsApi.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\services\ventasApi.js
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\styles\Auth.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\styles\Dashboard.css
+C:\Users\vecch\OneDrive\Escritorio\Dashboard Sharkfit 30 enero - Copy-export (1)\landing\src\styles\theme.css

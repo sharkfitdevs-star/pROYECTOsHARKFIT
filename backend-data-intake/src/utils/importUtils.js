@@ -170,11 +170,11 @@ function detectMapping(headers = [], provided = {}, entidad = 'clientes') {
   const normalizedHeaders = headers.map((h) => normalizeHeader(h || ''));
   const warnings = [];
 
-  // El frontend envía { campoInterno: 'ColumnaExcel' }
-  // Invertimos a { columnaExcelNorm: campoInterno }
+  // El frontend envía { 'ColumnaExcel': 'campoInterno' }
+  // Construimos provNorm = { columnaExcelNorm: campoInterno }
   const provNorm = {};
   Object.entries(provided || {}).forEach(([k, v]) => {
-    if (v) provNorm[normalizeHeader(String(v))] = k;
+    if (v) provNorm[normalizeHeader(String(k))] = v;
   });
 
   console.debug('[detectMapping] provNorm:', provNorm);

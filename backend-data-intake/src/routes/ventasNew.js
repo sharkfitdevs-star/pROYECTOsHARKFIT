@@ -9,27 +9,52 @@ const { requireAuth } = require('../middleware/auth');
  */
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 10, saleType, paymentStatus, idBranch, idMember } = req.query;
-    
+    const {
+      search,
+      estado,
+      branchName,
+      planName,
+      page = 1,
+      limit = 50,
+      saleType,
+      paymentStatus,
+      idBranch,
+      idMember
+    } = req.query;
+
     const query = {};
-    
+
+    // text search across some fields
+    if (search) {
+      query.$or = [
+        { memberName: { $regex: search, $options: 'i' } },
+        { employeeName: { $regex: search, $options: 'i' } },
+        { planName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (estado) query.paymentStatus = estado;
+    if (branchName) query.branchName = branchName;
+    if (planName) query.planName = planName;
+
+    // preserve existing filters for backwards compatibility
     if (saleType) query.saleType = saleType;
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (idBranch) query.idBranch = idBranch;
     if (idMember) query.idMember = idMember;
-    
+
     const ventas = await Venta.find(query)
       .sort({ saleDate: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
     const count = await Venta.countDocuments(query);
-    
+
     res.json({
       success: true,
       data: ventas,
       total: count,
-      page: parseInt(page),
+      page: Number(page),
       pages: Math.ceil(count / limit)
     });
   } catch (error) {

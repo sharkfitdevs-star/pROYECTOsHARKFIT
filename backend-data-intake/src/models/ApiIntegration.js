@@ -5,6 +5,9 @@ const apiIntegrationSchema = new Schema({
   // tenantId indexed via schema.index(...) below (unique)
   tenantId: { type: String, required: true },
   dns: { type: String, required: true },
+  // new descriptive fields for audit & listing
+  name: { type: String },
+  endpointsCount: { type: Number, default: 0 },
   encryptedToken: { type: String },
   encryptionIv: { type: String },
   status: { type: String, enum: ['active', 'inactive'], default: 'active', index: true },

@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #475569;
+  background: #1e3a5f;
 }
 
 .dashboard-loading {
@@ -11,19 +11,19 @@
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #475569;
+  background: #1e3a5f;
   color: #f1f5f9;
   font-size: 1.25rem;
 }
 
 .dashboard-header {
-  background: #764ba2;
-  border-bottom: 2px solid #93509e;
+  background: #1e3a5f;
+  border-bottom: 2px solid #1e3a5f;
   padding: 20px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .header-content h1 {
@@ -131,8 +131,8 @@
 
 .dashboard-sidebar {
   width: 250px;
-  background: #764ba2;
-  border-right: 1px solid #93509e;
+  background: #1e3a5f;
+  border-right: 1px solid #16304f;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -157,12 +157,12 @@
 }
 
 .nav-item:hover {
-  background: #475569;
+  background: #16304f;
   color: #f1f5f9;
 }
 
 .nav-item.active {
-  background: #475569;
+  background: #16304f;
   color: #ffffff;
   border-left-color: #cbd5e1;
   font-weight: 600;
@@ -170,7 +170,7 @@
 
 .sidebar-footer {
   padding: 20px;
-  border-top: 2px solid #93509e;
+  border-top: 2px solid #16304f;
 }
 
 .user-info {
@@ -223,7 +223,7 @@
     font-size: 13px;
     border-left: none;
     border-radius: 6px;
-    border: 1px solid #93509e44;
+    border: 1px solid #16304f44;
   }
 
   .nav-item.active {
@@ -298,7 +298,7 @@
   flex: 1;
   padding: 30px;
   overflow-y: auto;
-  background: #f1f5f9;
+  background: #d1d8e0;
 }
 
 .content-body {
@@ -400,6 +400,70 @@
   margin-top: 0.5rem;
 }
 
+/* ── Overview Toolbar ──────────────────────────────── */
+.overview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* ── Dynamic Widget System ─────────────────────────── */
+.btn-create-chart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: #00d4ff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-create-chart:hover {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
+.widget-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s;
+}
+
+.widget-wrapper:hover {
+  box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.15);
+}
+
+.widget-header {
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.drag-handle {
+  color: #334155;
+  font-size: 14px;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+
+.widget-wrapper:hover .drag-handle {
+  opacity: 0.7;
+}
+
 /* ── Overview KPI Cards ─────────────────────────────────── */
 .overview-cards {
   display: grid;
@@ -409,7 +473,7 @@
 }
 
 .overview-card {
-  background: #2d2d44;
+  background: #1e293b;
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
@@ -465,7 +529,7 @@
     font-size: 13px;
     border-left: none;
     border-radius: 6px;
-    border: 1px solid #93509e44;
+    border: 1px solid #16304f44;
   }
 
   .nav-item.active {
@@ -497,4 +561,60 @@
   .header-content h1 {
     font-size: 18px;
   }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ── Dynamic Widget System ─────────────────────────── */
+.btn-create-chart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: #00d4ff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-top: 12px;
+}
+
+.btn-create-chart:hover {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
+.widget-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s;
+}
+
+.widget-header {
+  user-select: none;
+}
+
+.drag-handle {
+  cursor: grab;
+  transition: opacity 0.15s;
+}
+
+.widget-wrapper:not(:hover) .drag-handle {
+  opacity: 0.2;
 }

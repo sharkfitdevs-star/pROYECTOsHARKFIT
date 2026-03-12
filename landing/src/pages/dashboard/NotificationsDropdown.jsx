@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import { useAuth } from '../../context/AuthContext';
 
 const PRIORIDAD_COLOR = {
@@ -85,10 +86,7 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
         }}
       >
         {/* Icono campana SVG (reemplaza el texto vacío actual) */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke="#f1f5f9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-        </svg>
+        <i className="bi bi-bell-fill" style={{ fontSize: "18px", color: "#f1f5f9" }}></i>
 
         {/* Badge dinámico */}
         {total > 0 && (
@@ -108,8 +106,8 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
             right: 0,
             top: 'calc(100% + 10px)',
             width: '340px',
-            background: '#1e1e3a',
-            border: '1px solid #93509e',
+            background: '#0f2340',
+            border: '1px solid #2d5a8e',
             borderRadius: '12px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
             zIndex: 1000,
@@ -120,11 +118,11 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
           {/* Header del panel */}
           <div style={{
             padding: '12px 16px 10px',
-            borderBottom: '1px solid rgba(147,80,158,0.4)',
+            borderBottom: '1px solid rgba(45,90,142,0.5)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            background: 'rgba(118,75,162,0.3)',
+            background: 'rgba(30,58,95,0.6)',
           }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#f1f5f9' }}>
@@ -232,8 +230,8 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
           {total > 0 && (
             <div style={{
               padding: '8px 16px',
-              borderTop: '1px solid rgba(147,80,158,0.4)',
-              background: 'rgba(118,75,162,0.15)',
+              borderTop: '1px solid rgba(45,90,142,0.5)',
+              background: 'rgba(15,35,64,0.8)',
             }}>
               <button
                 onClick={() => handleNavegar(null)}
@@ -268,3 +266,4 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
     </div>
   );
 }
+

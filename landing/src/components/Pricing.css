@@ -37,14 +37,14 @@
 }
 
 .pricing-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  border-color: #1e3a5f;
+  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.15);
 }
 
 .pricing-card.featured {
-  border-color: #667eea;
+  border-color: #1e3a5f;
   transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.2);
 }
 
 .featured-badge {
@@ -52,7 +52,7 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: #667eea;
+  background: #1e3a5f;
   color: white;
   padding: 6px 16px;
   border-radius: 20px;
@@ -69,7 +69,7 @@
 .price {
   font-size: 48px;
   font-weight: 700;
-  color: #667eea;
+  color: #1e3a5f;
   margin: 20px 0 8px 0;
 }
 
@@ -144,3 +144,7 @@
     font-size: 36px;
   }
 }
+
+
+
+

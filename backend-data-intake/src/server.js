@@ -1,4 +1,4 @@
-﻿const path = require('path');
+const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
 if (!process.env.MONGODB_URI) {
   console.error('MONGODB_URI missing in root .env.local');
@@ -125,10 +125,31 @@ const startServer = async () => {
       });
     });
 
-    // MongoDB en background
-    connectToDB()
-      .then(ok => ok ? logger.info('MongoDB conectado') : logger.warn('MongoDB no disponible'))
-      .catch(err => logger.error('Error conectando MongoDB:', err));
+    // MongoDB: esperar conexión ANTES de servir requests
+    try {
+      const ok = await connectToDB();
+      logger.info(ok ? 'MongoDB conectado' : 'MongoDB no disponible');
+    } catch (err) {
+      logger.error('Error conectando MongoDB:', err);
+    }
+
+    // Middleware global: esperar MongoDB antes de procesar requests de /api
+    app.use('/api', async (req, res, next) => {
+      const { getDbStatus } = require('./db/db');
+      if (getDbStatus().ok) return next();
+      // Esperar hasta 5s
+      const start = Date.now();
+      while (Date.now() - start < 5000) {
+        await new Promise(r => setTimeout(r, 200));
+        if (getDbStatus().ok) return next();
+      }
+      return res.status(503).json({ 
+        ok: false, 
+        error: 'DB_NOT_READY',
+        message: 'Base de datos no disponible, intenta en unos segundos'
+      });
+    });
+
 
     // Rutas de sesion EVO
     app.post("/login", async (req, res) => {
@@ -255,3 +276,4 @@ if (require.main === module) {
 }
 
 module.exports = { startServer };
+

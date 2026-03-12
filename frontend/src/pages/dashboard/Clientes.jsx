@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, Search, Plus, Download, Upload, Calendar, AlertCircle, CheckCircle, Clock, FileDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Users, Search, Filter, Plus, Download, Upload, Calendar, AlertCircle, CheckCircle, Clock, FileDown, ChevronLeft, ChevronRight, Pencil, Trash2, Eye } from 'lucide-react';
 import { Clientes } from '@/entities/Clientes';
 import { Ciclos_Retencion } from '@/entities/Ciclos_Retencion';
 import { Sucursales } from '@/entities/Sucursales';
@@ -246,15 +247,17 @@ const [sincronizando, setSincronizando] = useState(false);
     
     switch (estado) {
       case 'activo':
-        return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Activo</Badge>;
+        return <Badge className="bg-green-100 text-green-800">Activo</Badge>;
       case 'vence_pronto':
-        return <Badge className="bg-yellow-500"><Clock className="w-3 h-3 mr-1" />Vence pronto</Badge>;
+      case 'por vencer':
+        return <Badge className="bg-yellow-100 text-yellow-800">Por vencer</Badge>;
       case 'vencido':
-        return <Badge className="bg-red-500"><AlertCircle className="w-3 h-3 mr-1" />Vencido</Badge>;
+      case 'inactivo':
+        return <Badge className="bg-red-100 text-red-800">Inactivo</Badge>;
       case 'deudor':
-        return <Badge className="bg-orange-500"><AlertCircle className="w-3 h-3 mr-1" />Deudor</Badge>;
+        return <Badge className="bg-red-100 text-red-800">Deudor</Badge>;
       case 'baja':
-        return <Badge className="bg-gray-500"><AlertCircle className="w-3 h-3 mr-1" />Baja</Badge>;
+        return <Badge className="bg-gray-500">Baja</Badge>;
       default:
         return <Badge variant="outline">Sin plan</Badge>;
     }
@@ -315,21 +318,14 @@ const [sincronizando, setSincronizando] = useState(false);
         'Notas'
       ];
 
-      const response = await axios.post(
-        `${process.env.PROXY_INTEGRATION_URL}/documents/export-excel`,
-        {
-          sheets: [
-            {
-              name: 'Clientes',
-              data: [headers, ...datosExportar]
-            }
-          ]
-        },
-        {
-          headers: {
-            'x-api-key': window.config.apiKey
-          }
+      // función para limpiar clientes importados (link en UI)
+      const handleLimpiarImportados = () => {
+        if (window.confirm('¿Limpiar todos los datos importados? Esta acción no se puede deshacer.')) {
+          setClientes([]);
+          setClientesFiltrados([]);
+          toast({ title: 'Datos limpiados', description: 'Los clientes importados fueron removidos de la vista.' });
         }
+      };
       );
 
       // Descargar archivo
@@ -942,617 +938,174 @@ const [sincronizando, setSincronizando] = useState(false);
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Users className="w-8 h-8" />
-              Clientes
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Gestión completa de la base de clientes
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleDescargarPlantilla}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Plantilla
-            </Button>
-            <Button variant="outline" onClick={handleExportar}>
-              <Download className="w-4 h-4 mr-2" />
-              Exportar
-            </Button>
-            <Button variant="outline" disabled={importando} asChild>
-              <label>
-                <Upload className="w-4 h-4 mr-2" />
-                {importando ? 'Importando...' : 'Importar'}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={handleImportar}
-                  disabled={importando}
-                />
-              </label>
-            </Button>
-            <Button onClick={() => setCrearDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Cliente
-            </Button>
-          </div>
-        </div>
-        
-        {/* Gestión de Clientes - Acciones Especiales */}
-        <Card className="border-gray-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Gestión de Clientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => setCrearDeudorDialogOpen(true)}
-                className="bg-orange-50 hover:bg-orange-100 border-orange-300 h-auto py-3 flex flex-col items-center gap-1"
-              >
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-                <span className="text-xs">Crear Deudor</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setProgramarPausaDialogOpen(true)}
-                className="bg-blue-50 hover:bg-blue-100 border-blue-300 h-auto py-3 flex flex-col items-center gap-1"
-              >
-                <Clock className="w-5 h-5 text-blue-600" />
-                <span className="text-xs">Programar Pausa</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => alert('Licencia Médica - Funcionalidad pendiente')}
-                className="bg-green-50 hover:bg-green-100 border-green-300 h-auto py-3 flex flex-col items-center gap-1"
-              >
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-xs">Licencia Médica</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => alert('Programar Vacaciones - Funcionalidad pendiente')}
-                className="bg-yellow-50 hover:bg-yellow-100 border-yellow-300 h-auto py-3 flex flex-col items-center gap-1"
-              >
-                <Calendar className="w-5 h-5 text-yellow-600" />
-                <span className="text-xs">Programar Vacaciones</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setProgramarBajaDialogOpen(true)}
-                className="bg-purple-50 hover:bg-purple-100 border-purple-300 h-auto py-3 flex flex-col items-center gap-1"
-              >
-                <Calendar className="w-5 h-5 text-purple-600" />
-                <span className="text-xs">Programar Baja</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+   <div className="p-6 space-y-4">
+     
+     {/* Línea 1: Título + contador + botón */}
+     <div className="flex justify-between items-center">
+       <div>
+         <h2 className="text-xl font-bold">Clientes</h2>
+         <p className="text-xs text-gray-500">
+           Los datos se obtienen de las importaciones realizadas en Excel/CSV
+         </p>
+       </div>
+       <div className="flex items-center gap-4 text-sm text-gray-600">
+         <span>Total clientes: {totalItemsGeneral} | Mostrando: {ITEMS_PER_PAGE}</span>
+         <Button variant="outline" size="sm" onClick={handleLimpiarImportados}>
+           Limpiar datos importados
+         </Button>
+       </div>
+     </div>
 
-        {/* Botón de Sincronización Masiva */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-blue-900">Sincronización Masiva</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  Sincroniza todas las ventas cerradas con la tabla de Clientes y Ciclos de Retención
-                </p>
-              </div>
-              <Button 
-                onClick={handleSincronizarMasivo} 
-                disabled={sincronizando}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {sincronizando ? 'Sincronizando...' : 'Sincronizar Ventas'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+     {/* Línea 2: Filtros en una sola fila */}
+     <div className="flex flex-wrap gap-2 items-center">
+       <Input
+         placeholder="Cliente, plan, vendedor..."
+         value={busqueda}
+         onChange={e => setBusqueda(e.target.value)}
+         className="w-48 h-8 text-sm"
+       />
+       <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+         <SelectTrigger className="w-36 h-8 text-sm">
+           <SelectValue placeholder="Todos los estados" />
+         </SelectTrigger>
+         <SelectContent>
+           <SelectItem value="todos">Todos los estados</SelectItem>
+           <SelectItem value="activo">Activo</SelectItem>
+           <SelectItem value="por vencer">Por vencer</SelectItem>
+           <SelectItem value="inactivo">Inactivo</SelectItem>
+         </SelectContent>
+       </Select>
+       <Select value={sedeFilter} onValueChange={setSedeFilter}>
+         <SelectTrigger className="w-36 h-8 text-sm">
+           <SelectValue placeholder="Todas las sedes" />
+         </SelectTrigger>
+         <SelectContent>
+           <SelectItem value="todas">Todas las sedes</SelectItem>
+           {sedes.map(s => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
+         </SelectContent>
+       </Select>
+       <Select value={planFilter} onValueChange={setPlanFilter}>
+         <SelectTrigger className="w-36 h-8 text-sm">
+           <SelectValue placeholder="Todos los planes" />
+         </SelectTrigger>
+         <SelectContent>
+           <SelectItem value="todos">Todos los planes</SelectItem>
+           {planes.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre_plan}</SelectItem>)}
+         </SelectContent>
+       </Select>
+       <Button variant="outline" size="sm" className="h-8 text-sm"
+         onClick={() => { setBusqueda(''); setEstadoFilter('todos'); setSedeFilter('todas'); setPlanFilter('todos'); }}>
+         Limpiar filtros
+       </Button>
+     </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-          <TabsTrigger value="general">Listado General</TabsTrigger>
-          <TabsTrigger value="vencimientos">Vencimientos Mes</TabsTrigger>
-        </TabsList>
+     {/* Línea 3: Contador derecha */}
+     <div className="flex justify-end text-sm text-gray-500">
+       Total clientes: {totalItemsGeneral} | Mostrando: {Math.min(ITEMS_PER_PAGE, totalItemsGeneral)}
+     </div>
 
-        <TabsContent value="general" className="space-y-6 mt-6">
-          {/* Métricas rápidas (General) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {clientes.filter(c => {
-                    if (!c.plan_actual) return true;
-                    const plan = planes.find(p => p.id === c.plan_actual);
-                    return !plan || plan.tipo_item !== 'Servicio';
-                  }).length}
-                </div>
-                <p className="text-sm text-gray-600">Total Clientes</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-green-600">
-                  {clientes.filter(c => {
-                    if (!c.plan_actual) return false;
-                    const plan = planes.find(p => p.id === c.plan_actual);
-                    if (plan && plan.tipo_item === 'Servicio') return false;
-                    return obtenerEstadoCliente(c) === 'activo';
-                  }).length}
-                </div>
-                <p className="text-sm text-gray-600">Activos</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {clientes.filter(c => {
-                    if (!c.plan_actual) return false;
-                    const plan = planes.find(p => p.id === c.plan_actual);
-                    if (plan && plan.tipo_item === 'Servicio') return false;
-                    return obtenerEstadoCliente(c) === 'vence_pronto';
-                  }).length}
-                </div>
-                <p className="text-sm text-gray-600">Vencen en 7 días</p>
-              </CardContent>
-            </Card>
-            <Card 
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => setEstadoFilter('vencido')}
-            >
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-red-600">
-                  {clientes.filter(c => {
-                    if (!c.plan_actual) return false;
-                    const plan = planes.find(p => p.id === c.plan_actual);
-                    if (plan && plan.tipo_item === 'Servicio') return false;
-                    return obtenerEstadoCliente(c) === 'vencido';
-                  }).length}
-                </div>
-                <p className="text-sm text-gray-600">Vencidos (click para filtrar)</p>
-              </CardContent>
-            </Card>
-          </div>
+     {/* Tabla */}
+     <div className="overflow-x-auto rounded-md border">
+       <Table>
+         <TableHeader>
+           <TableRow>
+             <TableHead className="p-2">Fecha ingreso</TableHead>
+             <TableHead className="p-2">Nombre</TableHead>
+             <TableHead className="p-2">Email</TableHead>
+             <TableHead className="p-2">Teléfono</TableHead>
+             <TableHead className="p-2">Plan</TableHead>
+             <TableHead className="p-2">Sede</TableHead>
+             <TableHead className="p-2">Estado</TableHead>
+             <TableHead className="p-2">Vence</TableHead>
+             <TableHead className="p-2 text-center">Acciones</TableHead>
+           </TableRow>
+         </TableHeader>
+         <TableBody>
+           {paginatedClientesGeneral.map(cliente => {
+             const sede = sedes.find(s => s.id === cliente.sede);
+             const plan = planes.find(p => p.id === cliente.plan_actual);
+             return (
+               <TableRow key={cliente.id}>
+                 <TableCell className="p-2 text-sm">
+                   {cliente.fecha_primer_compra
+                     ? moment(cliente.fecha_primer_compra).format('DD/MM/YYYY') : '-'}
+                 </TableCell>
+                 <TableCell className="p-2 text-sm font-medium">
+                   {cliente.nombre_cliente || cliente.name || '(sin nombre)'}
+                 </TableCell>
+                 <TableCell className="p-2 text-sm">{cliente.email || '-'}</TableCell>
+                 <TableCell className="p-2 text-sm">
+                   {cliente.telefono || cliente.cellPhone || '-'}
+                 </TableCell>
+                 <TableCell className="p-2 text-sm">{plan?.nombre_plan || '-'}</TableCell>
+                 <TableCell className="p-2 text-sm">{sede?.nombre_sede || '-'}</TableCell>
+                 <TableCell className="p-2">{obtenerBadgeEstado(cliente)}</TableCell>
+                 <TableCell className="p-2 text-sm">
+                   {cliente.fecha_fin_plan_actual
+                     ? moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')
+                     : '-'}
+                 </TableCell>
+                 <TableCell className="p-2 text-center">
+                   <div className="flex gap-1 justify-center">
+                     <Button variant="ghost" size="sm"
+                       onClick={() => { setClienteSeleccionado(cliente); setHistorialDialogOpen(true); }}
+                       title="Ver historial">
+                       <Eye className="w-4 h-4 text-blue-600" />
+                     </Button>
+                     <Button variant="ghost" size="sm"
+                       onClick={() => { setClienteSeleccionado(cliente); setEditarDialogOpen(true); }}
+                       title="Editar">
+                       <Pencil className="w-4 h-4 text-blue-600" />
+                     </Button>
+                     <Button variant="ghost" size="sm"
+                       onClick={() => handleDarDeBaja(cliente)}
+                       title="Dar de baja">
+                       <Trash2 className="w-4 h-4 text-red-600" />
+                     </Button>
+                   </div>
+                 </TableCell>
+               </TableRow>
+             );
+           })}
+         </TableBody>
+       </Table>
+     </div>
 
-          {/* Filtros */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filtros</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Buscar por nombre o WhatsApp..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+     {/* Paginación */}
+     <div className="flex items-center justify-between pt-2">
+       <Button variant="outline" size="sm"
+         onClick={() => handlePageChangeGeneral(currentPageGeneral - 1)}
+         disabled={currentPageGeneral === 1}>
+         Anterior
+       </Button>
+       <span className="text-sm">Página {currentPageGeneral}</span>
+       <Button variant="outline" size="sm"
+         onClick={() => handlePageChangeGeneral(currentPageGeneral + 1)}
+         disabled={currentPageGeneral >= totalPagesGeneral}>
+         Siguiente
+       </Button>
+     </div>
 
-                <Select value={sedeFilter} onValueChange={setSedeFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las sedes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas las sedes</SelectItem>
-                    {sedes.map(sede => (
-                      <SelectItem key={sede.id} value={sede.id}>{sede.nombre_sede}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+     {/* Dialogs — NO TOCAR */}
+     <CrearClienteDialog open={crearDialogOpen} onOpenChange={setCrearDialogOpen}
+       onSuccess={cargarDatos} sedes={sedes} planes={planes} staff={staff} cerradores={cerradores} />
+     <EditarClienteDialog open={editarDialogOpen} onOpenChange={setEditarDialogOpen}
+       cliente={clienteSeleccionado} onSuccess={cargarDatos} sedes={sedes} planes={planes}
+       staff={staff} cerradores={cerradores} />
+     <HistorialClienteDialog open={historialDialogOpen} onOpenChange={setHistorialDialogOpen}
+       cliente={clienteSeleccionado} />
+     <DarDeBajaDialog open={darDeBajaDialogOpen} onOpenChange={setDarDeBajaDialogOpen}
+       cliente={clienteParaBaja} onSuccess={cargarDatos} />
+     <ProgramarBajaDialog open={programarBajaDialogOpen} onOpenChange={setProgramarBajaDialogOpen}
+       cliente={clienteSeleccionado} onSuccess={cargarDatos} />
+     <CrearDeudorDialog open={crearDeudorDialogOpen} onOpenChange={setCrearDeudorDialogOpen}
+       onSuccess={cargarDatos} />
+     <ProgramarPausaDialog open={programarPausaDialogOpen} onOpenChange={setProgramarPausaDialogOpen}
+       cliente={clienteSeleccionado} onSuccess={cargarDatos} />
+   </div>
 
-                <Select value={planFilter} onValueChange={setPlanFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los planes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los planes</SelectItem>
-                    {planes.map(plan => (
-                      <SelectItem key={plan.id} value={plan.id}>{plan.nombre_plan}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los estados" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="activo">Activos</SelectItem>
-                    <SelectItem value="vence_pronto">Vencen pronto</SelectItem>
-                    <SelectItem value="vencido">Vencidos</SelectItem>
-                    <SelectItem value="sin_plan">Sin plan</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={modalidadFilter} onValueChange={setModalidadFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las modalidades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas las modalidades</SelectItem>
-                    <SelectItem value="Suscripción">Suscripción</SelectItem>
-                    <SelectItem value="Prepago">Prepago</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={canalFilter} onValueChange={setCanalFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los canales" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los canales</SelectItem>
-                    <SelectItem value="Online">Online</SelectItem>
-                    <SelectItem value="En sede">En sede</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tabla General */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Listado de Clientes ({clientesFiltrados.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b hover:bg-gray-50">
-                      <th className="text-left p-2 font-medium">Cliente</th>
-                      <th className="text-left p-2 font-medium">WhatsApp</th>
-                      <th className="text-left p-2 font-medium">Sede</th>
-                      <th className="text-left p-2 font-medium">Plan Actual</th>
-                      <th className="text-left p-2 font-medium">Modalidad</th>
-                      <th className="text-left p-2 font-medium">Fecha Fin</th>
-                      <th className="text-left p-2 font-medium">Estado</th>
-                      <th className="text-left p-2 font-medium">Baja Programada</th>
-                      <th className="text-left p-2 font-medium">Canal</th>
-                      <th className="text-left p-2 font-medium">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedClientesGeneral.length === 0 ? (
-                      <tr className="border-b hover:bg-gray-50">
-                        <td colSpan={10} className="text-center text-gray-500 py-8">
-                          No se encontraron clientes
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedClientesGeneral.map(cliente => {
-                        const sede = sedes.find(s => s.id === cliente.sede);
-                        const plan = planes.find(p => p.id === cliente.plan_actual);
-
-                        return (
-                          <tr key={cliente.id} className="border-b hover:bg-gray-50">
-                            <td className="p-2 font-medium">{cliente.nombre_cliente || cliente.name || '(sin nombre)'}</td>
-                            <td className="p-2">{cliente.telefono || cliente.cellPhone || '—'}</td>
-                            <td className="p-2">{sede?.nombre_sede || '-'}</td>
-                            <td className="p-2">{plan?.nombre_plan || '-'}</td>
-                            <td className="p-2">
-                              {cliente.modalidad_actual ? (
-                                <Badge variant="outline">{cliente.modalidad_actual}</Badge>
-                              ) : '-'}
-                            </td>
-                            <td className="p-2">
-                              {cliente.fecha_fin_plan_actual
-                                ? moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')
-                                : '-'
-                              }
-                            </td>
-                            <td className="p-2">{obtenerBadgeEstado(cliente)}</td>
-                            <td className="p-2">
-                              {obtenerBadgeBaja(cliente.id) || <span className="text-gray-400 text-sm">-</span>}
-                            </td>
-                            <td className="p-2">
-                              <Badge variant={cliente.canal_origen === 'Online' ? 'default' : 'secondary'}>
-                                {cliente.canal_origen || '-'}
-                              </Badge>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setClienteSeleccionado(cliente);
-                                    setHistorialDialogOpen(true);
-                                  }}
-                                >
-                                  <Calendar className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setClienteSeleccionado(cliente);
-                                    setEditarDialogOpen(true);
-                                  }}
-                                >
-                                  Editar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleEliminar(cliente.id)}
-                                >
-                                  Eliminar
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {renderPagination(currentPageGeneral, totalPagesGeneral, totalItemsGeneral, startIndexGeneral, endIndexGeneral, handlePageChangeGeneral)}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="vencimientos" className="space-y-6 mt-6">
-          {/* Dashboard de Retención por Sede */}
-          <DashboardRetencionSede
-            clientes={clientes}
-            bajasProgramadas={bajasProgramadas}
-            deudores={deudoresList}
-            ciclosRetencion={ciclosMes}
-            sedes={sedes}
-            planes={planes}
-            mesActual={moment()}
-            onRenovar={handleRenovar}
-            onContactar={handleRegistrarContacto}
-            onDarDeBaja={handleDarDeBaja}
-          />
-
-          {/* Filtros de Vencimientos */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filtros</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Select value={sedeVencimientoFilter} onValueChange={setSedeVencimientoFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las sedes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas las sedes</SelectItem>
-                    {sedes.map(sede => (
-                      <SelectItem key={sede.id} value={sede.id}>{sede.nombre_sede}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={tipoItemFilter} onValueChange={setTipoItemFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tipo de plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los tipos</SelectItem>
-                    <SelectItem value="Prepago">Prepago</SelectItem>
-                    <SelectItem value="Suscripción">Suscripción</SelectItem>
-                    <SelectItem value="Programa">Programa</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={periodoVencimientoFilter} onValueChange={setPeriodoVencimientoFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Periodo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hoy">Hoy</SelectItem>
-                    <SelectItem value="ayer">Ayer</SelectItem>
-                    <SelectItem value="esta_semana">Esta Semana</SelectItem>
-                    <SelectItem value="este_mes">Este Mes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Clientes por Vencer / Vencidos ({clientesVencimientoFiltrados.length})</CardTitle>
-                <div className="text-sm text-gray-600">
-                  {clientesSeleccionados.length > 0 && `${clientesSeleccionados.length} seleccionados`}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b hover:bg-gray-50">
-                      <th className="w-12">
-                        <Checkbox
-                          checked={clientesSeleccionados.length === clientesVencimientoFiltrados.length && clientesVencimientoFiltrados.length > 0}
-                          onCheckedChange={toggleSeleccionTodos}
-                        />
-                      </th>
-                      <th className="text-left p-2 font-medium">Cliente</th>
-                      <th className="text-left p-2 font-medium">Sede</th>
-                      <th className="text-left p-2 font-medium">Plan</th>
-                      <th className="text-left p-2 font-medium">Tipo</th>
-                      <th className="text-left p-2 font-medium">Vencimiento</th>
-                      <th className="text-left p-2 font-medium">Estado Plan</th>
-                      <th className="text-left p-2 font-medium">Estado Seguimiento</th>
-                      <th className="text-left p-2 font-medium">Baja Programada</th>
-                      <th className="text-left p-2 font-medium">Contactado</th>
-                      <th className="text-left p-2 font-medium">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedClientesVencimientos.length === 0 ? (
-                      <tr className="border-b hover:bg-gray-50">
-                        <td colSpan={11} className="text-center py-8 text-gray-500">
-                          No hay vencimientos este mes
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedClientesVencimientos.map(cliente => {
-                         const sede = sedes.find(s => s.id === cliente.sede);
-                         const plan = planes.find(p => p.id === cliente.plan_actual);
-                         const contactado = fueContactado(cliente.id);
-
-                         return (
-                           <tr key={cliente.id} className="border-b hover:bg-gray-50">
-                             <td className="p-2">
-                               <Checkbox
-                                 checked={clientesSeleccionados.includes(cliente.id)}
-                                 onCheckedChange={() => toggleSeleccionCliente(cliente.id)}
-                               />
-                             </td>
-                             <td className="p-2 font-medium">{cliente.nombre_cliente || cliente.name || '(sin nombre)'}</td>
-                             <td className="p-2">{sede?.nombre_sede || '-'}</td>
-                             <td className="p-2">{plan?.nombre_plan || '-'}</td>
-                             <td className="p-2">
-                               <Badge variant="outline">
-                                 {plan?.tipo_item === 'Plan' ? plan?.modalidad_cobro : plan?.tipo_item}
-                               </Badge>
-                             </td>
-                             <td className="p-2">{moment(cliente.fecha_fin_plan_actual).format('DD/MM/YYYY')}</td>
-                             <td className="p-2">{obtenerBadgeEstado(cliente)}</td>
-                             <td className="p-2">
-                               {obtenerBadgeEstadoSeguimiento(cliente.id) || <Badge variant="outline">Sin seguimiento</Badge>}
-                             </td>
-                             <td className="p-2">
-                               {obtenerBadgeBaja(cliente.id) || <span className="text-gray-400 text-sm">-</span>}
-                             </td>
-                             <td className="p-2">
-                               {contactado ? (
-                                 <Badge className="bg-blue-500">Sí</Badge>
-                               ) : (
-                                 <Badge variant="outline">No</Badge>
-                               )}
-                             </td>
-                             <td className="p-2">
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleRenovar(cliente)}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
-                                    Renovar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleRegistrarContacto(cliente)}
-                                  >
-                                    Contacto
-                                  </Button>
-                                  {/* Botón Dar de Baja solo para suscripciones activas */}
-                                  {cliente.modalidad_actual === 'Suscripción' && cliente.estado_suscripcion === 'Activo' && (
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => handleDarDeBaja(cliente)}
-                                    >
-                                      Dar de Baja
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                           </tr>
-                         );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {renderPagination(currentPageVencimientos, totalPagesVencimientos, totalItemsVencimientos, startIndexVencimientos, endIndexVencimientos, handlePageChangeVencimientos)}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Dialogs */}
-      <CrearClienteDialog
-        open={crearDialogOpen}
-        onOpenChange={setCrearDialogOpen}
-        onSuccess={cargarDatos}
-        sedes={sedes}
-        planes={planes}
-        staff={staff}
-        cerradores={cerradores}
-      />
-
-      <EditarClienteDialog
-        open={editarDialogOpen}
-        onOpenChange={setEditarDialogOpen}
-        cliente={clienteSeleccionado}
-        onSuccess={cargarDatos}
-        sedes={sedes}
-        planes={planes}
-        staff={staff}
-        cerradores={cerradores}
-      />
-
-      <HistorialClienteDialog
-        open={historialDialogOpen}
-        onOpenChange={setHistorialDialogOpen}
-        cliente={clienteSeleccionado}
-        sedes={sedes}
-        planes={planes}
-      />
-
-      <RegistrarVentaDialog
-        open={renovacionDialogOpen}
-        onClose={() => setRenovacionDialogOpen(false)}
-        prospecto={prospectoParaRenovacion}
-        onSave={handleGuardarRenovacion}
-        esRenovacion={true}
-      />
-
-      <RegistrarContactoDialog
-        open={contactoDialogOpen}
-        onOpenChange={setContactoDialogOpen}
-        cliente={clienteParaContacto}
-        onSuccess={cargarDatos}
-      />
-
-      <DarDeBajaDialog
-        open={darDeBajaDialogOpen}
-        onOpenChange={setDarDeBajaDialogOpen}
-        cliente={clienteParaBaja}
-        onSuccess={cargarDatos}
-      />
-
-      <ProgramarBajaDialog
-        open={programarBajaDialogOpen}
-        onClose={() => setProgramarBajaDialogOpen(false)}
-        onSuccess={cargarDatos}
-      />
-
-      <CrearDeudorDialog
-        open={crearDeudorDialogOpen}
-        onClose={() => setCrearDeudorDialogOpen(false)}
-        onSuccess={cargarDatos}
-      />
-
-      <ProgramarPausaDialog
-        open={programarPausaDialogOpen}
-        onClose={() => setProgramarPausaDialogOpen(false)}
-        onSuccess={cargarDatos}
-      />
-    </div>
-  );
 }
+
+
+
+

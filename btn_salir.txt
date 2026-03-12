@@ -1,0 +1,16 @@
+=== DASHBOARD CSS ===
+
+.btn-icon {
+.btn-icon:hover {
+.sidebar-footer {
+  .sidebar-footer {
+.btn-logout {
+.btn-logout:hover {
+  .sidebar-footer {
+
+=== JSX SALIR ===
+
+          <button className="btn-icon" onClick={() => { logout(); navigate('/login') }} title="Salir">
+            <button className="btn-logout" onClick={logout}>
+              <i className="bi bi-box-arrow-right" style={{ marginRight: "6px" }}></i>Salir
+

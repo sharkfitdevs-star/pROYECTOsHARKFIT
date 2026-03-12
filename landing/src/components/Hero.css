@@ -36,7 +36,7 @@
 /* Botón primario claro */
 .hero-btn {
   background: #fff;
-  color: #5a67d8;
+  color: #16304f;
   font-weight: 600;
   font-size: 17px;
   padding: 12px 32px;
@@ -46,16 +46,16 @@
   display: inline-block;
   text-decoration: none;
   transition: background 0.3s, color 0.3s, box-shadow 0.3s, transform 0.2s;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.10);
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.10);
   cursor: pointer;
 }
 
 .hero-btn:hover,
 .hero-btn:focus {
   background: #f8f9ff;
-  color: #4c51bf;
+  color: #0f2340;
   transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 5px 18px rgba(102, 126, 234, 0.18);
+  box-shadow: 0 5px 18px rgba(30, 58, 95, 0.18);
   text-decoration: none;
 }
 
@@ -96,7 +96,7 @@
   }
 }
 .hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3a5f 0%, #16304f 100%);
   color: white;
   padding: 120px 20px;
   min-height: calc(100vh - 70px);
@@ -142,7 +142,7 @@
 
 .hero-buttons .btn-primary {
   background: white;
-  color: #667eea;
+  color: #1e3a5f;
 }
 
 .hero-buttons .btn-primary:hover {
@@ -205,3 +205,7 @@
     width: 100%;
   }
 }
+
+
+
+

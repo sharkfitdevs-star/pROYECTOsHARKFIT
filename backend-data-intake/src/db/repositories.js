@@ -267,6 +267,7 @@ async function listImportHistory(limit = 50) {
   return rows.map(mapSyncLog);
 }
 
+async function syncToRepo(dataType,records){if(!dataType||!records||records.length===0)return{upserted:0,errors:0};let upserted=0,errors=0;for(const record of records){try{if(dataType==='ventas')await upsertVenta(record);else await upsertCliente(record);upserted++;}catch(e){errors++;}}return{upserted,errors};}
 module.exports = {
   findClienteByIdentifiers,
   findClienteByEmail,
@@ -283,5 +284,6 @@ module.exports = {
   listImportHistory,
   // re-export idempotency helpers from MongoModels (used by workers)
   checkWebhookIdempotency: require('../models/MongoModels').queries.checkWebhookIdempotency,
+  syncToRepo,
   markWebhookProcessed: require('../models/MongoModels').queries.markWebhookProcessed
 };

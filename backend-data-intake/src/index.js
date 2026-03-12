@@ -1,235 +1,146 @@
 /**
- * EXTRACTOR UNIVERSAL: MongoDB + APIs REST
- * 
- * Uso:
- *   npm run extract -- --config mongodb-main
- *   npm run extract -- --config api-shopify
- *   npm run extract-all (todos los archivos de config)
+ * EXTRACTOR UNIVERSAL
+ * Uso: npm run extract -- --config api-evo
  */
 
+require('dotenv').config();
+const { connectDB, disconnectDB } = require('./db/mongodb');
 const path = require('path');
-const fs = require('fs');
+const fs   = require('fs');
 const UniversalExtractor = require('./connectors/UniversalExtractor');
-const { logger } = require('./utils/logger');
-const { createSyncLog, updateSyncLog } = require('./db/repositories');
-const { v4: uuidv4 } = require('uuid');
+const { logger }         = require('./utils/logger');
+const { createSyncLog, updateSyncLog, syncToRepo } = require('./db/repositories');
+const { v4: uuidv4 }     = require('uuid');
 
-/**
- * Extrae datos y sincroniza a BD
- */
 async function extractAndSync(configName = 'mongodb-main') {
   const syncId = uuidv4();
-  
-  try {
-    // Cargar configuración
-    const configPath = path.join(__dirname, '../configs', `${configName}.json`);
-    
-    if (!fs.existsSync(configPath)) {
-      throw new Error(`Configuración no encontrada: ${configPath}`);
-    }
 
-    const configContent = fs.readFileSync(configPath, 'utf8');
-    
-    // Reemplazar variables de entorno
-    const config = JSON.parse(
-      configContent.replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] || '')
-    );
-
-    logger.info(`🚀 Iniciando extracción`, {
-      syncId,
-      config: config.id,
-      type: config.type,
-      engine: config.engine
-    });
-
-    // Crear extractor
-    const extractor = new UniversalExtractor(config);
-
-    // Crear log de sincronización
-    await createSyncLog({
-      syncId,
-      fuente: config.id,
-      estatus: 'Iniciado',
-      iniciado: new Date()
-    });
-
-    // Extraer cada endpoint
-    const results = {};
-    const startTime = Date.now();
-
-    for (const endpoint of config.endpoints) {
-      const endpointName = endpoint.path || endpoint.table;
-      
-      try {
-        const result = await extractor.extract(endpointName);
-        
-        results[endpointName] = {
-          success: result.success,
-          strategy: result.source,
-          records: result.data ? (Array.isArray(result.data) ? result.data.length : 1) : 0,
-          duration: result.duration
-        };
-
-        if (result.success) {
-          // ✅ Sincronizar a BD si es necesario
-          logger.info(`✅ Extracción exitosa`, {
-            syncId,
-            endpoint: endpointName,
-            records: results[endpointName].records
-          });
-
-          // TODO: Aquí iría el upsert a BD
-          // await syncToDB(endpointName, result.data, config);
-        } else {
-          // ❌ Falló
-          logger.error(`❌ Extracción falló`, {
-            syncId,
-            endpoint: endpointName,
-            error: result.error
-          });
-        }
-
-      } catch (error) {
-        logger.error(`Error extrayendo ${endpointName}:`, error);
-        results[endpointName] = {
-          success: false,
-          error: error.message
-        };
-      }
-    }
-
-    // Finalizar log
-    const duration = Date.now() - startTime;
-    
-    await updateSyncLog(syncId, {
-      estatus: 'Completado',
-      cambios: JSON.stringify(results),
-      finalizado: new Date(),
-      duracionMs: duration
-    });
-
-    // Mostrar resumen
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-    logger.info('✅ SINCRONIZACIÓN COMPLETADA');
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-
-    for (const [endpoint, result] of Object.entries(results)) {
-      if (result.success) {
-        logger.info(`✅ ${endpoint}`, { records: result.records, strategy: result.strategy, duration: result.duration });
-      } else {
-        logger.warn(`❌ ${endpoint}`, { error: result.error });
-      }
-    }
-
-    logger.info(`Tiempo total: ${duration}ms`);
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-
-    return { syncId, success: true, results, duration };
-
-  } catch (error) {
-    logger.error(`❌ Error fatal en extracción`, error);
-    
-    await updateSyncLog(syncId, {
-      estatus: 'Fallido',
-      errores: JSON.stringify([{ error: error.message }]),
-      finalizado: new Date()
-    });
-
-    throw error;
+  // ── Cargar y resolver config ────────────────────────────
+  const configPath = path.join(__dirname, '../configs', `${configName}.json`);
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`Config no encontrada: ${configPath}`);
   }
+
+  const raw = fs.readFileSync(configPath, 'utf8');
+  const config = JSON.parse(
+    raw.replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] || '')
+  );
+
+  logger.info(`🚀 Iniciando extracción`, { syncId, config: config.id, type: config.type });
+
+  await connectDB();
+  const extractor = new UniversalExtractor(config);
+
+  await createSyncLog({ syncId, fuente: config.id, estatus: 'Iniciado', iniciado: new Date() });
+
+  const results = {};
+  const errors  = [];
+  const startTime = Date.now();
+
+  for (const endpoint of (config.endpoints || [])) {
+    const epName = endpoint.path || endpoint.table || 'unknown';
+
+    try {
+      const result = await extractor.extract(epName);
+
+      results[epName] = {
+        success:  result.success,
+        records:  result.records,
+        dataType: result.dataType,
+        duration: result.duration,
+        error:    result.error || null,
+        data:     Array.isArray(result.data) ? result.data : []
+      };
+
+      if (result.success && result.dataType && result.data.length > 0) {
+        const syncResult = await syncToRepo(result.dataType, result.data);
+        results[epName].upserted = syncResult.upserted;
+      }
+
+    } catch (err) {
+      logger.error(`Error en endpoint ${epName}:`, err);
+      results[epName] = { success: false, error: err.message };
+      errors.push({ endpoint: epName, error: err.message });
+    }
+  }
+
+  const duration = Date.now() - startTime;
+
+  await updateSyncLog(syncId, {
+    estatus:    errors.length === 0 ? 'Completado' : 'Parcial',
+    cambios:    JSON.stringify(results),
+    finalizado: new Date(),
+    duracionMs: duration
+  });
+
+  // ── Resumen ─────────────────────────────────────────────
+  logger.info('─'.repeat(70));
+  logger.info('✅ EXTRACCIÓN COMPLETADA');
+  for (const [ep, r] of Object.entries(results)) {
+    if (r.success) {
+      logger.info(`  ✅ ${ep} → ${r.records} registros (${r.duration}ms)`);
+    } else {
+      logger.warn(`  ❌ ${ep} → ${r.error}`);
+    }
+  }
+  logger.info(`  ⏱  Total: ${duration}ms`);
+  logger.info('─'.repeat(70));
+
+  await disconnectDB();
+  return { syncId, success: true, apiId: config.id, results, errors, duration };
 }
 
-/**
- * Extrae de TODAS las configuraciones disponibles
- */
 async function extractAll() {
   const configDir = path.join(__dirname, '../configs');
-  const files = fs.readdirSync(configDir)
-    .filter(f => f.endsWith('.json') && !f.startsWith('.'));
-
-  logger.info(`📂 Encontradas ${files.length} configuraciones`);
-
+  const files = fs.readdirSync(configDir).filter(f => f.endsWith('.json') && !f.startsWith('.'));
   const allResults = {};
-
   for (const file of files) {
-    const configName = file.replace('.json', '');
-    
+    const name = file.replace('.json', '');
     try {
-      console.log(`\n🔄 Extrayendo: ${configName}\n`);
-      const result = await extractAndSync(configName);
-      allResults[configName] = result;
-    } catch (error) {
-      logger.error(`Fallo extrayendo ${configName}:`, error);
-      allResults[configName] = { success: false, error: error.message };
+      allResults[name] = await extractAndSync(name);
+    } catch (err) {
+      allResults[name] = { success: false, error: err.message };
     }
   }
-
   return allResults;
 }
 
-/**
- * Extrae solo configuraciones de APIs externas (api-*)
- */
 async function extractAllApis() {
   const configDir = path.join(__dirname, '../configs');
-  const files = fs.readdirSync(configDir)
-    .filter(f => f.startsWith('api-') && f.endsWith('.json'));
-
-  logger.info(`📂 Encontradas ${files.length} configuraciones de APIs externas`);
-
+  const files = fs.readdirSync(configDir).filter(f => f.startsWith('api-') && f.endsWith('.json'));
   const allResults = {};
-
   for (const file of files) {
-    const configName = file.replace('.json', '');
-
+    const name = file.replace('.json', '');
     try {
-      console.log(`\n🔄 Extrayendo: ${configName}\n`);
-      const result = await extractAndSync(configName);
-      allResults[configName] = result;
-    } catch (error) {
-      logger.error(`Fallo extrayendo ${configName}:`, error);
-      allResults[configName] = { success: false, error: error.message };
+      allResults[name] = await extractAndSync(name);
+    } catch (err) {
+      allResults[name] = { success: false, error: err.message };
     }
   }
-
   return allResults;
 }
 
-// ─────────────────────────────────────────
-// MAIN
-// ─────────────────────────────────────────
-
 async function main() {
-  const command = process.argv[2];
-  const configName = process.argv[4] || 'mongodb-main';
-
+  const command    = process.argv[2];
+  const configName = process.argv[3] || process.argv[4] || 'mongodb-main';
   try {
     if (command === '--config' || !command) {
       const result = await extractAndSync(configName);
       process.exit(result.success ? 0 : 1);
     } else if (command === '--all') {
-      const results = await extractAll();
-      const allSuccess = Object.values(results).every(r => r.success);
-      process.exit(allSuccess ? 0 : 1);
+      await extractAll();
+      process.exit(0);
     } else {
-      console.error(`Comando desconocido: ${command}`);
-      console.log(`Uso: npm run extract -- --config mongodb-main`);
-      console.log(`     npm run extract -- --all`);
+      console.error(`Uso: npm run extract -- --config api-evo`);
       process.exit(1);
     }
-  } catch (error) {
-    logger.error('❌ Error fatal:', error);
+  } catch (err) {
+    logger.error('❌ Error fatal:', err);
     process.exit(1);
   }
 }
 
-// Ejecutar si se corre directamente
-if (require.main === module) {
-  main();
-}
+if (require.main === module) main();
 
-module.exports = {
-  extractAndSync,
-  extractAll,
-  extractAllApis
-};
+module.exports = { extractAndSync, extractAll, extractAllApis };
+

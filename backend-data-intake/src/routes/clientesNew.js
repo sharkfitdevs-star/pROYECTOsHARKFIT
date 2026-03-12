@@ -15,7 +15,7 @@ router.get('/', requireAuth, async (req, res) => {
   if (!mongoose.connection || mongoose.connection.readyState !== 1) {
     return res.status(503).json({ ok: false, error: 'DB_UNAVAILABLE' });
   }
-  const { page = 1, limit = 10, status, active, search, idBranch } = req.query;
+  const { page = 1, limit = 10, status, active, search, idBranch, estado, branchName, planName } = req.query;
   let importsConnected = true;
   try {
     const sett = await Setting.findOne({ key: 'imports_connected' }).lean();
@@ -58,8 +58,11 @@ router.get('/', requireAuth, async (req, res) => {
     // build base query
     const query = {};
     if (status) query.status = status;
+    if (estado) query.status = estado;
     if (active !== undefined) query.active = active === 'true';
     if (idBranch) query.idBranch = idBranch;
+    if (branchName) query.branchName = branchName;
+    if (planName) query.planName = planName;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -299,6 +302,25 @@ router.get('/stats/resumen', async (req, res) => {
 router.get('/whoami', requireAuth, (req, res) => {
   const { id, role } = req.user || {};
   res.json({ ok: true, sub: id, role });
+});
+
+router.patch('/:id/estado', requireAuth, async (req, res) => {
+  try {
+    const { estado } = req.body;
+    if (!['activo', 'inactivo', 'por_vencer'].includes(estado)) {
+      return res.status(400).json({ ok: false, error: 'Estado inválido' });
+    }
+    const Cliente = require('../models/Cliente');
+    const cliente = await Cliente.findByIdAndUpdate(
+      req.params.id,
+      { estado },
+      { new: true }
+    );
+    if (!cliente) return res.status(404).json({ ok: false, error: 'Cliente no encontrado' });
+    return res.json({ ok: true, cliente });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 module.exports = router;

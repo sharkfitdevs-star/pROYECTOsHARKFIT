@@ -124,6 +124,7 @@ if (process.env.NODE_ENV === 'production') {
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuariosNew');
 const clientesRoutes = require('./routes/clientesRoutes');
+const clientesNew = require('./routes/clientesNew');
 const ventasRoutes = require('./routes/ventasNew');
 
 const agendamientosRoutes = require('./routes/agendamientosNew');
@@ -140,6 +141,7 @@ const auditLogRoutes = require('./routes/auditLog');
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/clientes', clientesRoutes);
+app.use('/api/clientes', clientesNew);
 app.use('/api/ventas', ventasRoutes);
 app.use('/api/agendamientos', agendamientosRoutes);
 app.use('/api/alertas', alertasRoutes);
@@ -151,6 +153,8 @@ app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/evo', evoRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/audit-log', auditLogRoutes);
+const setupRoutes = require('./routes/apiSetup');
+app.use('/api/setup', setupRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
@@ -298,3 +302,4 @@ process.on('SIGINT', () => {
 });
 
 module.exports = app;
+

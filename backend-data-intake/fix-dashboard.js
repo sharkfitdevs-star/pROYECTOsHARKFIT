@@ -1,0 +1,1 @@
+const fs = require("fs"); const file = "src/routes/dashboard.js"; const content = fs.readFileSync(file, "utf8"); const lines = content.split("\n"); console.log("L127:", lines[126]); console.log("L128:", lines[127]); console.log("L129:", lines[128]);

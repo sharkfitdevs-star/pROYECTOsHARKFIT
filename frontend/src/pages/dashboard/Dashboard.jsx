@@ -9,15 +9,25 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [overview, setOverview] = useState(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardOverview()
+      .then(data => setOverview(data))
+      .catch(err => console.error('Overview error:', err))
+      .finally(() => setLoadingOverview(false));
+  }, []);
+
+  const fmt$ = (n) => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—';
+  const fmtPct = (n) => n != null ? `${n > 0 ? '+' : ''}${n}%` : null;
 
   const sections = {
     overview: {
       title: '📊 Dashboard',
       content: () => (
-          {/* ── Overview KPI Cards ────────────────────────────── */}
+        <>
           <div className="overview-cards">
-
-            {/* Tarjeta 1: Ventas Este Mes */}
             <div className="overview-card">
               <span className="overview-card-title">Ventas Este Mes</span>
               {loadingOverview ? (
@@ -36,7 +46,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Tarjeta 2: Clientes Activos */}
             <div className="overview-card">
               <span className="overview-card-title">Clientes Activos</span>
               {loadingOverview ? (
@@ -55,7 +64,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Tarjeta 3: Tareas Pendientes */}
             <div className="overview-card">
               <span className="overview-card-title">Tareas Pendientes</span>
               {loadingOverview ? (
@@ -74,7 +82,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Tarjeta 4: Tasa de Conversión */}
             <div className="overview-card">
               <span className="overview-card-title">Tasa de Conversión</span>
               {loadingOverview ? (
@@ -92,9 +99,9 @@ export default function Dashboard() {
                 </>
               )}
             </div>
-
           </div>
-      )
+        </>
+      ),
     },
     clients: {
       title: '👥 Clientes',
@@ -130,20 +137,6 @@ export default function Dashboard() {
   }
 
   const currentSection = sections[activeSection]
-
-  const [overview, setOverview] = useState(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
-
-  useEffect(() => {
-    fetchDashboardOverview()
-      .then(data => setOverview(data))
-      .catch(err => console.error('Overview error:', err))
-      .finally(() => setLoadingOverview(false));
-  }, []);
-
-  // Helpers para formatear
-  const fmt$ = (n) => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—';
-  const fmtPct = (n) => n != null ? `${n > 0 ? '+' : ''}${n}%` : null;
 
   return (
     <div className="dashboard-container">
@@ -196,22 +189,16 @@ export default function Dashboard() {
             >
               🚨 Alertas
             </button>
-
-            {/* Línea separadora */}
-            <div style={{ height: '1px', background: '#93509e', margin: '15px 0', opacity: 0.5 }}></div>
-
-            {/* Sección de administración */}
+            <div style={{ height: '1px', background: 'rgba(59,130,246,0.3)', margin: '15px 0' }}></div>
             <button
               className={`nav-item ${activeSection === 'exportar' ? 'active' : ''}`}
               onClick={() => setActiveSection('exportar')}
-              title="Exportar datos en múltiples formatos e integración con APIs"
             >
               📥 Exportar datos
             </button>
             <button
-              className={`nav-item`}
+              className="nav-item"
               onClick={() => navigate('/admin')}
-              title="Panel de administración"
             >
               ⚙️ Admin
             </button>
@@ -228,7 +215,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="version">v2.0.0</p>
-            <button className="btn-logout" onClick={logout} title="Cerrar sesión">
+            <button className="btn-logout" onClick={logout}>
               🚪 Salir
             </button>
           </div>

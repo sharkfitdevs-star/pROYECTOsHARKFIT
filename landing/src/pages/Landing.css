@@ -41,7 +41,7 @@
 /* Hero */
 .landing-hero {
   height: 100vh;
-  background: linear-gradient(135deg, #5b2f80 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0f2340 0%, #16304f 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -142,3 +142,7 @@
   margin-bottom: 1rem;
   display: inline-block;
 }
+
+
+
+

@@ -212,85 +212,204 @@ router.post('/excel/commit', requireAuth, uploadHandler, async (req, res) => {
   }
 });
 
-// existing /excel route (queueing)
-router.post('/excel', requireAuth, uploadHandler, async (req, res) => {
-  // each import attempt gets its own syncId/runId
-  const syncId = uuidv4();
-  try {
-    if (!req.file) {
-      await createSyncLog({ syncId, fuente: 'Excel', estatus: 'Fallido', errorMessage: 'No se recibió archivo' });
-      return res.status(400).json({ exito: false, error: 'No se recibió archivo', details: { syncId } });
+// helper model import required for duplicate detection
+const Cliente = require('../models/Cliente');
+
+// new endpoint: check duplicates for a just-processed import
+router.post('/check-duplicates', requireAuth, async (req, res) => {
+  const importId = req.body.importId || req.body.syncId;
+  if (!importId) {
+    return res.status(400).json({ ok: false, error: 'MISSING_IMPORT_ID' });
+  }
+
+  const registros = ImportService.getCachedImport
+    ? ImportService.getCachedImport(importId)
+    : null;
+
+  if (!registros) {
+    return res.status(404).json({ ok: false, error: 'IMPORT_DATA_NOT_FOUND' });
+  }
+
+  const grupos = { idMember: [], rut: [], cpf: [] };
+  let sinDuplicados = 0;
+
+  for (let i = 0; i < registros.length; i++) {
+    const row = registros[i] || {};
+    const idMember = row.idMember || row.idmember || row.id_member || null;
+    const rut = row.rut || row.cpf || null;
+    const cpf = row.cpf || row.rut || null;
+
+    let cliente = null;
+    let tipo = null;
+
+    if (idMember) {
+      cliente = await Cliente.findOne({ idMember }).lean();
+      if (cliente) tipo = 'idMember';
+    }
+    if (!cliente && rut) {
+      cliente = await Cliente.findOne({ cpf: rut }).lean();
+      if (cliente) tipo = 'rut';
+    }
+    if (!cliente && cpf) {
+      cliente = await Cliente.findOne({ cpf }).lean();
+      if (cliente) tipo = 'cpf';
     }
 
-    const { mapeo, entidad = 'clientes' } = req.body;
+    if (cliente) {
+      const camposDiferentes = [];
+      ['name','email','cellPhone','planName','branchName'].forEach(f => {
+        const valBD = cliente[f] ?? null;
+        const valExcel = row[f] ?? null;
+        if ((valBD || '') !== (valExcel || '')) {
+          camposDiferentes.push({ campo: f, valorBD: valBD, valorExcel: valExcel });
+        }
+      });
 
-    // validar entidad
-    const validEntidades = ['clientes', 'ventas', 'leads'];
-    if (!validEntidades.includes(entidad)) {
-      await createSyncLog({ syncId, fuente: 'Excel', estatus: 'Fallido', errorMessage: 'Entidad inválida' });
-      return res.status(400).json({ exito: false, error: 'Entidad inválida', details: { syncId } });
+      grupos[tipo].push({
+        rowIndex: i + 1,
+        identificador: tipo === 'idMember' ? idMember : (tipo === 'rut' ? rut : cpf),
+        clienteIdBD: cliente._id,
+        nombreBD: cliente.name || null,
+        nombreExcel: row.name || null,
+        camposDiferentes
+      });
+    } else {
+      sinDuplicados++;
     }
+  }
 
-    // Parsear mapeo si es string JSON
-    let mapeoObj;
-    try {
-      mapeoObj = typeof mapeo === 'string' ? JSON.parse(mapeo) : mapeo;
-    } catch (err) {
-      await createSyncLog({ syncId, fuente: 'Excel', estatus: 'Fallido', errorMessage: 'Mapeo JSON inválido' });
-      return res.status(400).json({ exito: false, error: 'Mapeo JSON inválido', details: { syncId } });
-    }
+  const gruposArray = Object.entries(grupos)
+    .filter(([_, arr]) => arr.length > 0)
+    .map(([tipo, arr]) => ({ tipo, cantidad: arr.length, registros: arr }));
 
-    // si no se proporcionó mapeo y la entidad es clientes, usamos un preset seguro
-    if (entidad === 'clientes' && (!mapeoObj || Object.keys(mapeoObj).length === 0)) {
-      mapeoObj = {
-        "ID Miembro": "idMember",
-        "Nombre": "name",
-        "Apellido": "lastName",
-        "Teléfono": "cellPhone",
-        "Email": "email"
-      };
-    }
+  // NOTE: leave cache in place until resolve-and-commit is invoked
+  // (frontend should call commit after user makes decisions)
 
-    if (INLINE_MODE) {
-      try {
-        const result = await ImportService.processExcelFile(req.file, mapeoObj, entidad, syncId);
-        logger.info('Import inline completado', { tipo: 'excel', entidad, archivo: req.file.originalname, syncId, resultado: result });
-        return res.json({
-          exito: true,
-          inline: true,
-          resultado: result,
-          syncId,
-          timestamp: new Date().toISOString()
-        });
-      } catch (err) {
-        logger.error('Error importando Excel (inline):', err, { syncId });
-        await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: err.message, errorStack: err.stack });
-        return res.status(500).json({ exito: false, error: err.message, details: { syncId } });
+  return res.json({
+    importId,
+    totalDuplicados: gruposArray.reduce((a, g) => a + g.cantidad, 0),
+    grupos: gruposArray,
+    sinDuplicados
+  });
+});
+
+// new endpoint: apply user decisions and finish import
+router.post('/resolve-and-commit', requireAuth, async (req, res) => {
+  const { importId, accionGlobal, decisiones } = req.body;
+  if (!importId) {
+    return res.status(400).json({ ok: false, error: 'MISSING_IMPORT_ID' });
+  }
+
+  const registros = ImportService.getCachedImport
+    ? ImportService.getCachedImport(importId)
+    : null;
+  if (!registros) {
+    return res.status(404).json({ ok: false, error: 'IMPORT_DATA_NOT_FOUND' });
+  }
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const totalProcesados = registros.length;
+
+  // build lookup for individual decisions by rowIndex
+  const decisionMap = new Map();
+  if (Array.isArray(decisiones)) {
+    decisiones.forEach(d => {
+      if (d && typeof d.rowIndex === 'number') {
+        decisionMap.set(d.rowIndex, d);
       }
-    }
-
-    // create initial log entry even before worker picks it up
-    await createSyncLog({ syncId, fuente: 'Excel', entidad, estatus: 'Procesando', fileMeta: { originalName: req.file.originalname } });
-    const job = await queueImportTask('excel', { path: req.file.path, originalname: req.file.originalname }, mapeoObj, entidad, { syncId });
-    logger.info('Import job encolado', { tipo: 'excel', entidad, archivo: req.file.originalname, jobId: job?.id, syncId });
-
-    res.json({
-      exito: true,
-      queued: true,
-      jobId: job?.id || null,
-      syncId,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Error importando Excel:', error, { syncId });
-    await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: error.message, errorStack: error.stack });
-    res.status(500).json({
-      exito: false,
-      error: error.message,
-      details: { syncId }
     });
   }
+
+  for (let i = 0; i < registros.length; i++) {
+    const row = registros[i] || {};
+    const rowIndex = i + 1;
+
+    // first, detect if this row matches an existing cliente
+    let cliente = null;
+    const idMember = row.idMember || row.idmember || row.id_member || null;
+    const rut = row.rut || row.cpf || null;
+    const cpf = row.cpf || row.rut || null;
+
+    if (idMember) {
+      cliente = await Cliente.findOne({ idMember }).lean();
+    }
+    if (!cliente && rut) {
+      cliente = await Cliente.findOne({ cpf: rut }).lean();
+    }
+    if (!cliente && cpf) {
+      cliente = await Cliente.findOne({ cpf }).lean();
+    }
+
+    // apply global ignore all logic
+    if (accionGlobal === 'ignorar_todos' && cliente) {
+      skippedCount++;
+      continue;
+    }
+
+    // handle per-row decision
+    const dec = decisionMap.get(rowIndex);
+    if (dec) {
+      if (dec.accion === 'ignorar') {
+        skippedCount++;
+        continue;
+      }
+      if (dec.accion === 'actualizar' && cliente) {
+        try {
+          await Cliente.findByIdAndUpdate(dec.clienteIdBD, row, { new: true });
+          updatedCount++;
+        } catch (err) {
+          skippedCount++;
+        }
+        continue;
+      }
+      // if there's a decision but no cliente or unrecognized action, fall through
+    }
+
+    // no decision or not duplicate: if there is an existing cliente and no dec, skip it
+    if (cliente) {
+      skippedCount++;
+      continue;
+    }
+
+    // otherwise insert new document
+    try {
+      await Cliente.create(row);
+      insertedCount++;
+    } catch (err) {
+      skippedCount++;
+    }
+  }
+
+  // cleanup cache
+  if (ImportService.deleteCachedImport) {
+    ImportService.deleteCachedImport(importId);
+  }
+
+  // compute status for sync log
+  let estatus = 'Exitoso';
+  if (skippedCount > 0 && (insertedCount > 0 || updatedCount > 0)) estatus = 'Parcial';
+  else if (skippedCount > 0 && insertedCount === 0 && updatedCount === 0) estatus = 'Fallido';
+
+  await updateSyncLog(importId, {
+    estatus,
+    insertedCount,
+    updatedCount,
+    skippedCount,
+    registosProcesados: totalProcesados
+  });
+
+  return res.json({
+    ok: true,
+    insertedCount,
+    updatedCount,
+    skippedCount,
+    totalProcesados,
+    warnings: []
+  });
 });
+
 
 /**
  * POST /api/import/csv
@@ -411,6 +530,9 @@ router.post('/csv', requireAuth, uploadHandler, async (req, res) => {
       return res.status(400).json({ exito: false, error: 'No se recibió archivo', details: { syncId } });
     }
 
+    // ✅ FIX: faltaba desestructurar estas variables del req.body
+    const { mapeo, entidad = 'clientes', delimitador = ',' } = req.body;
+
     const validEntidades = ['clientes', 'ventas', 'leads'];
     if (!validEntidades.includes(entidad)) {
       await createSyncLog({ syncId, fuente: 'CSV', estatus: 'Fallido', errorMessage: 'Entidad inválida' });
@@ -425,14 +547,13 @@ router.post('/csv', requireAuth, uploadHandler, async (req, res) => {
       return res.status(400).json({ exito: false, error: 'Mapeo JSON inválido', details: { syncId } });
     }
 
-    // apply default client mapping when missing
     if (entidad === 'clientes' && (!mapeoObj || Object.keys(mapeoObj).length === 0)) {
       mapeoObj = {
         "ID Miembro": "idMember",
-        "Nombre": "name",
-        "Apellido": "lastName",
-        "Teléfono": "cellPhone",
-        "Email": "email"
+        "Nombre":     "name",
+        "Apellido":   "lastName",
+        "Teléfono":   "cellPhone",
+        "Email":      "email"
       };
     }
 

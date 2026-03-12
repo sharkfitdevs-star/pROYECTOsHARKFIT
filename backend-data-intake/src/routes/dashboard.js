@@ -219,4 +219,126 @@ router.get('/prospectos', async (req, res) => {
   }
 });
 
+
+// ── /api/dashboard/historico ────────────────────────────────────────────────
+// Devuelve datos históricos reales agrupados por mes para los gráficos.
+// Query param: meses = 6 | 12 | 18 | 24 | 999 (todos)
+// Respuesta:
+//   { success, data: { ventas:[{mes,planes,servicios,total}], clientes:[{mes,activos,nuevos}] } }
+router.get('/historico', async (req, res) => {
+  try {
+    const Venta   = require('../models/Venta');
+    const Cliente = require('../models/Cliente');
+
+    const meses   = parseInt(req.query.meses) || 6;
+    const ahora   = new Date();
+    const inicio  = new Date(ahora.getFullYear(), ahora.getMonth() - (meses - 1), 1);
+
+    // ── Ventas agrupadas por mes ──────────────────────────────────────────
+    const ventasHist = await Venta.aggregate([
+      { $match: { saleDate: { $gte: inicio } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$saleDate' } },
+          total:     { $sum: '$totalAmount' },
+          planes:    {
+            $sum: {
+              $cond: [
+                { $in: ['$saleType', ['Plan', 'Membresia', 'Membresía', 'Promesa de compra', 'Venta Online', 'Venta online']] },
+                '$totalAmount', 0
+              ]
+            }
+          },
+          servicios: {
+            $sum: {
+              $cond: [
+                { $not: { $in: ['$saleType', ['Plan', 'Membresia', 'Membresía', 'Promesa de compra', 'Venta Online', 'Venta online']] } },
+                '$totalAmount', 0
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── Clientes nuevos agrupados por mes ─────────────────────────────────
+    const clientesNuevosHist = await Cliente.aggregate([
+      { $match: { createdAt: { $gte: inicio } } },
+      {
+        $group: {
+          _id:    { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          nuevos: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── Clientes activos snapshot por mes ─────────────────────────────────
+    // Para cada mes calculamos cuántos clientes existían activos al final de ese mes
+    const clientesActivosHist = await Cliente.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          acumulado: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── Construir lista de meses del período ─────────────────────────────
+    const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const mesesLista = [];
+    for (let i = 0; i < meses; i++) {
+      const d   = new Date(ahora.getFullYear(), ahora.getMonth() - (meses - 1) + i, 1);
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      mesesLista.push({ key, label: MESES_ES[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2) });
+    }
+
+    // ── Indexar resultados ───────────────────────────────────────────────
+    const ventasMap   = {};
+    ventasHist.forEach(v => { ventasMap[v._id] = v; });
+
+    const nuevosMap   = {};
+    clientesNuevosHist.forEach(c => { nuevosMap[c._id] = c.nuevos; });
+
+    // Acumulado de activos: suma progresiva
+    let acumulado = 0;
+    const activosMap = {};
+    // Primero contar todos los que existían ANTES del período
+    const clientesAnteriores = await Cliente.countDocuments({ createdAt: { $lt: inicio } });
+    acumulado = clientesAnteriores;
+    clientesActivosHist.forEach(c => {
+      if (c._id >= mesesLista[0]?.key) {
+        acumulado += c.acumulado;
+        activosMap[c._id] = acumulado;
+      }
+    });
+
+    // ── Construir arrays finales ─────────────────────────────────────────
+    let acum = clientesAnteriores;
+    const ventasFinal   = mesesLista.map(({ key, label }) => ({
+      mes:       label,
+      total:     ventasMap[key]?.total     || 0,
+      planes:    ventasMap[key]?.planes    || 0,
+      servicios: ventasMap[key]?.servicios || 0,
+    }));
+
+    const clientesFinal = mesesLista.map(({ key, label }) => {
+      const nuevos = nuevosMap[key] || 0;
+      acum += nuevos;
+      return { mes: label, activos: acum, nuevos };
+    });
+
+    res.json({
+      success: true,
+      data: { ventas: ventasFinal, clientes: clientesFinal }
+    });
+
+  } catch (error) {
+    require('../utils/logger').logger.error('Error en /api/dashboard/historico', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 module.exports = router;
+

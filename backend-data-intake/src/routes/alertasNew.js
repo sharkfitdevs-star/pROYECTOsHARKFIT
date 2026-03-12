@@ -17,10 +17,15 @@ const { calcularYGenerarAlertas } = require('../services/kpiAlertasService');
 router.get('/', async (req, res) => {
   try {
     const {
-      page = 1, limit = 50,
+      page = 1,
+      limit: rawLimit = 50,
       status, type, priority, idBranch,
       search,
     } = req.query;
+
+    let limitNum = parseInt(rawLimit, 10);
+    if (!Number.isFinite(limitNum) || limitNum <= 0) limitNum = 50;
+    if (limitNum > 1000) limitNum = 1000;
 
     const filtro = {};
     if (status)   filtro.status   = status;
@@ -35,19 +40,20 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const skip  = (Number(page) - 1) * Number(limit);
-    const total = await Alerta.countDocuments(filtro);
-    const data  = await Alerta.find(filtro)
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const skip    = (pageNum - 1) * limitNum;
+    const total   = await Alerta.countDocuments(filtro);
+    const data    = await Alerta.find(filtro)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(Number(limit));
+      .limit(limitNum);
 
     res.json({
       success: true,
       data,
       total,
-      page:  Number(page),
-      pages: Math.ceil(total / Number(limit)),
+      page:  pageNum,
+      pages: Math.ceil(total / limitNum),
     });
   } catch (err) {
     res.status(500).json({ error: true, message: err.message });

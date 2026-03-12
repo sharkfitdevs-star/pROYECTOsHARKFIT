@@ -14,6 +14,17 @@ const DEFAULT_SETTINGS = {
   updatedAt: null,
 };
 
+// wait until DB reports ok, polling every intervalMs up to maxMs
+async function waitForDb(maxMs = 3000, intervalMs = 300) {
+  const { getDbStatus } = require('../db/db');
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    if (getDbStatus().ok) return true;
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  return false;
+}
+
 async function handleGetImports(req, res) {
   // add anti-cache headers so clients always get fresh JSON
   res.set('Cache-Control', 'no-store');
@@ -31,8 +42,14 @@ async function handleGetImports(req, res) {
   });
 
   try {
-    // basic DB availability guard
-    const { ok } = require('../db/db').getDbStatus();
+    // basic DB availability guard: wait a short time before giving up
+    let { ok } = require('../db/db').getDbStatus();
+    if (!ok) {
+      const connected = await waitForDb();
+      if (connected) {
+        ok = true;
+      }
+    }
     if (!ok) {
       return res.status(503).json({
         ok: false,
