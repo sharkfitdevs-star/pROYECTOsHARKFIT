@@ -9,29 +9,57 @@ const path = require('path');
 const fs   = require('fs');
 const UniversalExtractor = require('./connectors/UniversalExtractor');
 const { logger }         = require('./utils/logger');
-const { createSyncLog, updateSyncLog, syncToRepo } = require('./db/repositories');
+const { createSyncLog, updateSyncLog, syncToRepo, getLastSuccessfulSyncBySource } = require('./db/repositories');
 const { v4: uuidv4 }     = require('uuid');
+const { RateLimiter }    = require('./services/RateLimiter');
 
-async function extractAndSync(configName = 'mongodb-main') {
+function resolveConfigEnv(config) {
+  if (!config || typeof config !== 'object') return config;
+  return JSON.parse(
+    JSON.stringify(config).replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] || '')
+  );
+}
+
+async function _runExtraction(config) {
   const syncId = uuidv4();
 
-  // ── Cargar y resolver config ────────────────────────────
-  const configPath = path.join(__dirname, '../configs', `${configName}.json`);
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Config no encontrada: ${configPath}`);
-  }
-
-  const raw = fs.readFileSync(configPath, 'utf8');
-  const config = JSON.parse(
-    raw.replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] || '')
-  );
+  // Derive a clean API name for rate limiting (e.g. "api-evo" -> "EVO")
+  const apiName = ((config.id || config.name || 'default')
+    .replace(/^api-/i, '')
+    .toUpperCase());
+  const limiter = new RateLimiter(apiName);
+  config.rateLimiter = limiter;
+  config.apiName = config.apiName || apiName;
 
   logger.info(`🚀 Iniciando extracción`, { syncId, config: config.id, type: config.type });
 
   await connectDB();
+
+  // ── Incremental sync: resolve lastSyncAt ─────────────────
+  let lastSyncAt = null;
+  try {
+    const lastSync = await getLastSuccessfulSyncBySource(config.id);
+    if (lastSync?.finalizado) {
+      lastSyncAt = new Date(lastSync.finalizado);
+      logger.info(`🔄 Sync incremental desde: ${lastSyncAt.toISOString()}`, { config: config.id });
+    } else {
+      logger.info(`🆕 Sync completo (primera vez)`, { config: config.id });
+    }
+  } catch (err) {
+    logger.warn(`No se pudo obtener lastSyncAt, se hará sync completo`, { err: err.message });
+  }
+
+  // Inject date filter into each endpoint that supports it
+  if (lastSyncAt) {
+    const fromIso = lastSyncAt.toISOString();
+    for (const ep of (config.endpoints || [])) {
+      ep.params = Object.assign({}, ep.params, { from: fromIso });
+    }
+  }
+
   const extractor = new UniversalExtractor(config);
 
-  await createSyncLog({ syncId, fuente: config.id, estatus: 'Iniciado', iniciado: new Date() });
+  await createSyncLog({ syncId, fuente: config.id, estatus: 'Iniciado', iniciado: new Date(), userId: config.userId || null });
 
   const results = {};
   const errors  = [];
@@ -66,12 +94,37 @@ async function extractAndSync(configName = 'mongodb-main') {
 
   const duration = Date.now() - startTime;
 
+  // 'Exitoso' is required so getLastSuccessfulSyncBySource can find this record next run
   await updateSyncLog(syncId, {
-    estatus:    errors.length === 0 ? 'Completado' : 'Parcial',
+    estatus:    errors.length === 0 ? 'Exitoso' : 'Parcial',
     cambios:    JSON.stringify(results),
     finalizado: new Date(),
     duracionMs: duration
   });
+
+  // ── Update ApiIntegration.lastSyncAt (best effort) ───────
+  if (errors.length === 0) {
+    try {
+      const ApiIntegration = require('./models/ApiIntegration');
+      await ApiIntegration.updateOne(
+        { $or: [{ tenantId: config.id }, { name: config.id }] },
+        { $set: { lastSyncAt: new Date() } }
+      );
+    } catch (_) { /* best effort — model may not exist in all environments */ }
+  }
+
+  // ── Rate limit stats ────────────────────────────────────
+  try {
+    logger.info('Rate limit stats', await limiter.getStats());
+
+    if (apiName === 'EVO') {
+      const monthly = await limiter.getMonthlyUsage();
+      logger.info('📊 EVO API usage', monthly);
+      if (monthly.percentUsed > 80) {
+        logger.warn(`⚠️ EVO API: ${monthly.percentUsed}% del límite mensual consumido`);
+      }
+    }
+  } catch (_) { /* MongoDB may not be available in all test environments */ }
 
   // ── Resumen ─────────────────────────────────────────────
   logger.info('─'.repeat(70));
@@ -88,6 +141,23 @@ async function extractAndSync(configName = 'mongodb-main') {
 
   await disconnectDB();
   return { syncId, success: true, apiId: config.id, results, errors, duration };
+}
+
+async function extractAndSync(configName = 'mongodb-main') {
+
+  // ── Cargar y resolver config ────────────────────────────
+  const configPath = path.join(__dirname, '../configs', `${configName}.json`);
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`Config no encontrada: ${configPath}`);
+  }
+
+  const raw = fs.readFileSync(configPath, 'utf8');
+  const config = JSON.parse(raw);
+  return _runExtraction(resolveConfigEnv(config));
+}
+
+async function extractAndSyncWithConfig(config) {
+  return _runExtraction(resolveConfigEnv(config));
 }
 
 async function extractAll() {
@@ -142,5 +212,5 @@ async function main() {
 
 if (require.main === module) main();
 
-module.exports = { extractAndSync, extractAll, extractAllApis };
+module.exports = { extractAndSync, extractAndSyncWithConfig, extractAll, extractAllApis };
 

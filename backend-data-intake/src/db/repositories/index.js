@@ -56,10 +56,16 @@ async function updateSyncLog(syncId, data) {
   }
 }
 
-async function listImportHistory(limit = 50) {
+async function listImportHistory({ source, status, limit = 50 } = {}) {
   try {
     if (mongoose.connection.readyState !== 1) return [];
-    return await SyncLog.find().sort({ createdAt: -1 }).limit(limit).lean();
+    const filtro = {};
+    if (source) filtro.source = source;
+    if (status) filtro.status = status;
+    return await SyncLog.find(filtro)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(parseInt(limit) || 50, 100))
+      .lean();
   } catch (err) {
     logger.warn(`listImportHistory error: ${err.message}`);
     return [];

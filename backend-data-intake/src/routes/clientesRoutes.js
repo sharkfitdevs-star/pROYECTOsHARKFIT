@@ -31,14 +31,21 @@ router.get("/", requireAuth, async (req, res) => {
       logger?.warn('failed to read imports_connected flag, assuming true', { err: e });
     }
 
-    // build query parameters (pagination + search)
-    const { limit, skip, q } = req.query;
+    // build query parameters (pagination + search + filters)
+    const { limit, skip, q, source, status: clientStatus, dateFrom, dateTo } = req.query;
     const numLimit = Math.min(Math.max(parseInt(limit) || 200, 1), 1000);
     const numSkip = Math.max(parseInt(skip) || 0, 0);
     const filter = {};
     if (q && typeof q === 'string' && q.trim()) {
       const regex = new RegExp(q.trim(), 'i');
       filter.$or = [{ name: regex }, { email: regex }];
+    }
+    if (source) filter.source = source;
+    if (clientStatus) filter.status = clientStatus;
+    if (dateFrom || dateTo) {
+      filter.registrationDate = {};
+      if (dateFrom) filter.registrationDate.$gte = new Date(dateFrom);
+      if (dateTo)   filter.registrationDate.$lte = new Date(dateTo);
     }
 
     let lista = [];

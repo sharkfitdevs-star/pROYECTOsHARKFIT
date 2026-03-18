@@ -36,13 +36,7 @@ if (!HealthCheck) {
 
 const HEALTH_CHECKS = {
   EVO: {
-    url: `${process.env.EVO_BASE_URL || 'https://evo-integracao.w12app.com.br'}/api/health`,
-    auth: {
-      username: process.env.EVO_DNS,
-      password: process.env.EVO_TOKEN
-    },
-    timeout: 5000,
-    interval: 60000 // Cada 1 minuto
+    enabled: false, // EVO no tiene endpoint /api/health — deshabilitar para no consumir requests ni llenar logs
   },
   W12: {
     url: `${process.env.W12_BASE_URL || 'https://sharkfitchile.w12app.com.br'}/api/health`,
@@ -54,7 +48,9 @@ const HEALTH_CHECKS = {
     interval: 60000
   },
   DJANGO: {
-    url: `${process.env.DJANGO_BASE_URL || 'http://localhost:8000'}/health/`,
+    url: process.env.DJANGO_BASE_URL
+      ? `${process.env.DJANGO_BASE_URL}/health/`
+      : null,
     timeout: 5000,
     interval: 30000 // Cada 30 segundos
   },
@@ -80,6 +76,15 @@ class HealthCheckService {
     this._lastErrorLog = new Map();
   }
 
+  async executeCheck(name, check, fn) {
+    if (!check.enabled) {
+      logger.info(`⏭️ [HEALTH] ${name} deshabilitado, se omite health check`);
+      return;
+    }
+
+    return fn();
+  }
+
   /**
    * Verificar estado de EVO
    */
@@ -90,11 +95,11 @@ class HealthCheckService {
     // skip if configuration incomplete
     if (!config.url || !config.auth?.username || !config.auth?.password) {
       if (!this._skippedReported.has('EVO')) {
-        logger.warn('⚠️ [HEALTH] EVO check skipped due to missing configuration');
+        logger.info('⏭️ [HEALTH] EVO no configurado, se omite health check');
         this._skippedReported.add('EVO');
       }
-      await this.recordHealth('EVO', 'skipped', 0, 'Falta configuración');
-      return { estado: 'skipped' };
+      await this.recordHealth('EVO', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
     }
 
     try {
@@ -130,11 +135,11 @@ class HealthCheckService {
 
     if (!config.url || !config.auth?.username || !config.auth?.password) {
       if (!this._skippedReported.has('W12')) {
-        logger.warn('⚠️ [HEALTH] W12 check skipped due to missing configuration');
+        logger.info('⏭️ [HEALTH] W12 no configurado, se omite health check');
         this._skippedReported.add('W12');
       }
-      await this.recordHealth('W12', 'skipped', 0, 'Falta configuración');
-      return { estado: 'skipped' };
+      await this.recordHealth('W12', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
     }
 
     try {
@@ -170,11 +175,11 @@ class HealthCheckService {
 
     if (!config.url) {
       if (!this._skippedReported.has('DJANGO')) {
-        logger.warn('⚠️ [HEALTH] Django check skipped due to missing configuration');
+        logger.info('⏭️ [HEALTH] Django no configurado, se omite health check');
         this._skippedReported.add('DJANGO');
       }
-      await this.recordHealth('DJANGO', 'skipped', 0, 'Falta configuración');
-      return { estado: 'skipped' };
+      await this.recordHealth('DJANGO', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
     }
 
     try {
@@ -308,19 +313,19 @@ class HealthCheckService {
     logger.info('🏥 Iniciando health checks periódicos...');
 
     // EVO
-    this._timers.push(setInterval(() => this.checkEVO(), HEALTH_CHECKS.EVO.interval));
-    this.checkEVO();
+    this._timers.push(setInterval(() => this.executeCheck('EVO', HEALTH_CHECKS.EVO, () => this.checkEVO()), HEALTH_CHECKS.EVO.interval || 60000));
+    this.executeCheck('EVO', HEALTH_CHECKS.EVO, () => this.checkEVO());
 
     // W12
-    this._timers.push(setInterval(() => this.checkW12(), HEALTH_CHECKS.W12.interval));
-    this.checkW12();
+    this._timers.push(setInterval(() => this.executeCheck('W12', HEALTH_CHECKS.W12, () => this.checkW12()), HEALTH_CHECKS.W12.interval));
+    this.executeCheck('W12', HEALTH_CHECKS.W12, () => this.checkW12());
 
     // Django
-    this._timers.push(setInterval(() => this.checkDjango(), HEALTH_CHECKS.DJANGO.interval));
-    this.checkDjango();
+    this._timers.push(setInterval(() => this.executeCheck('DJANGO', HEALTH_CHECKS.DJANGO, () => this.checkDjango()), HEALTH_CHECKS.DJANGO.interval));
+    this.executeCheck('DJANGO', HEALTH_CHECKS.DJANGO, () => this.checkDjango());
 
     // MongoDB
-    this._timers.push(setInterval(() => this.checkMongoDB(), HEALTH_CHECKS.MONGODB.interval));
+    this._timers.push(setInterval(() => this.executeCheck('MONGODB', HEALTH_CHECKS.MONGODB, () => this.checkMongoDB()), HEALTH_CHECKS.MONGODB.interval));
   }
 
   /**

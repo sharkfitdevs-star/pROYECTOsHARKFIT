@@ -298,6 +298,154 @@ const EVO_KNOWN_ENDPOINTS = [
       registrationDate: item.registrationDate || item.registration_date || item.created_at,
       fuente: 'evo-api'
     })
+  },
+  // ─── NUEVOS MAPPINGS AGREGADOS PARA EVO ──────────────────────────────────
+  {
+    path: '/api/v1/prospects',
+    name: 'Prospectos EVO',
+    dataType: 'lead',
+    description: 'Prospectos/leads del gimnasio',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      leadId: String(item.id || item.prospect_id || ''),
+      externalId: String(item.id || item.prospect_id || ''),
+      uniqueId: String(item.id || item.prospect_id || ''),
+      nombre: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Sin nombre',
+      name: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Sin nombre',
+      email: item.email || null,
+      telefono: item.phone || item.cell_phone || item.cellPhone,
+      cellPhone: item.phone || item.cell_phone,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      estado: 'prospecto',
+      active: false,
+      registrationDate: item.registration_date || item.created_at,
+      fuente: 'evo-api'
+    })
+  },
+  {
+    path: '/api/v1/entries',
+    name: 'Accesos/Entradas EVO',
+    dataType: 'access_log',
+    description: 'Registro de entrada y salida de miembros',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      localId: String(item.id || item.entry_id || ''),
+      externalId: String(item.id || item.entry_id || ''),
+      idMember: String(item.member_id || item.idMember || ''),
+      memberName: item.member_name || item.memberName || item.name,
+      checkIn: item.check_in || item.entry_time || item.created_at,
+      checkOut: item.check_out || item.exit_time,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      note: item.note || item.description,
+      fuente: 'evo-api'
+    })
+  },
+  {
+    path: '/api/v1/membermembership',
+    name: 'Membresías EVO',
+    dataType: 'membership',
+    description: 'Membresías activas e inactivas de miembros',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      membershipId: String(item.id || item.membership_id || ''),
+      externalId: String(item.id || item.membership_id || ''),
+      idMember: String(item.member_id || item.idMember || ''),
+      clientExternalId: String(item.member_id || item.idMember || ''),
+      memberName: item.member_name || item.memberName || item.name,
+      planName: item.plan || item.plan_name || item.membership_name,
+      planValue: parseFloat(item.value || item.plan_value || item.monthly_fee || 0),
+      status: item.active ? 'active' : 'cancelled',
+      startDate: item.start_date || item.membership_start,
+      endDate: item.end_date || item.membership_end || item.due_date,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      fuente: 'evo-api'
+    })
+  },
+  {
+    path: '/api/v1/payables',
+    name: 'Pagos/Deudas EVO',
+    dataType: 'payable',
+    description: 'Cuentas por cobrar y deudas de miembros',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      payableId: String(item.id || item.payable_id || ''),
+      externalId: String(item.id || item.payable_id || ''),
+      idMember: String(item.member_id || item.idMember || ''),
+      clientExternalId: String(item.member_id || item.idMember || ''),
+      memberName: item.member_name || item.memberName,
+      description: item.description || item.detail || item.plan_name,
+      amountDue: parseFloat(item.value || item.amount || item.total || 0),
+      amountPaid: parseFloat(item.paid_amount || item.amount_paid || 0),
+      status: item.paid ? 'paid' : (item.status || 'pending'),
+      dueDate: item.due_date || item.competence,
+      createdDate: item.created_at || item.creation_date,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      fuente: 'evo-api'
+    })
+  },
+  {
+    path: '/api/v1/management/activeclients',
+    name: 'Clientes Activos (Management)',
+    dataType: 'cliente',
+    description: 'Clientes con membresía activa',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      clienteId: String(item.id || item.member_id || ''),
+      uniqueId: String(item.id || item.member_id || ''),
+      externalId: String(item.id || item.member_id || ''),
+      nombre: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+      name: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+      email: item.email,
+      telefono: item.cell_phone || item.phone || item.cellPhone,
+      cellPhone: item.cell_phone || item.phone,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      active: true,
+      estado: 'activo',
+      membershipStatus: 'active',
+      planName: item.plan || item.plan_name,
+      planValue: parseFloat(item.plan_value || item.value || 0),
+      sex: item.sex || item.gender,
+      birthDate: item.birth_date,
+      registrationDate: item.registration_date || item.created_at,
+      membershipEndDate: item.membership_end || item.due_date,
+      fuente: 'evo-api'
+    })
+  },
+  {
+    path: '/api/v1/management/prospects',
+    name: 'Prospectos (Management)',
+    dataType: 'lead',
+    description: 'Leads y prospectos desde módulo de gestión',
+    dataPath: 'items',
+    pagination: { type: 'take-skip', limit: 50 },
+    mapTo: (item) => ({
+      leadId: String(item.id || item.prospect_id || ''),
+      externalId: String(item.id || item.prospect_id || ''),
+      uniqueId: String(item.id || item.prospect_id || ''),
+      nombre: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Sin nombre',
+      name: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Sin nombre',
+      email: item.email,
+      telefono: item.cell_phone || item.phone || item.cellPhone,
+      cellPhone: item.cell_phone || item.phone,
+      idBranch: item.branch_id,
+      branchName: item.branch || item.branch_name,
+      estado: 'prospecto',
+      active: false,
+      sex: item.sex || item.gender,
+      birthDate: item.birth_date,
+      registrationDate: item.registration_date || item.created_at,
+      fuente: 'evo-api'
+    })
   }
 ];
 
@@ -314,14 +462,54 @@ function findEvoMapping(path) {
  * Aplica el mapeo de un endpoint EVO a un array de items raw
  */
 function applyEvoMapping(mapping, rawItems) {
-  if (!Array.isArray(rawItems)) return [];
-  return rawItems.map(item => {
+  if (!Array.isArray(rawItems)) return { valid: [], skipped: [] };
+
+  const valid = [];
+  const skipped = [];
+
+  for (const item of rawItems) {
     try {
-      return mapping.mapTo(item);
+      const mapped = mapping.mapTo(item);
+      if (!mapped) {
+        skipped.push({ reason: 'mapeo retorno null', raw: item });
+        continue;
+      }
+
+      const dt = mapping.dataType;
+      let hasId = false;
+
+      if (dt === 'ventas') {
+        hasId = !!(mapped.ventaId || mapped.eventoVentaId);
+      } else if (dt === 'clientes') {
+        hasId = !!(mapped.uniqueId || mapped.clienteId || mapped.idMember);
+      } else if (dt === 'lead') {
+        // Para leads/prospectos: externalId, leadId o uniqueId
+        hasId = !!(mapped.externalId || mapped.leadId || mapped.uniqueId);
+      } else if (dt === 'access_log') {
+        // Para access logs: localId y idMember
+        hasId = !!(mapped.localId && mapped.idMember);
+      } else if (dt === 'membership') {
+        // Para membresías: membershipId o externalId
+        hasId = !!(mapped.externalId || mapped.membershipId);
+      } else if (dt === 'payable') {
+        // Para pagos: payableId o externalId
+        hasId = !!(mapped.externalId || mapped.payableId);
+      } else {
+        hasId = true;
+      }
+
+      if (!hasId) {
+        skipped.push({ reason: 'sin identificador valido', dataType: dt, raw: item });
+        continue;
+      }
+
+      valid.push(mapped);
     } catch (e) {
-      return null;
+      skipped.push({ reason: `error en mapeo: ${e.message}`, raw: item });
     }
-  }).filter(Boolean);
+  }
+
+  return { valid, skipped };
 }
 
 /**

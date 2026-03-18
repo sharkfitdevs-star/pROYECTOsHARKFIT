@@ -1,42 +1,39 @@
 /**
- * Endpoints y URLs de la API
- * Mantener centralizado para fácil cambio
+ * Endpoints y URLs de la API — v2
+ * Mantener centralizado para fácil cambio.
  */
 
 export const API_ENDPOINTS = {
-  // Auth
+
   AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
-    ME: '/auth/me',
-    REFRESH: '/auth/refresh',
+    LOGIN:    '/auth/login',
+    LOGOUT:   '/auth/logout',
+    ME:       '/auth/me',
+    REFRESH:  '/auth/refresh',
     REGISTER: '/auth/register',
   },
 
-  // Usuarios
   USUARIOS: {
-    LIST: '/usuarios',
-    CREATE: '/usuarios',
-    DETAIL: (id) => `/usuarios/${id}`,
-    UPDATE: (id) => `/usuarios/${id}`,
-    DELETE: (id) => `/usuarios/${id}`,
+    LIST:    '/usuarios',
+    CREATE:  '/usuarios',
+    DETAIL:  (id) => `/usuarios/${id}`,
+    UPDATE:  (id) => `/usuarios/${id}`,
+    DELETE:  (id) => `/usuarios/${id}`,
     PROFILE: '/usuarios/profile',
   },
 
-  // Clientes
   CLIENTES: {
-    LIST: '/clientes',
-    CREATE: '/clientes',
-    DETAIL: (id) => `/clientes/${id}`,
-    UPDATE: (id) => `/clientes/${id}`,
-    DELETE: (id) => `/clientes/${id}`,
-    SEARCH: '/clientes/search',
+    LIST:     '/clientes',
+    CREATE:   '/clientes',
+    DETAIL:   (id) => `/clientes/${id}`,
+    UPDATE:   (id) => `/clientes/${id}`,
+    DELETE:   (id) => `/clientes/${id}`,
+    SEARCH:   '/clientes/search',
     EXPORTAR: '/clientes/export',
   },
 
-  // Ventas
   VENTAS: {
-    LIST: '/ventas',
+    LIST:   '/ventas',
     CREATE: '/ventas',
     DETAIL: (id) => `/ventas/${id}`,
     UPDATE: (id) => `/ventas/${id}`,
@@ -44,76 +41,88 @@ export const API_ENDPOINTS = {
     ESTADO: (id) => `/ventas/${id}/estado`,
   },
 
-  // Agendamientos
   AGENDAMIENTOS: {
-    LIST: '/agendamientos',
-    CREATE: '/agendamientos',
-    DETAIL: (id) => `/agendamientos/${id}`,
-    UPDATE: (id) => `/agendamientos/${id}`,
-    DELETE: (id) => `/agendamientos/${id}`,
+    LIST:     '/agendamientos',
+    CREATE:   '/agendamientos',
+    DETAIL:   (id) => `/agendamientos/${id}`,
+    UPDATE:   (id) => `/agendamientos/${id}`,
+    DELETE:   (id) => `/agendamientos/${id}`,
     CALENDAR: '/agendamientos/calendar',
   },
 
-  // Alertas
   ALERTAS: {
-    LIST: '/alertas',
+    // CRUD base
+    LIST:   '/alertas',
     CREATE: '/alertas',
     DETAIL: (id) => `/alertas/${id}`,
     UPDATE: (id) => `/alertas/${id}`,
     DELETE: (id) => `/alertas/${id}`,
-    PENDIENTES: '/alertas/pendientes',
-    MARCAR_RESUELTA: (id) => `/alertas/${id}/resolver`,
+
+    // Consultas especializadas
+    PENDIENTES:     '/alertas/pendientes',          // GET — activas (pendiente + en_proceso)
+    STATS:          '/alertas/stats',               // GET — contadores del dashboard
+
+    // Transiciones de estado
+    CAMBIAR_ESTADO: (id) => `/alertas/${id}/estado`,       // PUT — con validación de flujo
+    ASIGNAR:        (id) => `/alertas/${id}/asignar`,      // POST — asignar responsable → en_proceso
+    RESOLVER:       (id) => `/alertas/${id}/resolver`,     // POST — marcar resuelta
+    DESCARTAR:      (id) => `/alertas/${id}/descartar`,    // POST — marcar descartada
+
+    // Motor KPI
+    CALCULAR_KPIS:    '/alertas/calcular-kpis',            // POST — disparo manual
+    ULTIMO_REPORTE:   '/alertas/kpi/ultimo-reporte',       // GET  — última ejecución KPI
   },
 
-  // Reportes
   REPORTES: {
-    SUMMARY: '/reportes/summary',
-    VENTAS: '/reportes/ventas',
+    SUMMARY:  '/reportes/summary',
+    VENTAS:   '/reportes/ventas',
     CLIENTES: '/reportes/clientes',
-    ALERTAS: '/reportes/alertas',
-    CUSTOM: '/reportes/custom',
+    ALERTAS:  '/reportes/alertas',
+    CUSTOM:   '/reportes/custom',
     EXPORTAR: '/reportes/export',
   },
 
-  // Webhooks
   WEBHOOKS: {
-    LIST: '/webhooks',
+    LIST:   '/webhooks',
     CREATE: '/webhooks',
     DETAIL: (id) => `/webhooks/${id}`,
     UPDATE: (id) => `/webhooks/${id}`,
     DELETE: (id) => `/webhooks/${id}`,
-    TEST: (id) => `/webhooks/${id}/test`,
+    TEST:   (id) => `/webhooks/${id}/test`,
   },
-}
 
-/**
- * Status codes HTTP
- */
+  EXTRACTOR: {
+    CONFIG:        '/extractor/config',
+    CONFIG_DELETE: (name) => `/extractor/config/${name}`,
+    RUN:           '/extractor/run',
+    RESOLVE:       '/extractor/resolve',
+    STATUS:        (jobId) => `/extractor/status/${jobId}`,
+    LOGS:          '/extractor/logs',
+  },
+
+  IMPORT: {
+    EXCEL:  '/import/excel',
+    STATUS: (jobId) => `/import/status/${jobId}`,
+    LOGS:   '/import/logs',
+  },
+};
+
 export const HTTP_STATUS = {
-  OK: 200,
-  CREATED: 201,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
+  OK:             200,
+  CREATED:        201,
+  BAD_REQUEST:    400,
+  UNAUTHORIZED:   401,
+  FORBIDDEN:      403,
+  NOT_FOUND:      404,
+  CONFLICT:       409,
+  UNPROCESSABLE:  422,
   INTERNAL_ERROR: 500,
-}
+};
 
-/**
- * Query strings comunes
- */
 export const QUERY_PARAMS = {
-  PAGINATE: (page = 1, limit = 50) => ({
-    skip: (page - 1) * limit,
-    limit,
-  }),
-  SEARCH: (q) => ({
-    search: q,
-  }),
-  FILTER: (filters = {}) => filters,
-  SORT: (field, order = 'asc') => ({
-    sort: field,
-    order,
-  }),
-}
+  // FIX: el router espera 'page', no 'skip'
+  PAGINATE: (page = 1, limit = 50) => ({ page, limit }),
+  SEARCH:   (q)                    => ({ search: q }),
+  FILTER:   (filters = {})         => filters,
+  SORT:     (field, order = 'asc') => ({ sort: field, order }),
+};

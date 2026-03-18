@@ -81,9 +81,9 @@ function PeriodSelector({ value, onChange }) {
             border: '1px solid',
             cursor: 'pointer',
             transition: 'all 0.15s',
-            borderColor:      value === p.meses ? '#a78bfa' : '#334155',
-            background:       value === p.meses ? '#a78bfa20' : 'transparent',
-            color:            value === p.meses ? '#a78bfa'   : '#94a3b8',
+            borderColor:      value === p.meses ? 'var(--color-primary)' : 'var(--color-border)',
+            background:       value === p.meses ? 'rgba(var(--color-primary-rgb), 0.12)' : 'transparent',
+            color:            value === p.meses ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
             fontWeight:       value === p.meses ? 600 : 400,
           }}
         >
@@ -178,31 +178,31 @@ export default function OverviewCharts({ ventasMes }) {
               <AreaChart data={ventasData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradPlanes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="var(--color-primary)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradServicios" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#34d399" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="var(--color-success)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-success)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0f" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis
                   dataKey="mes"
-                  tick={{ fill: '#94a3b8', fontSize: periodo > 12 ? 10 : 12 }}
+                  tick={{ fill: 'var(--color-text-muted)', fontSize: periodo > 12 ? 10 : 12 }}
                   axisLine={false} tickLine={false}
                   interval={periodo > 18 ? 2 : 0}
                 />
-                <YAxis tickFormatter={formatY} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
+                <YAxis tickFormatter={formatY} tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
                 <Tooltip content={<TooltipMoney />} />
-                <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8', paddingTop: '8px' }}
+                <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-secondary)', paddingTop: '8px' }}
                   formatter={(val) => val.charAt(0).toUpperCase() + val.slice(1)} />
                 <Area type="monotone" dataKey="planes"    name="Planes"
-                  stroke="#a78bfa" strokeWidth={2} fill="url(#gradPlanes)"
-                  dot={{ fill: '#a78bfa', r: 2 }} activeDot={{ r: 5 }} />
+                  stroke="var(--color-primary)" strokeWidth={2} fill="url(#gradPlanes)"
+                  dot={{ fill: 'var(--color-primary)', r: 2 }} activeDot={{ r: 5 }} />
                 <Area type="monotone" dataKey="servicios" name="Servicios"
-                  stroke="#34d399" strokeWidth={2} fill="url(#gradServicios)"
-                  dot={{ fill: '#34d399', r: 2 }} activeDot={{ r: 5 }} />
+                  stroke="var(--color-success)" strokeWidth={2} fill="url(#gradServicios)"
+                  dot={{ fill: 'var(--color-success)', r: 2 }} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -231,18 +231,18 @@ export default function OverviewCharts({ ventasMes }) {
           ) : (
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={clientesData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0f" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis
                   dataKey="mes"
-                  tick={{ fill: '#94a3b8', fontSize: periodo > 12 ? 10 : 12 }}
+                  tick={{ fill: 'var(--color-text-muted)', fontSize: periodo > 12 ? 10 : 12 }}
                   axisLine={false} tickLine={false}
                   interval={periodo > 18 ? 2 : 0}
                 />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip content={<TooltipCount />} />
-                <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8', paddingTop: '8px' }} />
-                <Bar dataKey="activos" name="Activos" fill="#a78bfa" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="nuevos"  name="Nuevos"  fill="#34d399" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-secondary)', paddingTop: '8px' }} />
+                <Bar dataKey="activos" name="Activos" fill="var(--color-primary-light)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="nuevos"  name="Nuevos"  fill="var(--color-success)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

@@ -1,7 +1,3 @@
-export const Prospectos = {
-  list: async (sort) => [],
-  get: async (id) => null,
-  create: async (data) => data,
-  update: async (id, data) => data,
-  delete: async (id) => true
-};
+import { BaseEntity } from './_base';
+class ProspectosEntity extends BaseEntity { constructor() { super(null); } }
+export const Prospectos = new ProspectosEntity();

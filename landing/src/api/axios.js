@@ -8,13 +8,68 @@ const baseURL = import.meta.env.VITE_API_URL || "/api";
 
 const api = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 360000, // 6min - importaciones EVO pueden tardar hasta 3min en hora pico
   withCredentials: true, // el backend usa cookies para refresh token
+  headers: { "Content-Type": "application/json" },
+});
+
+// cliente separado para refresh para evitar loops de interceptores
+const refreshClient = axios.create({
+  baseURL,
+  timeout: 15000,
+  withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
 
 // token en memoria (no localStorage para evitar XSS)
 let accessToken = null;
+let isRefreshing = false;
+let pendingQueue = [];
+
+function flushPendingQueue(newToken) {
+  pendingQueue.forEach((resolve) => resolve(newToken));
+  pendingQueue = [];
+}
+
+async function refreshAccessToken() {
+  if (isRefreshing) {
+    return new Promise((resolve) => pendingQueue.push(resolve));
+  }
+
+  isRefreshing = true;
+  try {
+    const response = await refreshClient.post('/auth/refresh');
+    const newToken = response.data?.accessToken || null;
+    if (!newToken) {
+      throw new Error('No access token en respuesta de refresh');
+    }
+
+    setAccessToken(newToken);
+    // Actualizar también localStorage para consistencia
+    try { localStorage.setItem('authToken', newToken); } catch {}
+    flushPendingQueue(newToken);
+    return newToken;
+  } catch (error) {
+    clearAccessToken();
+    // Limpiar localStorage completamente
+    try {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('jwt');
+    } catch {}
+    flushPendingQueue(null);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
+
+    throw error;
+  } finally {
+    isRefreshing = false;
+  }
+}
 
 export function setAccessToken(token) {
   accessToken = token || null;
@@ -73,11 +128,33 @@ api.interceptors.request.use((config) => {
 // response interceptor: catch 403 from the same endpoint and mark forbidden.
 api.interceptors.response.use(
   (resp) => resp,
-  (err) => {
+  async (err) => {
     const cfg = err.config || {};
     const url = cfg.url || '';
+    const status = err.response?.status;
+
+    // refresh automático: mantiene sesión activa sin tocar TTL
+    if (
+      status === 401 &&
+      !cfg._retry &&
+      !url.includes('/auth/login') &&
+      !url.includes('/auth/refresh')
+    ) {
+      cfg._retry = true;
+      try {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          cfg.headers = cfg.headers || {};
+          cfg.headers.Authorization = `Bearer ${newToken}`;
+          return api(cfg);
+        }
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+
     if (url.includes('/api/settings/imports-connection') &&
-        err.response?.status === 403) {
+        status === 403) {
       if (_markImportsForbidden) {
         _markImportsForbidden();
       }

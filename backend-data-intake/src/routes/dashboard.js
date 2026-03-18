@@ -2,9 +2,9 @@ const express = require('express');
 const ExportRun = require('../models/ExportRun');
 const ExportRunner = require('../services/ExportRunner');
 const { logger } = require('../utils/logger');
+const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
-
-router.get('/summary', async (req, res) => {
+router.get('/summary', requireAuth, async (req, res) => {
   try {
     let { from, to } = req.query;
     const run = await ExportRun.findOne({ datasetActivated: true }).sort({ updatedAt: -1 });
@@ -20,16 +20,16 @@ router.get('/summary', async (req, res) => {
           trends: Object.assign({}, snapshot.trends || {}, { salesByDay: recalculated.trends.salesByDay }),
           tables: Object.assign({}, snapshot.tables || {}, { lastSales: recalculated.tables.lastSales })
         });
-      } catch (err) { logger.warn('Error recalculando snapshot con rango', { error: err, from, to }); }
+      } catch (error) { logger.warn('Error recalculando snapshot con rango', { message: error.message }); }
     }
     return res.json(snapshot);
   } catch (error) {
-    logger.error('Error en /api/dashboard/summary', error);
-    res.status(500).json({ error: error.message });
+    logger.error('Error en /api/dashboard/summary', { message: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-router.get('/overview', async (req, res) => {
+router.get('/overview', requireAuth, async (req, res) => {
   try {
     const Venta = require('../models/Venta');
     const Cliente = require('../models/Cliente');
@@ -82,12 +82,12 @@ router.get('/overview', async (req, res) => {
     });
 
   } catch (error) {
-    require('../utils/logger').logger.error('Error en /api/dashboard/overview', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en /api/dashboard/overview', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
-router.get('/ventas', async (req, res) => {
+router.get('/ventas', requireAuth, async (req, res) => {
   try {
     const Venta = require('../models/Venta');
     const ahora = new Date();
@@ -113,12 +113,12 @@ router.get('/ventas', async (req, res) => {
     });
     res.json({ success: true, data: { totalMes: { monto: montoActual, cantidad: ventasActual[0]?.count || 0, variacion, montoAnterior, periodo: inicioMesActual.toLocaleDateString('es-CL') + ' - ' + ahora.toLocaleDateString('es-CL') }, composicion, ranking }});
   } catch (error) {
-    require('../utils/logger').logger.error('Error en /api/dashboard/ventas', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en /api/dashboard/ventas', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
-router.get('/clientes', async (req, res) => {
+router.get('/clientes', requireAuth, async (req, res) => {
   try {
     const Cliente = require('../models/Cliente');
     const Membership = require('../models/Membership');
@@ -159,13 +159,13 @@ router.get('/clientes', async (req, res) => {
       ticketMedio, rankingActivos, rankingCancelados: []
     }});
   } catch (error) {
-    require('../utils/logger').logger.error('Error en /api/dashboard/clientes', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en /api/dashboard/clientes', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
 
-router.get('/prospectos', async (req, res) => {
+router.get('/prospectos', requireAuth, async (req, res) => {
   try {
     const Lead = require('../models/Lead');
     const Agendamiento = require('../models/Agendamiento');
@@ -214,18 +214,13 @@ router.get('/prospectos', async (req, res) => {
       rankContactos, rankConversiones
     }});
   } catch (error) {
-    require('../utils/logger').logger.error('Error en /api/dashboard/prospectos', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en /api/dashboard/prospectos', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
 
-// ── /api/dashboard/historico ────────────────────────────────────────────────
-// Devuelve datos históricos reales agrupados por mes para los gráficos.
-// Query param: meses = 6 | 12 | 18 | 24 | 999 (todos)
-// Respuesta:
-//   { success, data: { ventas:[{mes,planes,servicios,total}], clientes:[{mes,activos,nuevos}] } }
-router.get('/historico', async (req, res) => {
+router.get('/historico', requireAuth, async (req, res) => {
   try {
     const Venta   = require('../models/Venta');
     const Cliente = require('../models/Cliente');
@@ -234,7 +229,6 @@ router.get('/historico', async (req, res) => {
     const ahora   = new Date();
     const inicio  = new Date(ahora.getFullYear(), ahora.getMonth() - (meses - 1), 1);
 
-    // ── Ventas agrupadas por mes ──────────────────────────────────────────
     const ventasHist = await Venta.aggregate([
       { $match: { saleDate: { $gte: inicio } } },
       {
@@ -262,7 +256,6 @@ router.get('/historico', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    // ── Clientes nuevos agrupados por mes ─────────────────────────────────
     const clientesNuevosHist = await Cliente.aggregate([
       { $match: { createdAt: { $gte: inicio } } },
       {
@@ -274,8 +267,6 @@ router.get('/historico', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    // ── Clientes activos snapshot por mes ─────────────────────────────────
-    // Para cada mes calculamos cuántos clientes existían activos al final de ese mes
     const clientesActivosHist = await Cliente.aggregate([
       {
         $group: {
@@ -286,7 +277,6 @@ router.get('/historico', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    // ── Construir lista de meses del período ─────────────────────────────
     const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const mesesLista = [];
     for (let i = 0; i < meses; i++) {
@@ -295,17 +285,14 @@ router.get('/historico', async (req, res) => {
       mesesLista.push({ key, label: MESES_ES[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2) });
     }
 
-    // ── Indexar resultados ───────────────────────────────────────────────
     const ventasMap   = {};
     ventasHist.forEach(v => { ventasMap[v._id] = v; });
 
     const nuevosMap   = {};
     clientesNuevosHist.forEach(c => { nuevosMap[c._id] = c.nuevos; });
 
-    // Acumulado de activos: suma progresiva
     let acumulado = 0;
     const activosMap = {};
-    // Primero contar todos los que existían ANTES del período
     const clientesAnteriores = await Cliente.countDocuments({ createdAt: { $lt: inicio } });
     acumulado = clientesAnteriores;
     clientesActivosHist.forEach(c => {
@@ -315,7 +302,6 @@ router.get('/historico', async (req, res) => {
       }
     });
 
-    // ── Construir arrays finales ─────────────────────────────────────────
     let acum = clientesAnteriores;
     const ventasFinal   = mesesLista.map(({ key, label }) => ({
       mes:       label,
@@ -336,9 +322,43 @@ router.get('/historico', async (req, res) => {
     });
 
   } catch (error) {
-    require('../utils/logger').logger.error('Error en /api/dashboard/historico', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en /api/dashboard/historico', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
-module.exports = router;
 
+// ── GET /api/dashboard/layout ────────────────────────────────
+router.get('/layout', requireAuth, async (req, res) => {
+  try {
+    const OverviewLayout = require('../models/OverviewLayout');
+    const userId = req.user?.id || req.user?._id;
+    const layout = await OverviewLayout.findOne({ userId });
+    res.json({ success: true, widgets: layout?.widgets || [] });
+  } catch (err) {
+    logger.error('Error en GET /api/dashboard/layout', { message: err.message });
+    res.status(500).json({ success: false, error: 'Error interno' });
+  }
+});
+
+// ── POST /api/dashboard/layout ───────────────────────────────
+router.post('/layout', requireAuth, async (req, res) => {
+  try {
+    const OverviewLayout = require('../models/OverviewLayout');
+    const userId = req.user?.id || req.user?._id;
+    const { widgets } = req.body || {};
+    if (!Array.isArray(widgets)) {
+      return res.status(400).json({ success: false, error: 'widgets debe ser un array' });
+    }
+    const layout = await OverviewLayout.findOneAndUpdate(
+      { userId },
+      { widgets, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, widgets: layout.widgets });
+  } catch (err) {
+    logger.error('Error en POST /api/dashboard/layout', { message: err.message });
+    res.status(500).json({ success: false, error: 'Error interno' });
+  }
+});
+
+module.exports = router;

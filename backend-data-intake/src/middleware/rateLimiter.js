@@ -74,10 +74,26 @@ const authPasswordRateLimiter = rateLimit({
   legacyHeaders: false
 });
 
+/**
+ * Rate limiter para operaciones de extracción (3 por 5 minutos por usuario)
+ * Evita que un usuario autenticado dispare extracciones masivas simultáneas.
+ */
+const extractionRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000
+    : process.env.NODE_ENV === 'production' ? 10
+    : 50, // desarrollo: 50 requests por ventana
+  message: { ok: false, error: 'Demasiadas extracciones. Espera 5 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip
+});
+
 module.exports = {
   rateLimiter,
   importRateLimiter,
   webhookRateLimiter,
   authLoginRateLimiter,
-  authPasswordRateLimiter
+  authPasswordRateLimiter,
+  extractionRateLimiter
 };

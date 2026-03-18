@@ -9,7 +9,7 @@
 
 .vt-periodo {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin: 0 0 1rem 0;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -29,8 +29,8 @@
 .vt-kpi-col,
 .vt-donut-col,
 .vt-ranking-col {
-  background: #1e1e2e;
-  border: 1px solid #2d2d44;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 1.5rem;
 }
@@ -38,7 +38,7 @@
 .vt-col-label {
   display: block;
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -48,7 +48,7 @@
 .vt-kpi-label {
   display: block;
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -59,7 +59,7 @@
   display: block;
   font-size: 2.2rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--color-text);
   line-height: 1.1;
   margin-bottom: 0.3rem;
 }
@@ -67,7 +67,7 @@
 .vt-kpi-sub {
   display: block;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-bottom: 1rem;
 }
 
@@ -80,7 +80,7 @@
 
 .vt-variacion-text {
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
 }
 
 .vt-delta {
@@ -106,7 +106,7 @@
 .vt-progress-wrap {
   position: relative;
   height: 8px;
-  background: #2d2d44;
+  background: var(--color-border);
   border-radius: 4px;
   margin-bottom: 0.5rem;
   overflow: hidden;
@@ -126,19 +126,19 @@
   right: 0;
   top: -18px;
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .vt-comparativa {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-top: 0.5rem;
   display: flex;
   gap: 0.3rem;
   flex-wrap: wrap;
 }
 
-.vt-sep { color: #3d3d58; }
+.vt-sep { color: var(--color-border); }
 
 .vt-ranking-list {
   display: flex;
@@ -151,27 +151,27 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
-  background: #16162a;
+  background: var(--color-surface-card);
   border-radius: 8px;
-  border: 1px solid #2d2d44;
+  border: 1px solid var(--color-border);
   transition: border-color 0.2s;
 }
 
-.vt-ranking-item:hover { border-color: #a78bfa44; }
+.vt-ranking-item:hover { border-color: rgba(var(--color-primary-rgb), 0.35); }
 
 .vt-ranking-pos {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #a78bfa22;
-  color: #a78bfa;
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary-light);
   font-size: 0.75rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid #a78bfa44;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
 }
 
 .vt-ranking-info {
@@ -183,7 +183,7 @@
   display: block;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,20 +192,20 @@
 .vt-ranking-montos {
   display: block;
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-top: 0.15rem;
 }
 
 .vt-tooltip {
-  background: #1a1a2e;
-  border: 1px solid #3d3d58;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
 }
 
 .vt-tooltip-label {
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -214,7 +214,7 @@
 
 .vt-empty {
   font-size: 0.8rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   text-align: center;
   padding: 1rem 0;
 }
@@ -235,7 +235,7 @@
 }
 
 .vt-skeleton-block {
-  background: linear-gradient(90deg, #1e1e2e 25%, #2d2d44 50%, #1e1e2e 75%);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-border) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 12px;

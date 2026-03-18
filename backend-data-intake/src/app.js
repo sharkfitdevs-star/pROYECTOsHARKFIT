@@ -128,7 +128,7 @@ const clientesNew = require('./routes/clientesNew');
 const ventasRoutes = require('./routes/ventasNew');
 
 const agendamientosRoutes = require('./routes/agendamientosNew');
-const alertasRoutes = require('./routes/alertasNew');
+const alertasRoutes = require('./routes/alertasRouter');
 const reportesRoutes = require('./routes/reportesNew');
 const importRoutes = require('./routes/import');
 const exportRoutes = require('./routes/export');  // nuevo
@@ -148,6 +148,7 @@ app.use('/api/alertas', alertasRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/export', exportRoutes);  // rutas de exportación/importación de datos
+app.use('/api/extractor', require('./routes/extractorRouter'));
 
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/evo', evoRoutes);
@@ -233,6 +234,10 @@ const startServer = async () => {
   try {
     // Esperar a que MongoDB esté completamente conectado
     await connectDB();
+
+    // Activa el cron KPI apenas conectada la DB
+    const { initCron } = require('./services/kpiAlertasService');
+    initCron();
 
     // development logging of Mongo connection info
     if (process.env.NODE_ENV !== 'production') {

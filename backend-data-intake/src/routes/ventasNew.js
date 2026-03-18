@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Venta } = require('../models');
 const { requireAuth } = require('../middleware/auth');
+const { logger } = require('../utils/logger');
 
 /**
  * GET /api/ventas
@@ -19,10 +20,23 @@ router.get('/', async (req, res) => {
       saleType,
       paymentStatus,
       idBranch,
-      idMember
+      idMember,
+      source,
+      dateFrom,
+      dateTo,
     } = req.query;
 
     const query = {};
+
+    // Filtro por origen de datos (excel, api, merged)
+    if (source) query.source = source;
+
+    // Filtro por rango de fechas
+    if (dateFrom || dateTo) {
+      query.saleDate = {};
+      if (dateFrom) query.saleDate.$gte = new Date(dateFrom);
+      if (dateTo)   query.saleDate.$lte = new Date(dateTo);
+    }
 
     // text search across some fields
     if (search) {
@@ -58,7 +72,6 @@ router.get('/', async (req, res) => {
       pages: Math.ceil(count / limit)
     });
   } catch (error) {
-    const { logger } = require('../utils/logger');
     logger.error('Error listing ventas:', { error });
     res.status(500).json({
       error: true,

@@ -46,6 +46,12 @@ const styles = {
     borderRadius: 6,
     cursor: 'pointer',
     fontSize: 12
+  },
+  actionRow: {
+    marginTop: 8,
+    display: 'flex',
+    gap: 6,
+    flexWrap: 'wrap'
   }
 };
 
@@ -66,6 +72,25 @@ export default function Toaster() {
         >
           {t.title && <div style={styles.title}>{t.title}</div>}
           {t.description && <div style={styles.description}>{t.description}</div>}
+          {Array.isArray(t.actions) && t.actions.length > 0 && (
+            <div style={styles.actionRow}>
+              {t.actions.map((action, idx) => (
+                <button
+                  key={`${t.id}-action-${idx}`}
+                  style={styles.action}
+                  onClick={() => {
+                    try {
+                      if (typeof action.onClick === 'function') action.onClick();
+                    } finally {
+                      if (action.dismissOnClick !== false) dismiss(t.id);
+                    }
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
           <button style={styles.action} onClick={() => dismiss(t.id)}>
             Cerrar
           </button>

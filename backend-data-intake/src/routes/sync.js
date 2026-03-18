@@ -6,15 +6,19 @@
 const express = require('express');
 const router = express.Router();
 const SyncService = require('../services/SyncService');
-const { findSyncLogById, listSyncLogs } = require('../db/repositories');
+const { requireAuth } = require('../middleware/auth');
+const { findSyncLogById, listSyncLogs, updateSyncLog } = require('../db/repositories');
 const { logger } = require('../utils/logger');
 const { queueSyncTask } = require('../workers/api-worker');
+const { extractAndSync } = require('../index');
+const { runImport } = require('../services/ExtractorService');
+const { ExtractorConfig, SyncLog: ExtractorSyncLog } = require('../models');
 
 /**
  * POST /api/sync/run
  * Ejecutar sincronización manual
  */
-router.post('/run', async (req, res) => {
+router.post('/run', requireAuth, async (req, res) => {
   try {
     const { sourceId, modo = 'incremental', entidades = ['clientes', 'ventas'] } = req.body;
 
@@ -38,7 +42,7 @@ router.post('/run', async (req, res) => {
     logger.error('Error ejecutando sincronización:', error);
     res.status(500).json({
       exito: false,
-      error: error.message
+      error: 'Error interno del servidor'
     });
   }
 });
@@ -47,7 +51,7 @@ router.post('/run', async (req, res) => {
  * GET /api/sync/status/:syncId
  * Obtener estado de sincronización en proceso
  */
-router.get('/status/:syncId', async (req, res) => {
+router.get('/status/:syncId', requireAuth, async (req, res) => {
   try {
     const { syncId } = req.params;
 
@@ -80,7 +84,7 @@ router.get('/status/:syncId', async (req, res) => {
     logger.error('Error obteniendo estado sync:', error);
     res.status(500).json({
       exito: false,
-      error: error.message
+      error: 'Error interno del servidor'
     });
   }
 });
@@ -89,7 +93,7 @@ router.get('/status/:syncId', async (req, res) => {
  * GET /api/sync/logs
  * Historial de sincronizaciones
  */
-router.get('/logs', async (req, res) => {
+router.get('/logs', requireAuth, async (req, res) => {
   try {
     const { sourceId, desde, hasta, limit = 20 } = req.query;
 
@@ -109,7 +113,7 @@ router.get('/logs', async (req, res) => {
     logger.error('Error obteniendo logs:', error);
     res.status(500).json({
       exito: false,
-      error: error.message
+      error: 'Error interno del servidor'
     });
   }
 });
@@ -118,7 +122,7 @@ router.get('/logs', async (req, res) => {
  * POST /api/sync/retry/:syncId
  * Reintentar sincronización fallida
  */
-router.post('/retry/:syncId', async (req, res) => {
+router.post('/retry/:syncId', requireAuth, async (req, res) => {
   try {
     const { syncId } = req.params;
 
@@ -131,25 +135,115 @@ router.post('/retry/:syncId', async (req, res) => {
       });
     }
 
-    if (syncLog.reintentoCount >= 5) {
+    if (!['Fallido', 'Parcial'].includes(syncLog.estatus)) {
+      return res.status(400).json({
+        exito: false,
+        error: 'Solo se pueden reintentar syncs fallidos'
+      });
+    }
+
+    const currentRetryCount = Number(syncLog.reintentoCount || 0);
+    if (currentRetryCount >= 5) {
       return res.status(400).json({
         exito: false,
         error: 'Máximo de reintentos alcanzado'
       });
     }
 
-    // TODO: Ejecutar reintento
-    logger.info(`Reintentando sync: ${syncId}`);
+    const nextRetryCount = currentRetryCount + 1;
+
+    await updateSyncLog(syncId, {
+      estatus: 'Procesando',
+      reintentoCount: nextRetryCount,
+      proximoIntento: null,
+      finalizado: null
+    });
+
+    logger.info(`Reintentando sync: ${syncId}`, {
+      fuente: syncLog.fuente,
+      reintentoCount: nextRetryCount
+    });
 
     res.json({
       exito: true,
-      mensaje: 'Reintento iniciado'
+      mensaje: 'Reintento iniciado',
+      syncId,
+      reintentoCount: nextRetryCount
     });
+
+    // Ejecutar en background: no bloquear respuesta HTTP
+    (async () => {
+      const startedAt = Date.now();
+      try {
+        const fuente = (syncLog.fuente || '').toString();
+        if (fuente.startsWith('api-')) {
+          await extractAndSync(fuente);
+        } else {
+          const configDoc = await ExtractorConfig.findOne({ connectionName: fuente }).lean();
+          if (!configDoc?._id) {
+            throw new Error(`No se encontró ExtractorConfig para fuente: ${fuente}`);
+          }
+
+          const rawDataset = syncLog.cambios?.dataset || syncLog.cambios?.entidad || 'ambos';
+          const dataset = ['ventas', 'clientes', 'ambos'].includes(rawDataset) ? rawDataset : 'ambos';
+          const strategy = syncLog.cambios?.conflictStrategy || 'overwrite';
+          const jobId = `${syncId}-retry-${nextRetryCount}`;
+          const provider = ['evo', 'w12', 'custom'].includes((configDoc.provider || '').toLowerCase())
+            ? configDoc.provider.toLowerCase()
+            : 'custom';
+
+          await ExtractorSyncLog.create({
+            jobId,
+            source: provider,
+            connectionName: configDoc.connectionName,
+            dataset,
+            status: 'queued',
+            conflictDetected: false,
+            excelRecordCount: 0,
+            userId: req.user?.id || null
+          });
+
+          await runImport({
+            configId: configDoc._id.toString(),
+            dataset,
+            strategy,
+            jobId,
+            userId: req.user?.id || null
+          });
+        }
+
+        await updateSyncLog(syncId, {
+          estatus: 'Exitoso',
+          finalizado: new Date(),
+          duracionMs: Date.now() - startedAt,
+          proximoIntento: null
+        });
+
+        logger.info(`Reintento finalizado: ${syncId}`, {
+          estatus: 'Exitoso',
+          reintentoCount: nextRetryCount
+        });
+      } catch (bgError) {
+        logger.error('Error en reintento background sync:', {
+          syncId,
+          message: bgError.message,
+          stack: bgError.stack
+        });
+
+        await updateSyncLog(syncId, {
+          estatus: 'Fallido',
+          finalizado: new Date(),
+          duracionMs: Date.now() - startedAt,
+          errores: [{ message: bgError.message }],
+          proximoIntento: null
+        });
+      }
+    })();
   } catch (error) {
     logger.error('Error reintentando sync:', error);
     res.status(500).json({
       exito: false,
-      error: error.message
+      error: 'Error interno del servidor'
     });
   }
 });

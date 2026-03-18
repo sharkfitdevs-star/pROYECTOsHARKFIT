@@ -72,6 +72,7 @@ async function createSyncLog(data = {}) {
     cambios: JSON.stringify(data.cambios || {}),
     proximo_intento: toIso(data.proximoIntento || null),
     reintento_count: data.reintentoCount || 0,
+    user_id: data.userId || null,
     createdAt: now
   };
 
@@ -169,24 +170,112 @@ async function getLastSuccessfulSyncBySource(fuente) {
 // CLIENTE / VENTA / LEAD - Mongoose implementations
 async function findClienteByIdentifiers({ eventoId, email, rfc, clienteId }) { const or = []; if (eventoId) or.push({ idBranch: eventoId }); if (email) or.push({ email: (email || '').toLowerCase() }); if (rfc) or.push({ cpf: rfc }); if (clienteId) or.push({ idMember: clienteId }, { externalId: clienteId }); if (!or.length) return null; const doc = await Cliente.findOne({ $or }).lean(); return mapCliente(doc); }
 async function findClienteByEmail(email) { if (!email) return null; const doc = await Cliente.findOne({ email: email.toLowerCase() }).lean(); return mapCliente(doc); }
-async function upsertCliente(data) { const existing = await findClienteByIdentifiers({ eventoId: data.eventoId, email: data.email, rfc: data.rfc, clienteId: data.clienteId }); const now = new Date(); const docData = { idMember: data.clienteId || existing?.clienteId || uuidv4(), name: data.nombre || existing?.nombre || data.name || null, email: data.email ? data.email.toLowerCase() : existing?.email || null, cellPhone: data.telefono || existing?.telefono || null, branchName: data.empresa || existing?.empresa || null, cpf: data.rfc || existing?.rfc || null, status: data.estado || existing?.estado || null, source: data.fuente || existing?.fuente || 'import', membershipStatus: data.membresia?.estado || existing?.membresiaEstado || null, membershipEndDate: data.membresia?.fechaVencimiento ? new Date(data.membresia.fechaVencimiento) : existing?.membresiaFechaVencimiento || null, customFields: data.data || existing?.data || {}, lastSyncAt: data.syncedAt ? new Date(data.syncedAt) : now }; if (existing && existing.id) { const updated = await Cliente.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean(); return { id: updated._id.toString(), updated: true, inserted: false }; } const created = await Cliente.create(docData); return { id: created._id.toString(), updated: false, inserted: true }; }
+function normalizeLegacySaleType(data = {}) {
+  const raw = data.tipo_venta || data.saleType || data.sale_type || '';
+  if (!raw) return 'En sede';
+  const value = String(raw).toLowerCase();
+  if (value.includes('online') || value.includes('on line')) return 'Online';
+  return 'En sede';
+}
+
+function normalizeLegacySaleStatus(data = {}) {
+  const raw = data.estado || data.paymentStatus || data.estatus || '';
+  const value = String(raw).toLowerCase();
+  if (['cerrada', 'pagado', 'completado', 'paid', 'approved', 'aprobado', 'activo'].includes(value)) return 'Cerrada';
+  if (['anulada', 'cancelada', 'cancelado', 'cancelled', 'void'].includes(value)) return 'Anulada';
+  return raw ? String(raw) : 'Pendiente';
+}
+
+async function upsertCliente(data) {
+  const existing = await findClienteByIdentifiers({ eventoId: data.eventoId, email: data.email, rfc: data.rfc, clienteId: data.clienteId });
+  const now = new Date();
+  const membershipStartDate = data.membresia?.fechaInicio
+    ? new Date(data.membresia.fechaInicio)
+    : (data.membershipStartDate ? new Date(data.membershipStartDate) : null);
+  const membershipEndDate = data.membresia?.fechaVencimiento
+    ? new Date(data.membresia.fechaVencimiento)
+    : (data.membershipEndDate ? new Date(data.membershipEndDate) : (existing?.membresiaFechaVencimiento || null));
+  const registrationDate = data.registrationDate
+    ? new Date(data.registrationDate)
+    : (data.fecha_primer_compra ? new Date(data.fecha_primer_compra) : now);
+  const idMember = data.clienteId || data.idMember || existing?.clienteId || uuidv4();
+  const fullName = data.nombre || existing?.nombre || data.name || 'Sin nombre';
+  const phone = data.telefono || data.cellPhone || existing?.telefono || null;
+  const status = data.estado || data.status || existing?.estado || 'activo';
+  const active = typeof data.active === 'boolean'
+    ? data.active
+    : String(status).toLowerCase() === 'activo';
+  const planName = data.planName || data.plan_actual || data.plan || null;
+
+  const docData = {
+    uniqueId: data.uniqueId || data.clienteId || data.idMember || idMember,
+    idMember,
+    name: fullName,
+    nombre_cliente: fullName,
+    email: data.email ? data.email.toLowerCase() : existing?.email || null,
+    cellPhone: phone,
+    telefono: phone,
+    whatsapp: data.whatsapp || phone,
+    idBranch: data.idBranch || data.eventoId || existing?.eventoId || null,
+    branchName: data.empresa || data.branchName || existing?.empresa || null,
+    sede: data.sede || data.idBranch || data.eventoId || null,
+    cpf: data.rfc || data.cpf || existing?.rfc || null,
+    status,
+    active,
+    source: data.fuente || existing?.fuente || 'import',
+    membershipStatus: data.membresia?.estado || data.membershipStatus || existing?.membresiaEstado || null,
+    estado_suscripcion: data.estado_suscripcion || data.membershipStatus || data.membresia?.estado || null,
+    membershipStartDate: membershipStartDate || null,
+    fecha_inicio_plan_actual: membershipStartDate || null,
+    membershipEndDate,
+    fecha_fin_plan_actual: membershipEndDate,
+    planName,
+    plan_actual: data.plan_actual || data.plan || planName || null,
+    modalidad_actual: data.modalidad_actual || null,
+    canal_origen: data.canal_origen || 'API',
+    registrationDate,
+    fecha_primer_compra: registrationDate,
+    customFields: data.data || existing?.data || {},
+    duracion_actual_meses: data.duracion_actual_meses || null,
+    lastSyncAt: data.syncedAt ? new Date(data.syncedAt) : now
+  };
+
+  if (existing && existing.id) {
+    const updated = await Cliente.findByIdAndUpdate(existing.id, { $set: docData }, { new: true, upsert: false }).lean();
+    return { id: updated._id.toString(), updated: true, inserted: false };
+  }
+  const created = await Cliente.create(docData);
+  return { id: created._id.toString(), updated: false, inserted: true };
+}
 async function findVentaByIdentifiers({ eventoVentaId, ventaId }) { const or = []; if (eventoVentaId) or.push({ externalId: eventoVentaId }); if (ventaId) or.push({ idSale: ventaId }, { externalId: ventaId }); if (!or.length) return null; const doc = await Venta.findOne({ $or }).lean(); return mapVenta(doc); }
 async function upsertVenta(data) { const existing = await findVentaByIdentifiers({ eventoVentaId: data.eventoVentaId, ventaId: data.ventaId }); const now = new Date(); const docData = {
     idSale: data.ventaId || data.idSale || existing?.idSale || uuidv4(),
     idMember: data.clienteId || data.idMember || existing?.idMember || null,
     memberName: data.memberName || data.nombreCliente || existing?.memberName || null,
+    prospecto_nombre: data.prospecto_nombre || data.memberName || data.nombreCliente || existing?.memberName || null,
     description: data.concepto || data.description || data.planName || existing?.description || null,
+    notas: data.notas || data.notes || data.description || null,
     amount: Number.isFinite(Number(data.amount || data.monto)) ? Number(data.amount || data.monto) : (existing?.amount || 0),
+    monto: Number.isFinite(Number(data.amount || data.monto)) ? Number(data.amount || data.monto) : (existing?.amount || 0),
     totalAmount: Number.isFinite(Number(data.totalAmount || data.monto)) ? Number(data.totalAmount || data.monto) : (existing?.totalAmount || 0),
     discount: Number.isFinite(Number(data.discount)) ? Number(data.discount) : (existing?.discount || 0),
+    descuento: Number.isFinite(Number(data.discount)) ? Number(data.discount) : (existing?.discount || 0),
     currency: data.moneda || data.currency || existing?.currency || 'MXN',
     paymentStatus: data.paymentStatus || data.estatus || existing?.paymentStatus || 'Pendiente',
+    estado: data.estado || normalizeLegacySaleStatus(data),
     employeeName: data.employeeName || data.vendedor || existing?.employeeName || null,
+    vendedor: data.vendedor || data.employeeName || existing?.employeeName || null,
     branchName: data.branchName || data.sede || existing?.branchName || null,
+    idBranch: data.idBranch || data.branchName || data.sede || existing?.branchName || null,
+    sede: data.sede || data.idBranch || data.branchName || existing?.branchName || null,
     planName: data.planName || data.plan || existing?.planName || null,
+    plan: data.plan || data.planName || existing?.planName || null,
     saleType: data.saleType || data.tipo || existing?.saleType || null,
+    tipo_venta: data.tipo_venta || normalizeLegacySaleType(data),
     saleDate: data.saleDate ? new Date(data.saleDate) : (data.fecha ? new Date(data.fecha) : (existing?.saleDate || now)),
+    fecha_venta: data.saleDate ? new Date(data.saleDate) : (data.fecha ? new Date(data.fecha) : (existing?.saleDate || now)),
     dueDate: data.dueDate ? new Date(data.dueDate) : (existing?.dueDate || null),
+    fecha_vencimiento: data.dueDate ? new Date(data.dueDate) : (existing?.dueDate || null),
     cellPhone: data.cellPhone || data.whatsapp || existing?.cellPhone || null,
     source: data.fuente || data.source || existing?.source || 'import',
     externalId: data.eventoVentaId || data.externalId || existing?.externalId || null,
@@ -267,7 +356,174 @@ async function listImportHistory(limit = 50) {
   return rows.map(mapSyncLog);
 }
 
-async function syncToRepo(dataType,records){if(!dataType||!records||records.length===0)return{upserted:0,errors:0};let upserted=0,errors=0;for(const record of records){try{if(dataType==='ventas')await upsertVenta(record);else await upsertCliente(record);upserted++;}catch(e){errors++;}}return{upserted,errors};}
+async function bulkUpsertVentas(records) {
+  if (!Array.isArray(records) || records.length === 0) return { upserted: 0, modified: 0, errors: 0 };
+
+  const now = new Date();
+  const operations = records.map((record = {}) => {
+    const ventaId = record.ventaId || record.idSale || null;
+    const eventoVentaId = record.eventoVentaId || record.externalId || null;
+    const uniqueVentaId = ventaId || eventoVentaId || uuidv4();
+    const filterOr = [];
+    if (ventaId || uniqueVentaId) filterOr.push({ idSale: ventaId || uniqueVentaId });
+    if (eventoVentaId || uniqueVentaId) filterOr.push({ externalId: eventoVentaId || uniqueVentaId });
+    const filter = { $or: filterOr };
+
+    const docData = {
+      idSale: uniqueVentaId,
+      idMember: record.clienteId || record.idMember || null,
+      memberName: record.memberName || record.nombreCliente || null,
+      prospecto_nombre: record.prospecto_nombre || record.memberName || record.nombreCliente || null,
+      description: record.concepto || record.description || record.planName || null,
+      notas: record.notas || record.notes || record.description || null,
+      amount: Number.isFinite(Number(record.amount || record.monto)) ? Number(record.amount || record.monto) : 0,
+      monto: Number.isFinite(Number(record.amount || record.monto)) ? Number(record.amount || record.monto) : 0,
+      totalAmount: Number.isFinite(Number(record.totalAmount || record.monto)) ? Number(record.totalAmount || record.monto) : 0,
+      discount: Number.isFinite(Number(record.discount)) ? Number(record.discount) : 0,
+      descuento: Number.isFinite(Number(record.discount)) ? Number(record.discount) : 0,
+      currency: record.moneda || record.currency || 'MXN',
+      paymentStatus: record.paymentStatus || record.estatus || 'Pendiente',
+      estado: record.estado || normalizeLegacySaleStatus(record),
+      employeeName: record.employeeName || record.vendedor || null,
+      vendedor: record.vendedor || record.employeeName || null,
+      branchName: record.branchName || record.sede || null,
+      idBranch: record.idBranch || record.branchName || record.sede || null,
+      sede: record.sede || record.idBranch || record.branchName || null,
+      planName: record.planName || record.plan || null,
+      plan: record.plan || record.planName || null,
+      saleType: record.saleType || record.tipo || null,
+      tipo_venta: record.tipo_venta || normalizeLegacySaleType(record),
+      saleDate: record.saleDate ? new Date(record.saleDate) : (record.fecha ? new Date(record.fecha) : now),
+      fecha_venta: record.saleDate ? new Date(record.saleDate) : (record.fecha ? new Date(record.fecha) : now),
+      dueDate: record.dueDate ? new Date(record.dueDate) : null,
+      fecha_vencimiento: record.dueDate ? new Date(record.dueDate) : null,
+      cellPhone: record.cellPhone || record.whatsapp || null,
+      source: 'api',
+      externalId: eventoVentaId || uniqueVentaId,
+      lastSyncAt: now,
+      updatedAt: now
+    };
+
+    return {
+      updateOne: {
+        filter,
+        update: { $set: docData, $setOnInsert: { createdAt: now } },
+        upsert: true
+      }
+    };
+  });
+
+  try {
+    const result = await mongoose.connection.collection('ventas').bulkWrite(operations, { ordered: false });
+    return {
+      upserted: result.upsertedCount || 0,
+      modified: result.modifiedCount || 0,
+      errors: 0
+    };
+  } catch (err) {
+    return {
+      upserted: err?.result?.upsertedCount || 0,
+      modified: err?.result?.modifiedCount || 0,
+      errors: Array.isArray(err?.writeErrors) ? err.writeErrors.length : records.length
+    };
+  }
+}
+
+async function bulkUpsertClientes(records) {
+  if (!Array.isArray(records) || records.length === 0) return { upserted: 0, modified: 0, errors: 0 };
+
+  const now = new Date();
+  const operations = records.map((record = {}) => {
+    const clienteId = record.clienteId || record.idMember || record.externalId || null;
+    const email = record.email ? String(record.email).toLowerCase() : null;
+    const uniqueClienteId = clienteId || email || uuidv4();
+    const filterOr = [];
+    if (clienteId || uniqueClienteId) filterOr.push({ idMember: clienteId || uniqueClienteId });
+    if (email) filterOr.push({ email });
+    const filter = { $or: filterOr };
+
+    const docData = {
+      uniqueId: record.uniqueId || record.clienteId || record.idMember || uniqueClienteId,
+      idMember: uniqueClienteId,
+      name: record.nombre || record.name || 'Sin nombre',
+      nombre_cliente: record.nombre_cliente || record.nombre || record.name || 'Sin nombre',
+      email,
+      cellPhone: record.telefono || record.cellPhone || null,
+      telefono: record.telefono || record.cellPhone || null,
+      whatsapp: record.whatsapp || record.telefono || record.cellPhone || null,
+      idBranch: record.idBranch || record.eventoId || null,
+      branchName: record.empresa || record.branchName || null,
+      sede: record.sede || record.idBranch || record.eventoId || null,
+      cpf: record.rfc || record.cpf || null,
+      status: record.estado || record.status || null,
+      active: typeof record.active === 'boolean' ? record.active : String(record.estado || record.status || '').toLowerCase() === 'activo',
+      source: 'api',
+      membershipStatus: record.membresia?.estado || null,
+      estado_suscripcion: record.estado_suscripcion || record.membresia?.estado || record.membershipStatus || null,
+      membershipStartDate: record.membershipStartDate ? new Date(record.membershipStartDate) : (record.fecha_inicio_plan_actual ? new Date(record.fecha_inicio_plan_actual) : null),
+      fecha_inicio_plan_actual: record.membershipStartDate ? new Date(record.membershipStartDate) : (record.fecha_inicio_plan_actual ? new Date(record.fecha_inicio_plan_actual) : null),
+      membershipEndDate: record.membresia?.fechaVencimiento ? new Date(record.membresia.fechaVencimiento) : null,
+      fecha_fin_plan_actual: record.membresia?.fechaVencimiento ? new Date(record.membresia.fechaVencimiento) : (record.membershipEndDate ? new Date(record.membershipEndDate) : null),
+      planName: record.planName || record.plan_actual || record.plan || null,
+      plan_actual: record.plan_actual || record.plan || record.planName || null,
+      modalidad_actual: record.modalidad_actual || null,
+      canal_origen: record.canal_origen || 'API',
+      registrationDate: record.registrationDate ? new Date(record.registrationDate) : (record.fecha_primer_compra ? new Date(record.fecha_primer_compra) : now),
+      fecha_primer_compra: record.registrationDate ? new Date(record.registrationDate) : (record.fecha_primer_compra ? new Date(record.fecha_primer_compra) : now),
+      customFields: record.data || {},
+      duracion_actual_meses: record.duracion_actual_meses || null,
+      lastSyncAt: now,
+      updatedAt: now
+    };
+
+    return {
+      updateOne: {
+        filter,
+        update: { $set: docData, $setOnInsert: { createdAt: now } },
+        upsert: true
+      }
+    };
+  });
+
+  try {
+    const result = await mongoose.connection.collection('clientes').bulkWrite(operations, { ordered: false });
+    return {
+      upserted: result.upsertedCount || 0,
+      modified: result.modifiedCount || 0,
+      errors: 0
+    };
+  } catch (err) {
+    return {
+      upserted: err?.result?.upsertedCount || 0,
+      modified: err?.result?.modifiedCount || 0,
+      errors: Array.isArray(err?.writeErrors) ? err.writeErrors.length : records.length
+    };
+  }
+}
+
+async function syncToRepo(dataType, records) {
+  if (!dataType || !records || records.length === 0) return { upserted: 0, errors: 0 };
+
+  // Para batches grandes, usar bulkWrite (mucho más rápido)
+  if (records.length > 10) {
+    if (dataType === 'ventas') return bulkUpsertVentas(records);
+    return bulkUpsertClientes(records);
+  }
+
+  // Para batches pequeños, mantener loop individual
+  let upserted = 0;
+  let errors = 0;
+  for (const record of records) {
+    try {
+      if (dataType === 'ventas') await upsertVenta(record);
+      else await upsertCliente(record);
+      upserted++;
+    } catch (e) {
+      errors++;
+    }
+  }
+  return { upserted, errors };
+}
 module.exports = {
   findClienteByIdentifiers,
   findClienteByEmail,

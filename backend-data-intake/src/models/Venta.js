@@ -30,10 +30,23 @@ const ventaSchema = new mongoose.Schema({
   notes: String,
   invoiceNumber: String,
   items: [{ itemType: String, itemName: String, quantity: Number, unitPrice: Number, subtotal: Number }],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
   lastSyncAt: { type: Date, default: Date.now },
-  source: { type: String, default: 'import', index: true },
+  source: {
+    type:    String,
+    enum:    ['excel', 'api', 'manual', 'merged', 'import'],
+    default: 'import',
+    index:   true,
+  },
+  dataSource: {
+    type: {
+      type:    String,
+      enum:    ['excel', 'api', 'manual', 'merged'],
+    },
+    connectionName: String,   // Ej: "EVO producción"
+    sourceId:       String,   // ID externo en EVO/W12
+    importJobId:    String,   // referencia al SyncLog._id
+    importedAt:     Date,
+  },
   externalId: String
 }, { timestamps: true, collection: 'ventas' });
 // Índices compuestos
@@ -53,7 +66,6 @@ ventaSchema.pre('save', function(next) {
   } else if (this.cellPhone && !this.whatsapp) {
     this.whatsapp = this.cellPhone;
   }
-  this.updatedAt = new Date();
   next();
 });
 

@@ -16,7 +16,15 @@ const apiIntegrationSchema = new Schema({
   updatedAt: { type: Date, default: Date.now }
 }, {
   collection: 'api_integrations',
-  timestamps: true
+  timestamps: true,
+  toJSON: {
+    transform: (_doc, ret) => {
+      delete ret.encryptedToken;
+      delete ret.encryptionIv;
+      delete ret.__v;
+      return ret;
+    }
+  }
 });
 
 apiIntegrationSchema.index({ tenantId: 1 }, { unique: true });

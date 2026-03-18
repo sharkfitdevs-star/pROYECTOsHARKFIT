@@ -7,9 +7,9 @@ const notify = () => {
   listeners.forEach((listener) => listener(toasts));
 };
 
-export const toast = ({ title, description, variant = 'default', duration = 4000 }) => {
+export const toast = ({ title, description, variant = 'default', duration = 4000, ...rest }) => {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const nextToast = { id, title, description, variant };
+  const nextToast = { id, title, description, variant, ...rest };
 
   toasts = [nextToast, ...toasts].slice(0, 5);
   notify();
