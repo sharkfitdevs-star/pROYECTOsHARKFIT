@@ -12,7 +12,7 @@ function _validateUrl(url) {
   try {
     u = new URL(url);
   } catch (e) {
-    throw new Error(`URL inválida: ${url}`);
+    throw new Error(`URL inválida: ${url}`); 
   }
 
   if (!ALLOWED_DOMAINS.includes(u.hostname)) {
@@ -30,27 +30,73 @@ function _buildAuthHeaders(auth = {}) {
   return headers;
 }
 
+const MAX_RETRIES = 3;
+
 async function _performRequest(url, config = {}) {
   _validateUrl(url);
   const logs = [];
   const headers = Object.assign({}, _buildAuthHeaders(config.auth), config.headers);
-  try {
-    const resp = await axios.request({
-      url,
-      method: config.method || 'GET',
-      headers,
-      params: config.params,
-      timeout: config.timeout || 10000
-    });
-    logs.push({ url, statusCode: resp.status, bodyPreview: resp.data, count: Array.isArray(resp.data) ? resp.data.length : 1 });
-    return { data: resp.data, logs, source: url.includes('abcevo.com') ? 'abc-evo' : 'w12' };
-  } catch (err) {
-    logs.push({ url, statusCode: err.response?.status, bodyPreview: err.response?.data, errorMessage: err.message });
-    const e = new Error(err.message);
-    e.statusCode = err.response?.status;
-    e.body = err.response?.data;
-    e.logs = logs;
-    throw e;
+  const axiosCfg = {
+    url,
+    method: config.method || 'GET',
+    headers,
+    params: config.params,
+    timeout: config.timeout || 10000
+  };
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const resp = await axios.request(axiosCfg);
+      logs.push({ url, statusCode: resp.status, bodyPreview: resp.data, count: Array.isArray(resp.data) ? resp.data.length : 1 });
+      return { data: resp.data, logs, source: url.includes('abcevo.com') ? 'abc-evo' : 'w12' };
+    } catch (err) {
+      const status = err.response?.status;
+      logs.push({ url, statusCode: status, bodyPreview: err.response?.data, errorMessage: err.message });
+
+      // Always throw on last attempt
+      if (attempt === MAX_RETRIES) {
+        const e = new Error(err.message);
+        e.statusCode = status;
+        e.body = err.response?.data;
+        e.logs = logs;
+        throw e;
+      }
+
+      let delayMs;
+
+      if (status === 429) {
+        const retryAfterRaw =
+          err.response.headers['retry-after'] ||
+          err.response.headers['x-ratelimit-reset'];
+        const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) : 5;
+        delayMs = (retryAfterSec + 1) * 1000;
+      } else if (status === 401 || status === 403) {
+        // Auth errors: one retry only
+        if (attempt > 1) {
+          const e = new Error(err.message);
+          e.statusCode = status;
+          e.body = err.response?.data;
+          e.logs = logs;
+          throw e;
+        }
+        delayMs = 2000;
+      } else if (status >= 500) {
+        delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+      } else {
+        // Network errors: ECONNREFUSED, ETIMEDOUT, ENOTFOUND
+        if (attempt > 1) {
+          const e = new Error(err.message);
+          e.statusCode = err.code;
+          e.body = null;
+          e.logs = logs;
+          throw e;
+        }
+        delayMs = 3000;
+      }
+
+      console.warn(`[abcEvo] Reintentando request... attempt=${attempt}/${MAX_RETRIES} status=${status || err.code} delay=${delayMs / 1000}s url=${url}`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
   }
 }
 

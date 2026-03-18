@@ -7,6 +7,8 @@ const Alerta = require('./Alerta');
 const Reporte = require('./Reporte');
 const ApiIntegration = require('./ApiIntegration');
 const AccessLog = require('./AccessLog');
+const SyncLog         = require('./SyncLog');
+const ExtractorConfig = require('./ExtractorConfig');
 // Cargar MongoModels primero y usar su SyncLog cuando esté disponible.
 // Evita registrar el modelo legacy `SyncLog` que causa conflictos de esquema.
 const MongoModels = require('./MongoModels');
@@ -40,6 +42,8 @@ module.exports = {
   ExportRun,
   Membership,
   Payable,
+  SyncLog,
+  ExtractorConfig,
 
   // Mongo utility models/queries
   Webhook: MongoModels.Webhook,

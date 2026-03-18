@@ -762,6 +762,36 @@ router.get('/selftest', requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/import/status/:jobId ───────────────────────────────────────────
+router.get('/status/:jobId', async (req, res) => {
+  try {
+    const { SyncLog } = require('../models');
+    const log = await SyncLog.findOne({ jobId: req.params.jobId });
+    if (!log) return res.status(404).json({ ok: false, error: 'Job no encontrado' });
+    res.json({ ok: true, data: log });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/import/logs ─────────────────────────────────────────────────────
+// Historial unificado: Excel (source:'excel') + API (source:'api')
+router.get('/logs', async (req, res) => {
+  try {
+    const { SyncLog } = require('../models');
+    const { source, status, limit = 20 } = req.query;
+    const filtro = {};
+    if (source) filtro.source = source;
+    if (status) filtro.status = status;
+    const logs = await SyncLog.find(filtro)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(parseInt(limit) || 20, 100));
+    res.json({ ok: true, data: logs });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;
 
 /*

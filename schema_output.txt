@@ -1,0 +1,131 @@
+DB exists True
+TABLES:
+('access_logs', 'table')
+('agendamientos_agendamiento', 'table')
+('alertas_alerta', 'table')
+('auth_group', 'table')
+('auth_group_permissions', 'table')
+('auth_permission', 'table')
+('auth_user', 'table')
+('auth_user_groups', 'table')
+('auth_user_user_permissions', 'table')
+('clientes_cliente', 'table')
+('django_admin_log', 'table')
+('django_content_type', 'table')
+('django_migrations', 'table')
+('django_session', 'table')
+('members', 'table')
+('prospects', 'table')
+('sales', 'table')
+('sqlite_sequence', 'table')
+('sync_queue', 'table')
+('usuarios_perfilusuario', 'table')
+('ventas_venta', 'table')
+---
+CREATE UNIQUE INDEX "access_logs_tenant_id_evo_entry_id_5e3dbff8_uniq" ON "access_logs" ("tenant_id", "evo_entry_id")
+CREATE TABLE access_logs (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    evo_entry_id INTEGER NOT NULL,
+                    member_id TEXT,
+                    access_time TEXT,
+                    location TEXT,
+                    created_at TEXT DEFAULT (datetime('now')), member_evo_id INTEGER, member_name VARCHAR(255), branch_name VARCHAR(100), entry_type VARCHAR(100), device VARCHAR(100), entry_action VARCHAR(50), block_reason VARCHAR(255),
+                    UNIQUE(tenant_id, evo_entry_id)
+                )
+CREATE INDEX "agendamientos_agendamiento_cliente_id_33d4b833" ON "agendamientos_agendamiento" ("cliente_id")
+CREATE INDEX "agendamientos_agendamiento_responsable_id_7359f8dc" ON "agendamientos_agendamiento" ("responsable_id")
+CREATE INDEX "agendamient_cliente_c3ba07_idx" ON "agendamientos_agendamiento" ("cliente_id")
+CREATE INDEX "agendamient_estado_618d3d_idx" ON "agendamientos_agendamiento" ("estado")
+CREATE INDEX "agendamient_fecha_h_523ac1_idx" ON "agendamientos_agendamiento" ("fecha_hora_inicio")
+CREATE TABLE "agendamientos_agendamiento" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "cliente_id" bigint NOT NULL REFERENCES "clientes_cliente" ("id") DEFERRABLE INITIALLY DEFERRED, "tipo" varchar(20) NOT NULL, "estado" varchar(20) NOT NULL, "titulo" varchar(300) NOT NULL, "descripcion" text NOT NULL, "fecha_hora_inicio" datetime NOT NULL, "fecha_hora_fin" datetime NOT NULL, "duracion_minutos" integer NOT NULL, "ubicacion" varchar(300) NOT NULL, "es_virtual" bool NOT NULL, "enlace_reunion" varchar(200) NOT NULL, "responsable_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "participantes_email" text NOT NULL, "recordatorio_minutos_antes" integer NOT NULL, "recordatorio_enviado" bool NOT NULL, "notas" text NOT NULL, "resultado" text NOT NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL)
+CREATE INDEX "alertas_alerta_cliente_id_abe13576" ON "alertas_alerta" ("cliente_id")
+CREATE INDEX "alertas_alerta_asignado_a_id_09397b0a" ON "alertas_alerta" ("asignado_a_id")
+CREATE INDEX "alertas_alerta_resuelto_por_id_d1f98dac" ON "alertas_alerta" ("resuelto_por_id")
+CREATE INDEX "alertas_ale_cliente_d5af69_idx" ON "alertas_alerta" ("cliente_id")
+CREATE INDEX "alertas_ale_estado_0fcad6_idx" ON "alertas_alerta" ("estado")
+CREATE INDEX "alertas_ale_priorid_d81712_idx" ON "alertas_alerta" ("prioridad")
+CREATE INDEX "alertas_ale_created_39d6a0_idx" ON "alertas_alerta" ("created_at" DESC)
+CREATE TABLE "alertas_alerta" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "tipo" varchar(30) NOT NULL, "prioridad" varchar(10) NOT NULL, "estado" varchar(20) NOT NULL, "cliente_id" bigint NULL REFERENCES "clientes_cliente" ("id") DEFERRABLE INITIALLY DEFERRED, "titulo" varchar(300) NOT NULL, "descripcion" text NOT NULL, "datos_adicionales" text NOT NULL CHECK ((JSON_VALID("datos_adicionales") OR "datos_adicionales" IS NULL)), "asignado_a_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "notificado" bool NOT NULL, "enviado_a_canales" varchar(200) NOT NULL, "notas" text NOT NULL, "fecha_resolucion" datetime NULL, "resuelto_por_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "fecha_vencimiento" datetime NULL)
+CREATE TABLE "auth_group" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(150) NOT NULL UNIQUE)
+CREATE UNIQUE INDEX "auth_group_permissions_group_id_permission_id_0cd325b0_uniq" ON "auth_group_permissions" ("group_id", "permission_id")
+CREATE INDEX "auth_group_permissions_group_id_b120cbf9" ON "auth_group_permissions" ("group_id")
+CREATE INDEX "auth_group_permissions_permission_id_84c5c92e" ON "auth_group_permissions" ("permission_id")
+CREATE TABLE "auth_group_permissions" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "group_id" integer NOT NULL REFERENCES "auth_group" ("id") DEFERRABLE INITIALLY DEFERRED, "permission_id" integer NOT NULL REFERENCES "auth_permission" ("id") DEFERRABLE INITIALLY DEFERRED)
+CREATE UNIQUE INDEX "auth_permission_content_type_id_codename_01ab375a_uniq" ON "auth_permission" ("content_type_id", "codename")
+CREATE INDEX "auth_permission_content_type_id_2f476e4b" ON "auth_permission" ("content_type_id")
+CREATE TABLE "auth_permission" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "content_type_id" integer NOT NULL REFERENCES "django_content_type" ("id") DEFERRABLE INITIALLY DEFERRED, "codename" varchar(100) NOT NULL, "name" varchar(255) NOT NULL)
+CREATE TABLE "auth_user" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "password" varchar(128) NOT NULL, "last_login" datetime NULL, "is_superuser" bool NOT NULL, "username" varchar(150) NOT NULL UNIQUE, "last_name" varchar(150) NOT NULL, "email" varchar(254) NOT NULL, "is_staff" bool NOT NULL, "is_active" bool NOT NULL, "date_joined" datetime NOT NULL, "first_name" varchar(150) NOT NULL)
+CREATE UNIQUE INDEX "auth_user_groups_user_id_group_id_94350c0c_uniq" ON "auth_user_groups" ("user_id", "group_id")
+CREATE INDEX "auth_user_groups_user_id_6a12ed8b" ON "auth_user_groups" ("user_id")
+CREATE INDEX "auth_user_groups_group_id_97559544" ON "auth_user_groups" ("group_id")
+CREATE TABLE "auth_user_groups" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user_id" integer NOT NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "group_id" integer NOT NULL REFERENCES "auth_group" ("id") DEFERRABLE INITIALLY DEFERRED)
+CREATE UNIQUE INDEX "auth_user_user_permissions_user_id_permission_id_14a6b632_uniq" ON "auth_user_user_permissions" ("user_id", "permission_id")
+CREATE INDEX "auth_user_user_permissions_user_id_a95ead1b" ON "auth_user_user_permissions" ("user_id")
+CREATE INDEX "auth_user_user_permissions_permission_id_1fbb5f2c" ON "auth_user_user_permissions" ("permission_id")
+CREATE TABLE "auth_user_user_permissions" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user_id" integer NOT NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "permission_id" integer NOT NULL REFERENCES "auth_permission" ("id") DEFERRABLE INITIALLY DEFERRED)
+CREATE INDEX "clientes_cliente_asignado_a_id_4787882a" ON "clientes_cliente" ("asignado_a_id")
+CREATE INDEX "clientes_cl_email_eae461_idx" ON "clientes_cliente" ("email")
+CREATE INDEX "clientes_cl_estado_54796b_idx" ON "clientes_cliente" ("estado")
+CREATE INDEX "clientes_cl_created_d75b2c_idx" ON "clientes_cliente" ("created_at" DESC)
+CREATE TABLE "clientes_cliente" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "nombre" varchar(200) NOT NULL, "email" varchar(254) NOT NULL UNIQUE, "telefono" varchar(20) NOT NULL, "rut" varchar(20) NULL UNIQUE, "empresa" varchar(200) NOT NULL, "estado" varchar(20) NOT NULL, "direccion" varchar(300) NOT NULL, "ciudad" varchar(100) NOT NULL, "provincia" varchar(100) NOT NULL, "codigo_postal" varchar(10) NOT NULL, "contacto_nombre" varchar(200) NOT NULL, "contacto_email" varchar(254) NOT NULL, "contacto_telefono" varchar(20) NOT NULL, "fuente" varchar(100) NOT NULL, "presupuesto_estimado" decimal NULL, "frecuencia_pago" varchar(50) NOT NULL, "notas" text NOT NULL, "asignado_a_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "fecha_primera_venta" date NULL)
+CREATE INDEX "django_admin_log_content_type_id_c4bce8eb" ON "django_admin_log" ("content_type_id")
+CREATE INDEX "django_admin_log_user_id_c564eba6" ON "django_admin_log" ("user_id")
+CREATE TABLE "django_admin_log" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "object_id" text NULL, "object_repr" varchar(200) NOT NULL, "action_flag" smallint unsigned NOT NULL CHECK ("action_flag" >= 0), "change_message" text NOT NULL, "content_type_id" integer NULL REFERENCES "django_content_type" ("id") DEFERRABLE INITIALLY DEFERRED, "user_id" integer NOT NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "action_time" datetime NOT NULL)
+CREATE UNIQUE INDEX "django_content_type_app_label_model_76bd3d3b_uniq" ON "django_content_type" ("app_label", "model")
+CREATE TABLE "django_content_type" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "app_label" varchar(100) NOT NULL, "model" varchar(100) NOT NULL)
+CREATE TABLE "django_migrations" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "app" varchar(255) NOT NULL, "name" varchar(255) NOT NULL, "applied" datetime NOT NULL)
+CREATE INDEX "django_session_expire_date_a5c62663" ON "django_session" ("expire_date")
+CREATE TABLE "django_session" ("session_key" varchar(40) NOT NULL PRIMARY KEY, "session_data" text NOT NULL, "expire_date" datetime NOT NULL)
+CREATE UNIQUE INDEX "members_tenant_id_evo_member_id_bc9c4c1e_uniq" ON "members" ("tenant_id", "evo_member_id")
+CREATE TABLE members (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    evo_member_id INTEGER NOT NULL,
+                    name TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now')), first_name VARCHAR(255), last_name VARCHAR(255), document VARCHAR(50), gender VARCHAR(10), birthdate VARCHAR(50), marital_status VARCHAR(50), phone VARCHAR(20), email VARCHAR(100), address VARCHAR(255), city VARCHAR(100), state VARCHAR(100), zipcode VARCHAR(20), branch_id INTEGER, branch_name VARCHAR(100), registration_date VARCHAR(50), status VARCHAR(50), membership_status VARCHAR(50), access_blocked BOOLEAN, blocked_reason VARCHAR(255), consultant_name VARCHAR(255), instructor_name VARCHAR(255), personal_trainer_name VARCHAR(255), last_access_date VARCHAR(50),
+                    UNIQUE(tenant_id, evo_member_id)
+                )
+CREATE UNIQUE INDEX "prospects_tenant_id_evo_prospect_id_1582bdaf_uniq" ON "prospects" ("tenant_id", "evo_prospect_id")
+CREATE TABLE prospects (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    evo_prospect_id INTEGER NOT NULL,
+                    name TEXT,
+                    email TEXT,
+                    registration_date TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now')), first_name VARCHAR(255), last_name VARCHAR(255), cellphone VARCHAR(20), gender VARCHAR(10), birthdate VARCHAR(50), address VARCHAR(255), city VARCHAR(100), state VARCHAR(100), zipcode VARCHAR(20), branch_id INTEGER, branch_name VARCHAR(100), signup_type VARCHAR(50), marketing_channel VARCHAR(100), current_step VARCHAR(100), temperature VARCHAR(50), notes TEXT,
+                    UNIQUE(tenant_id, evo_prospect_id)
+                )
+CREATE UNIQUE INDEX "sales_tenant_id_evo_sale_id_1f64e1d0_uniq" ON "sales" ("tenant_id", "evo_sale_id")
+CREATE TABLE sales (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    evo_sale_id INTEGER NOT NULL,
+                    member_id TEXT,
+                    amount REAL,
+                    sale_date TEXT,
+                    status TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now')), member_name VARCHAR(255), member_document VARCHAR(50), member_phone VARCHAR(20), member_email VARCHAR(100), item_description VARCHAR(255), item_quantity INTEGER, employee_name VARCHAR(255), branch_id INTEGER, sale_source VARCHAR(100), observations TEXT,
+                    UNIQUE(tenant_id, evo_sale_id)
+                )
+CREATE TABLE sqlite_sequence(name,seq)
+CREATE TABLE sync_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tenant_id TEXT NOT NULL,
+                    job_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    error_message TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    processed_at TEXT DEFAULT (datetime('now'))
+                )
+CREATE TABLE "usuarios_perfilusuario" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user_id" integer NOT NULL UNIQUE REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "telefono" varchar(20) NOT NULL, "documento" varchar(20) NOT NULL UNIQUE, "fecha_nacimiento" date NULL, "rol" varchar(20) NOT NULL, "departamento" varchar(100) NOT NULL, "puesto" varchar(100) NOT NULL, "estado" varchar(20) NOT NULL, "puede_ver_todas_ventas" bool NOT NULL, "puede_ver_reportes" bool NOT NULL, "puede_crear_usuarios" bool NOT NULL, "puede_modificar_configuracion" bool NOT NULL, "foto" varchar(100) NULL, "notificaciones_email" bool NOT NULL, "notificaciones_whatsapp" bool NOT NULL, "recibir_resumenes_diarios" bool NOT NULL, "hora_resumen_diario" time NOT NULL, "ultimo_acceso" datetime NULL, "fecha_inicio_contrato" date NULL, "fecha_fin_contrato" date NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL)
+CREATE INDEX "ventas_venta_cliente_id_85f33a80" ON "ventas_venta" ("cliente_id")
+CREATE INDEX "ventas_venta_vendedor_id_2f6b0d76" ON "ventas_venta" ("vendedor_id")
+CREATE INDEX "ventas_vent_cliente_1869ce_idx" ON "ventas_venta" ("cliente_id")
+CREATE INDEX "ventas_vent_estado_b0d674_idx" ON "ventas_venta" ("estado")
+CREATE INDEX "ventas_vent_fecha_v_f04c2f_idx" ON "ventas_venta" ("fecha_venta" DESC)
+CREATE TABLE "ventas_venta" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "numero_venta" varchar(50) NOT NULL UNIQUE, "cliente_id" bigint NOT NULL REFERENCES "clientes_cliente" ("id") DEFERRABLE INITIALLY DEFERRED, "tipo" varchar(20) NOT NULL, "estado" varchar(20) NOT NULL, "monto_total" decimal NOT NULL, "monto_descuento" decimal NOT NULL, "monto_neto" decimal NOT NULL, "moneda" varchar(3) NOT NULL, "forma_pago" varchar(50) NOT NULL, "cuotas" integer NOT NULL, "fecha_vencimiento_pago" date NULL, "vendedor_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "descripcion" text NOT NULL, "notas_internas" text NOT NULL, "fecha_venta" date NOT NULL, "fecha_entrega" date NULL, "fecha_facturacion" date NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL)

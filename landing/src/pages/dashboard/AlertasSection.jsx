@@ -1,21 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import AlertasService from '../../api/services/AlertasService';
 import '../../styles/Dashboard.css';
 
-const PRIORIDAD_ORDEN = { urgente: 4, alta: 3, media: 2, baja: 1 };
+const PRIORIDAD_ORDEN = { urgente: 5, critica: 4, alta: 3, media: 2, baja: 1 };
 
 const PRIORIDAD_COLOR = {
-  urgente: { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' },
-  alta:    { background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' },
-  media:   { background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' },
-  baja:    { background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' },
+  urgente: { background: 'rgba(248,113,113,0.2)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.35)' },
+  alta:    { background: 'rgba(248,113,113,0.15)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.25)' },
+  media:   { background: 'rgba(251,191,36,0.15)', color: '#fde68a', border: '1px solid rgba(251,191,36,0.25)' },
+  baja:    { background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.25)' },
 };
 
 const ESTADO_COLOR = {
-  pendiente:   { background: '#fef9c3', color: '#854d0e' },
-  en_proceso:  { background: '#dbeafe', color: '#1e40af' },
-  completada:  { background: '#dcfce7', color: '#166534' },
-  cancelada:   { background: '#f3f4f6', color: '#6b7280' },
+  pendiente:   { background: 'rgba(251,191,36,0.15)', color: '#fde68a' },
+  en_proceso:  { background: 'rgba(96,165,250,0.15)', color: '#93c5fd' },
+  completada:  { background: 'rgba(74,222,128,0.15)', color: '#86efac' },
+  cancelada:   { background: 'rgba(248,113,113,0.15)', color: '#fca5a5' },
 };
 
 function Badge({ texto, style }) {
@@ -73,6 +73,7 @@ const PAGE_SIZE = 50;
 export default function AlertasSection() {
   const [alertas, setAlertas] = useState([]);
   const [cargando, setCargando] = useState(false);
+  const [limpiandoObsoletas, setLimpiandoObsoletas] = useState(false);
   const [error, setError] = useState(null);
   const [filtroActivo, setFiltroActivo] = useState(null);
   const [pagina, setPagina] = useState(1);
@@ -87,7 +88,7 @@ export default function AlertasSection() {
   const [filtroDesde, setFiltroDesde]     = useState('');
   const [filtroHasta, setFiltroHasta]     = useState('');
 
-  const { token } = useAuth();
+  // token ya no es necesario; AlertasService maneja autenticación automáticamente
 
   useEffect(() => {
     cargarAlertas();
@@ -97,14 +98,8 @@ export default function AlertasSection() {
     setCargando(true);
     setError(null);
     try {
-      const authToken = token || localStorage.getItem('authToken');
-      const res = await fetch('/api/alertas?limit=5000', {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const lista = json.data || json.alertas || [];
-      setAlertas(lista);
+      const json = await AlertasService.getAll({ limit: 5000 });
+      setAlertas(json.data || []);
     } catch (e) {
       setError('Error cargando alertas: ' + e.message);
     } finally {
@@ -114,20 +109,27 @@ export default function AlertasSection() {
 
   async function cambiarEstado(id, nuevoEstado) {
     try {
-      const authToken = token || localStorage.getItem('authToken');
-      const res = await fetch(`/api/alertas/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ status: nuevoEstado })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setAlertas(prev => prev.map(a => a._id === id ? { ...a, status: nuevoEstado } : a));
+      await AlertasService.cambiarEstado(id, nuevoEstado);
+      setAlertas(prev => prev.map(a =>
+        (a._id === id || a.idAlert === id) ? { ...a, status: nuevoEstado } : a
+      ));
       setMenuAbierto(null);
     } catch (e) {
       alert('Error al actualizar: ' + e.message);
+    }
+  }
+
+  async function limpiarAlertasObsoletas() {
+    setLimpiandoObsoletas(true);
+    try {
+      const resp = await AlertasService.limpiarObsoletas(true);
+      const eliminadas = Number(resp?.data?.eliminadas || 0);
+      await cargarAlertas();
+      alert(`Limpieza completada. Se eliminaron ${eliminadas} alerta(s) obsoleta(s).`);
+    } catch (e) {
+      alert('Error limpiando alertas obsoletas: ' + e.message);
+    } finally {
+      setLimpiandoObsoletas(false);
     }
   }
 
@@ -137,7 +139,7 @@ export default function AlertasSection() {
     return {
       activas:     alertas.filter(a => ['pendiente','en_proceso'].includes(a.status)).length,
       vencidas:    alertas.filter(a => a.dueDate && new Date(a.dueDate) < hoy && a.status !== 'completada' && a.status !== 'cancelada').length,
-      urgentes:    alertas.filter(a => a.priority === 'urgente' && ['pendiente','en_proceso'].includes(a.status)).length,
+      urgentes:    alertas.filter(a => (a.priority === 'urgente' || a.priority === 'critica') && ['pendiente','en_proceso'].includes(a.status)).length,
       en_proceso:  alertas.filter(a => a.status === 'en_proceso').length,
       completadas: alertas.filter(a => a.status === 'completada').length,
     };
@@ -151,7 +153,7 @@ export default function AlertasSection() {
     // filtro de counter activo
     if (filtroActivo === 'activas')     lista = lista.filter(a => ['pendiente','en_proceso'].includes(a.status));
     if (filtroActivo === 'vencidas')    lista = lista.filter(a => a.dueDate && new Date(a.dueDate) < hoy && a.status !== 'completada' && a.status !== 'cancelada');
-    if (filtroActivo === 'urgentes')    lista = lista.filter(a => a.priority === 'urgente' && ['pendiente','en_proceso'].includes(a.status));
+    if (filtroActivo === 'urgentes')    lista = lista.filter(a => (a.priority === 'urgente' || a.priority === 'critica') && ['pendiente','en_proceso'].includes(a.status));
     if (filtroActivo === 'en_proceso')  lista = lista.filter(a => a.status === 'en_proceso');
     if (filtroActivo === 'completadas') lista = lista.filter(a => a.status === 'completada');
 
@@ -211,16 +213,27 @@ export default function AlertasSection() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '24px', fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--color-text)' }}>
 
       {/* Encabezado */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>Alertas Operativas</h2>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => exportarCSV(filtradas)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
+          <button
+            onClick={limpiarAlertasObsoletas}
+            disabled={limpiandoObsoletas}
+            style={{
+              padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)',
+              background: 'transparent', cursor: limpiandoObsoletas ? 'wait' : 'pointer',
+              color: 'var(--color-text-secondary)', fontSize: '0.85rem'
+            }}
+          >
+            {limpiandoObsoletas ? 'Limpiando...' : 'Limpiar alertas obsoletas'}
+          </button>
+          <button onClick={() => exportarCSV(filtradas)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}>
             Exportar CSV
           </button>
-          <button onClick={cargarAlertas} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
+          <button onClick={cargarAlertas} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}>
             Actualizar
           </button>
         </div>
@@ -229,11 +242,11 @@ export default function AlertasSection() {
       {/* Counters */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
         {[
-          { key: 'activas',     label: 'Activas',     color: '#1e40af', bg: '#dbeafe' },
-          { key: 'vencidas',    label: 'Vencidas',    color: '#991b1b', bg: '#fee2e2' },
-          { key: 'urgentes',    label: 'Urgentes',    color: '#92400e', bg: '#fef3c7' },
-          { key: 'en_proceso',  label: 'En Proceso',  color: '#065f46', bg: '#d1fae5' },
-          { key: 'completadas', label: 'Completadas', color: '#374151', bg: '#f3f4f6' },
+          { key: 'activas',     label: 'Activas',     color: 'var(--color-primary-light)', bg: 'rgba(99,102,241,0.12)' },
+          { key: 'vencidas',    label: 'Vencidas',    color: '#fca5a5', bg: 'rgba(248,113,113,0.12)' },
+          { key: 'urgentes',    label: 'Urgentes',    color: '#fde68a', bg: 'rgba(251,191,36,0.12)' },
+          { key: 'en_proceso',  label: 'En Proceso',  color: '#93c5fd', bg: 'rgba(96,165,250,0.12)' },
+          { key: 'completadas', label: 'Completadas', color: '#86efac', bg: 'rgba(74,222,128,0.12)' },
         ].map(({ key, label, color, bg }) => (
           <div
             key={key}
@@ -242,7 +255,7 @@ export default function AlertasSection() {
               padding: '12px 18px',
               borderRadius: '10px',
               background: filtroActivo === key ? color : bg,
-              color: filtroActivo === key ? '#fff' : color,
+              color: filtroActivo === key ? 'var(--color-text)' : color,
               cursor: 'pointer',
               fontWeight: 600,
               fontSize: '0.85rem',
@@ -264,7 +277,7 @@ export default function AlertasSection() {
           placeholder="Buscar por título, descripción o cliente..."
           value={busqueda}
           onChange={e => { setBusqueda(e.target.value); setPagina(1); }}
-          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', minWidth: '220px', flex: 1 }}
+          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface-card)', color: 'var(--color-text)', fontSize: '0.85rem', minWidth: '220px', flex: 1 }}
         />
         <select value={filtroTipo} onChange={e => { setFiltroTipo(e.target.value); setPagina(1); }} style={selectStyle}>
           <option value="">Todos los tipos</option>
@@ -290,31 +303,31 @@ export default function AlertasSection() {
         </select>
         <input type="date" value={filtroDesde} onChange={e => { setFiltroDesde(e.target.value); setPagina(1); }} style={selectStyle} title="Creada desde" />
         <input type="date" value={filtroHasta} onChange={e => { setFiltroHasta(e.target.value); setPagina(1); }} style={selectStyle} title="Creada hasta" />
-        <button onClick={resetFiltros} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f9fafb', cursor: 'pointer', fontSize: '0.82rem', color: '#6b7280' }}>
+        <button onClick={resetFiltros} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
           Limpiar
         </button>
       </div>
 
       {/* Estado de carga / error */}
-      {cargando && <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>Cargando alertas…</div>}
-      {error    && <div style={{ padding: '12px', borderRadius: '8px', background: '#fee2e2', color: '#991b1b', marginBottom: '12px' }}>{error}</div>}
+      {cargando && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-secondary)' }}>Cargando alertas…</div>}
+      {error    && <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#fca5a5', marginBottom: '12px' }}>{error}</div>}
 
       {/* Tabla */}
       {!cargando && (
         <>
-          <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
+          <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
-                <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                <tr style={{ background: 'var(--color-surface-card)', borderBottom: '1px solid var(--color-border)' }}>
                   {['Prioridad','Título','Tipo','Responsable','Sede','Vencimiento','Estado','Acciones'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {paginadas.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+                    <td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                       No hay alertas que coincidan con los filtros.
                     </td>
                   </tr>
@@ -325,25 +338,25 @@ export default function AlertasSection() {
                     <tr
                       key={alerta._id || idx}
                       style={{
-                        borderBottom: '1px solid #f3f4f6',
-                        background: idx % 2 === 0 ? '#fff' : '#fafafa',
+                        borderBottom: '1px solid var(--color-border)',
+                        background: idx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-surface-card)',
                         transition: 'background 0.1s',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafafa'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-card)'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-surface-card)'}
                     >
                       <td style={{ padding: '10px 12px' }}>
                         <Badge texto={alerta.priority || '—'} style={PRIORIDAD_COLOR[alerta.priority] || {}} />
                       </td>
                       <td style={{ padding: '10px 12px', maxWidth: '260px' }}>
-                        <div style={{ fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {alerta.title || alerta.titulo || '(sin título)'}
                         </div>
-                        {alerta.cliente && <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>{alerta.cliente}</div>}
+                        {alerta.cliente && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{alerta.cliente}</div>}
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#6b7280' }}>{alerta.type || '—'}</td>
-                      <td style={{ padding: '10px 12px', color: '#6b7280' }}>{alerta.responsable || '—'}</td>
-                      <td style={{ padding: '10px 12px', color: '#6b7280' }}>{alerta.idBranch || alerta.sede || '—'}</td>
+                      <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary)' }}>{alerta.type || '—'}</td>
+                      <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary)' }}>{alerta.responsable || '—'}</td>
+                      <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary)' }}>{alerta.idBranch || alerta.sede || '—'}</td>
                       <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                         {venc ? (
                           <span style={{
@@ -353,7 +366,7 @@ export default function AlertasSection() {
                           }}>
                             {venc.texto}
                           </span>
-                        ) : <span style={{ color: '#d1d5db' }}>—</span>}
+                        ) : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <Badge texto={alerta.status || '—'} style={ESTADO_COLOR[alerta.status] || {}} />
@@ -361,7 +374,7 @@ export default function AlertasSection() {
                       <td style={{ padding: '10px 12px', position: 'relative' }}>
                         <button
                           onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === alerta._id ? null : alerta._id); }}
-                          style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '1rem', color: '#6b7280' }}
+                          style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '1rem', color: 'var(--color-text-secondary)' }}
                         >
                           ···
                         </button>
@@ -370,7 +383,7 @@ export default function AlertasSection() {
                             onClick={e => e.stopPropagation()}
                             style={{
                               position: 'absolute', right: '8px', top: '36px', zIndex: 50,
-                              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+                              background: 'var(--color-surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px',
                               boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: '150px', overflow: 'hidden',
                             }}
                           >
@@ -380,9 +393,9 @@ export default function AlertasSection() {
                                 onClick={() => cambiarEstado(alerta._id, estado)}
                                 style={{
                                   display: 'block', width: '100%', padding: '8px 14px',
-                                  textAlign: 'left', background: alerta.status === estado ? '#f0f9ff' : 'none',
+                                  textAlign: 'left', background: alerta.status === estado ? 'rgba(99,102,241,0.14)' : 'transparent',
                                   border: 'none', cursor: 'pointer', fontSize: '0.83rem',
-                                  color: alerta.status === estado ? '#1e40af' : '#374151',
+                                  color: alerta.status === estado ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
                                   fontWeight: alerta.status === estado ? 700 : 400,
                                 }}
                               >
@@ -403,7 +416,7 @@ export default function AlertasSection() {
           {totalPaginas > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
               <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1} style={paginaBtnStyle}>← Anterior</button>
-              <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>Página {pagina} de {totalPaginas} · {filtradas.length} alertas</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>Página {pagina} de {totalPaginas} · {filtradas.length} alertas</span>
               <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas} style={paginaBtnStyle}>Siguiente →</button>
             </div>
           )}
@@ -417,18 +430,18 @@ export default function AlertasSection() {
 const selectStyle = {
   padding: '6px 10px',
   borderRadius: '6px',
-  border: '1px solid #d1d5db',
+  border: '1px solid var(--color-border)',
   fontSize: '0.85rem',
-  background: '#fff',
-  color: '#374151',
+  background: 'var(--color-surface-card)',
+  color: 'var(--color-text)',
 };
 
 const paginaBtnStyle = {
   padding: '6px 14px',
   borderRadius: '6px',
-  border: '1px solid #d1d5db',
-  background: '#fff',
+  border: '1px solid var(--color-border)',
+  background: 'transparent',
   cursor: 'pointer',
   fontSize: '0.83rem',
-  color: '#374151',
+  color: 'var(--color-text-secondary)',
 };

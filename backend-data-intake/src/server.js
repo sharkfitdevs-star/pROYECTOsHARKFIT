@@ -11,8 +11,8 @@ const axios = require("axios");
 const { Server: SocketIOServer } = require("socket.io");
 
 const { logger } = require("./utils/logger");
-process.on("unhandledRejection", (reason) => logger.error("UNHANDLED_REJECTION", reason));
-process.on("uncaughtException", (err) => { logger.error("UNCAUGHT_EXCEPTION", err); });
+process.on("unhandledRejection", (reason) => logger.error("UNHANDLED_REJECTION", { message: reason?.message || String(reason) }));
+process.on("uncaughtException", (err) => { logger.error("UNCAUGHT_EXCEPTION", { message: err?.message || String(err) }); });
 
 const { errorHandler } = require("./middleware/errorHandler");
 const { seedOwner } = require("./utils/seedOwner");
@@ -27,10 +27,11 @@ const webhooksRoutes = require("./routes/webhooks");
 const apiSetupRoutes = require("./routes/apiSetup");
 const healthRoutes = require("./routes/health");
 const clientesRoutes = require("./routes/clientesRoutes");
-const alertasRoutes = require("./routes/alertasNew");
+const alertasRoutes = require("./routes/alertasRouter");
 const settingsRoutes = require("./routes/settings");
 const { extractAllApis } = require("./index");
 const { getHealthCheckService } = require("./services/HealthCheckService");
+const EvoSession = require('./models/EvoSession');
 
 const initializeEventServices = () => {
   require("./services/EmailEventService");
@@ -49,14 +50,20 @@ const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || "http://localhost:8000/ap
 
 logger.info('SHARKFIT DATA INTAKE - starting', { PORT });
 
-const sessions = new Map();
 function makeSessionToken() { return crypto.randomBytes(24).toString("hex"); }
-function requireSession(req, res, next) {
+async function requireSession(req, res, next) {
   const t = req.headers["x-session-token"];
-  if (!t || !sessions.has(t)) return res.status(401).json({ ok: false, error: "Sesion invalida" });
-  req.session = sessions.get(t);
-  req.sessionToken = t;
-  next();
+  if (!t) return res.status(401).json({ ok: false, error: "Sesion invalida" });
+  try {
+    const session = await EvoSession.findOne({ sessionToken: t, expiresAt: { $gt: new Date() } }).lean();
+    if (!session) return res.status(401).json({ ok: false, error: "Sesion invalida" });
+    req.session = session;
+    req.sessionToken = t;
+    next();
+  } catch (error) {
+    logger.error('Error validando sesion', { message: error.message });
+    return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
 }
 
 function evoClient(dns, token) {
@@ -114,7 +121,7 @@ const startServer = async () => {
         if (err.code === 'EADDRINUSE') {
           logger.error("Puerto " + PORT + " ocupado. Ejecuta: taskkill /IM node.exe /F");
         } else {
-          logger.error('Error servidor HTTP:', err);
+          logger.error('Error servidor HTTP:', { message: err.message });
         }
         reject(err);
       });
@@ -125,12 +132,16 @@ const startServer = async () => {
       });
     });
 
+    server.timeout = 360000; // 6min - necesario para importaciones EVO en hora pico
+    server.keepAliveTimeout = 365000;
+    server.headersTimeout = 366000;
+
     // MongoDB: esperar conexión ANTES de servir requests
     try {
       const ok = await connectToDB();
       logger.info(ok ? 'MongoDB conectado' : 'MongoDB no disponible');
     } catch (err) {
-      logger.error('Error conectando MongoDB:', err);
+      logger.error('Error conectando MongoDB:', { message: err.message });
     }
 
     // Middleware global: esperar MongoDB antes de procesar requests de /api
@@ -158,18 +169,27 @@ const startServer = async () => {
       try {
         await testCredentials(dns, token);
         const sessionToken = makeSessionToken();
-        sessions.set(sessionToken, { dns, token, django_token: django_token || process.env.DJANGO_JWT_TOKEN || "", createdAt: Date.now() });
-        const t = setTimeout(() => sessions.delete(sessionToken), SESSION_TTL_MS);
-        if (t.unref) t.unref();
+        const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+        await EvoSession.create({
+          sessionToken,
+          dns,
+          token,
+          django_token: django_token || process.env.DJANGO_JWT_TOKEN || "",
+          expiresAt
+        });
         return res.json({ ok: true, sessionToken });
       } catch (e) {
-        return res.status(401).json({ ok: false, error: "Credenciales invalidas", detail: e.message });
+        logger.warn('Error en login EVO', { message: e.message });
+        return res.status(401).json({ ok: false, error: "Credenciales invalidas" });
       }
     });
 
     app.get("/api/snapshot", requireSession, async (req, res) => {
       try { res.json({ ok: true, ...(await fetchSnapshot(req.session.dns, req.session.token)) }); }
-      catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+      catch (e) {
+        logger.error('Error en /api/snapshot', { message: e.message });
+        res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+      }
     });
 
     app.post("/api/sync", requireSession, async (req, res) => {
@@ -181,7 +201,10 @@ const startServer = async () => {
         if (snap.prospects?.ok && snap.prospects.data?.items) results.clients = await syncClientesToDjango(snap.prospects.data.items, django_token);
         if (snap.sales?.ok && snap.sales.data?.items) results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, {});
         res.json({ ok: true, results, timestamp: new Date().toISOString() });
-      } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+      } catch (e) {
+        logger.error('Error en /api/sync', { message: e.message });
+        res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+      }
     });
 
     app.get("/health", (req, res) => res.json({ ok: true, service: "sharkfit-data-intake", status: "running", timestamp: new Date().toISOString() }));
@@ -194,7 +217,8 @@ const startServer = async () => {
     app.use("/api/alertas", alertasRoutes);
     const ventasRoutes = require("./routes/ventasNew");
     app.use("/api/ventas", ventasRoutes);
-    app.use("/api/auth", require("./routes/authNew"));
+    app.use("/api/extractor", require("./routes/extractorRouter"));
+    app.use("/api/auth", require("./routes/auth"));
     app.use("/api/sources", sourcesRoutes);
     app.use("/api/stats", statsRoutes);
     app.use("/api/sync", syncRoutes);
@@ -203,21 +227,34 @@ const startServer = async () => {
     app.use("/api/setup", apiSetupRoutes);
     app.use("/api/dashboard", require("./routes/dashboard"));
     app.use("/api/export", require("./routes/export"));
+    app.use("/api/prospectos", require("./routes/prospectos"));
+    app.use("/api/pagos", require("./routes/pagos"));
+    app.use("/api/clases", require("./routes/clases"));
     app.use(notFoundHandler);
 
     // Socket.io handlers
-    io.use((socket, next) => {
+    io.use(async (socket, next) => {
       const t = socket.handshake.auth?.sessionToken;
-      if (!t || !sessions.has(t)) return next(new Error("Sesion invalida"));
-      socket.sessionToken = t;
-      socket.session = sessions.get(t);
-      next();
+      if (!t) return next(new Error("Sesion invalida"));
+      try {
+        const session = await EvoSession.findOne({ sessionToken: t, expiresAt: { $gt: new Date() } }).lean();
+        if (!session) return next(new Error("Sesion invalida"));
+        socket.sessionToken = t;
+        socket.session = session;
+        next();
+      } catch (error) {
+        logger.error('Error validando sesion WS', { message: error.message });
+        return next(new Error("Error interno del servidor"));
+      }
     });
     io.on("connection", (socket) => {
       logger.info("Cliente WS conectado: " + socket.id);
       const timer = setInterval(async () => {
         try { socket.emit("evo:snapshot", await fetchSnapshot(socket.session.dns, socket.session.token)); }
-        catch (e) { socket.emit("evo:error", { ts: new Date().toISOString(), message: e.message }); }
+        catch (e) {
+          logger.error('Error en evento evo:snapshot', { message: e.message });
+          socket.emit("evo:error", { ts: new Date().toISOString(), message: 'Error interno del servidor' });
+        }
       }, POLL_MS);
       socket.on("sync:request", async () => {
         try {
@@ -227,17 +264,22 @@ const startServer = async () => {
           if (snap.prospects?.ok && snap.prospects.data?.items) results.clients = await syncClientesToDjango(snap.prospects.data.items, django_token);
           if (snap.sales?.ok && snap.sales.data?.items) results.sales = await syncSalesToDjango(snap.sales.data.items, django_token, {});
           socket.emit("sync:complete", { ok: true, results, timestamp: new Date().toISOString() });
-        } catch (e) { socket.emit("sync:error", { ok: false, message: e.message }); }
+        } catch (e) {
+          logger.error('Error en evento sync:request', { message: e.message });
+          socket.emit("sync:error", { ok: false, message: 'Error interno del servidor' });
+        }
       });
       socket.on("disconnect", () => { clearInterval(timer); logger.info("Cliente WS desconectado: " + socket.id); });
     });
 
     // Servicios de eventos
     try { initializeEventServices(); logger.info('Event services inicializados'); }
-    catch (e) { logger.warn('Error inicializando event services: ' + (e?.message || e)); }
+    catch (e) { logger.warn('Error inicializando event services', { message: e?.message || String(e) }); }
 
     await (async () => { console.log('Indices MongoDB se crearan automaticamente'); })();
     await seedOwner();
+    const { initCron } = require('./services/kpiAlertasService');
+    initCron();
 
     const healthService = getHealthCheckService();
     if (process.env.NODE_ENV !== 'test' && String(process.env.SKIP_HEALTH_CHECKS).toLowerCase() !== 'true') {
@@ -251,7 +293,7 @@ const startServer = async () => {
       logger.info("Auto-sync APIs externas cada " + EXTERNAL_API_SYNC_MINUTES + " min");
       const si = setInterval(async () => {
         try { await extractAllApis(); logger.info('Auto-sync completado'); }
-        catch (e) { logger.error('Error auto-sync:', e); }
+        catch (e) { logger.error('Error auto-sync:', { message: e.message }); }
       }, ms);
       if (si.unref) si.unref();
     }
@@ -260,7 +302,7 @@ const startServer = async () => {
     logger.info('SERVER_READY');
 
   } catch (error) {
-    logger.error('Error fatal iniciando servidor:', error);
+    logger.error('Error fatal iniciando servidor:', { message: error.message });
     process.exit(1);
   }
 };
@@ -272,7 +314,7 @@ process.on("SIGTERM", () => {
 });
 
 if (require.main === module) {
-  startServer().catch(err => { logger.error(err); process.exit(1); });
+  startServer().catch(err => { logger.error('Error iniciando servidor', { message: err.message }); process.exit(1); });
 }
 
 module.exports = { startServer };

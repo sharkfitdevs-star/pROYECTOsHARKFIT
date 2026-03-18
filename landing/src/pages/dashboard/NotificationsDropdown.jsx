@@ -1,22 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { useAuth } from '../../context/AuthContext';
+import AlertasService from '../../api/services/AlertasService';
 
 const PRIORIDAD_COLOR = {
-  urgente: { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' },
-  alta:    { background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' },
-  media:   { background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' },
-  baja:    { background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' },
+  urgente: { background: 'rgba(248,113,113,0.15)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.35)' },
+  critica: { background: 'rgba(248,113,113,0.15)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.35)' },
+  alta:    { background: 'rgba(251,191,36,0.15)', color: '#fde68a', border: '1px solid rgba(251,191,36,0.35)' },
+  media:   { background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.35)' },
+  baja:    { background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' },
 };
 
-const ESTADOS_ACTIVOS = ['pendiente', 'en_proceso'];
 
 export default function NotificationsDropdown({ onNavigateToAlertas }) {
   const [open, setOpen]       = useState(false);
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(false);
   const containerRef          = useRef(null);
-  const { token }             = useAuth();
+  // token no es necesario; AlertasService maneja autorización internamente
 
   // ── Carga de alertas activas ────────────────────────────────────────────
   useEffect(() => {
@@ -28,18 +28,11 @@ export default function NotificationsDropdown({ onNavigateToAlertas }) {
   async function cargarAlertas() {
     setLoading(true);
     try {
-      const authToken = token || localStorage.getItem('authToken');
-      const res = await fetch('/api/alertas?limit=5000', {
-        headers: { Authorization: `Bearer ${authToken}` }
+      const json = await AlertasService.getPendientes({ limit: 100 });
+      const lista = (json.data || []).sort((a, b) => {
+        const orden = { urgente: 5, critica: 5, alta: 3, media: 2, baja: 1 };
+        return (orden[b.priority] || 0) - (orden[a.priority] || 0);
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const lista = (json.data || json.alertas || [])
-        .filter(a => ESTADOS_ACTIVOS.includes(a.status))
-        .sort((a, b) => {
-          const orden = { urgente: 4, alta: 3, media: 2, baja: 1 };
-          return (orden[b.priority] || 0) - (orden[a.priority] || 0);
-        });
       setAlertas(lista);
     } catch (e) {
       console.warn('[NotificationsDropdown] Error cargando alertas:', e.message);

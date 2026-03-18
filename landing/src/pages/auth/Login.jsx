@@ -21,6 +21,7 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    localStorage.removeItem('authMessage');
     setLocalError(null)
     setSubmitting(true)
     try {
@@ -53,6 +54,20 @@ function Login() {
 
       <div className="auth-content">
         <div className="auth-card">
+          {localStorage.getItem('authMessage') && (
+            <div style={{
+              background: 'rgba(251,191,36,0.12)',
+              border: '1px solid rgba(251,191,36,0.4)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '1rem',
+              color: '#fbbf24',
+              fontSize: '0.875rem',
+              textAlign: 'center',
+            }}>
+              {localStorage.getItem('authMessage')}
+            </div>
+          )}
           <div className="auth-card-inner">
             <h2>Bienvenido de vuelta</h2>
             <p className="auth-subtitle">Ingresa tus credenciales para acceder</p>

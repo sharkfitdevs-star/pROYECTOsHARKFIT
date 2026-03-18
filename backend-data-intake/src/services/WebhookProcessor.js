@@ -12,6 +12,26 @@ const { logger } = require('../utils/logger');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
+// Persistence helpers
+let upsertVenta, upsertCliente;
+try {
+  const repos = require('../db/repositories');
+  upsertVenta  = repos.upsertVenta;
+  upsertCliente = repos.upsertCliente;
+} catch (e) {
+  logger.warn('[WebhookProcessor] repositories no disponibles');
+  upsertVenta  = async () => ({});
+  upsertCliente = async () => ({});
+}
+
+// Cliente model for membership-only updates
+let Cliente = null;
+try {
+  Cliente = require('../models/Cliente');
+} catch (e) {
+  try { Cliente = require('../models').Cliente; } catch (_) {}
+}
+
 // Intenta cargar modelos con fallback (preferir MongoModels para evitar conflictos de esquema)
 let Webhook = null, SyncLog = null;
 try {
@@ -120,7 +140,25 @@ class WebhookProcessor {
 
         case 'venta.creada':
         case 'venta.actualizada':
+        case 'venta.cancelada':
           processed = await this.procesarVentaEVO(data, syncId);
+          break;
+
+        case 'membresia.activada':
+        case 'membresia.cancelada':
+        case 'membresia.renovada':
+          processed = await this.procesarMembresiaEVO(evento, data, syncId);
+          break;
+
+        case 'pago.realizado':
+        case 'pago.pendiente':
+        case 'pago.vencido':
+          processed = await this.procesarPagoEVO(evento, data, syncId);
+          break;
+
+        case 'prospect.creado':
+        case 'prospect.actualizado':
+          processed = await this.procesarProspectoEVO(data, syncId);
           break;
 
         case 'entrada.registrada':
@@ -128,7 +166,7 @@ class WebhookProcessor {
           break;
 
         default:
-          logger.warn(`⚠️  Evento EVO desconocido: ${evento}`);
+          logger.warn(`⚠️  Evento EVO desconocido: ${evento}`, { syncId });
           processed = 0;
       }
 
@@ -252,28 +290,147 @@ class WebhookProcessor {
   // ========================================================================
 
   async procesarClienteEVO(data, syncId) {
-    // TODO: Implementar lógica de actualización en la BD elegida
-    logger.info(`📝 Procesando cliente EVO`, { syncId, cliente: data.id });
+    logger.info(`📋 Procesando cliente EVO`, { syncId, clienteId: data.id || data.member_id });
+    await upsertCliente({
+      clienteId:        data.id || data.member_id || data.idMember,
+      idMember:         data.id || data.member_id || data.idMember,
+      externalId:       data.id || data.member_id,
+      nombre:           data.name || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : null) || data.prospect_name,
+      email:            data.email,
+      telefono:         data.phone || data.cellPhone || data.whatsapp,
+      status:           data.status || 'activo',
+      active:           data.active !== false,
+      registrationDate: data.registration_date || data.created_at || data.registrationDate,
+      branchName:       data.branch || data.branchName,
+      planName:         data.plan || data.planName,
+      source:           'evo-webhook'
+    });
     return 1;
   }
 
   async procesarVentaEVO(data, syncId) {
-    logger.info(`📝 Procesando venta EVO`, { syncId, venta: data.id });
+    logger.info(`📋 Procesando venta EVO`, { syncId, ventaId: data.id });
+    await upsertVenta({
+      ventaId:       data.id || data.evo_sale_id,
+      eventoVentaId: data.id || data.evo_sale_id,
+      externalId:    data.id || data.evo_sale_id,
+      idMember:      data.member_id || data.idMember,
+      memberName:    data.prospect_name || data.memberName || data.name,
+      monto:         data.value || data.amount || data.totalAmount || 0,
+      totalAmount:   data.value || data.amount || data.totalAmount || 0,
+      paymentStatus: data.status || data.paymentStatus || 'Pendiente',
+      saleDate:      data.sale_date || data.saleDate || data.date,
+      branchName:    data.branch || data.branchName,
+      saleType:      data.sale_type || data.saleType,
+      source:        'evo-webhook'
+    });
     return 1;
   }
 
   async procesarEntradaEVO(data, syncId) {
-    logger.info(`📝 Procesando entrada EVO`, { syncId });
+    // Check-ins are informational — logged but not persisted as ventas/clientes
+    logger.info(`📍 Entrada EVO registrada (sin persistencia)`, { syncId, idMember: data.id_member || data.idMember });
+    return 0;
+  }
+
+  async procesarMembresiaEVO(evento, data, syncId) {
+    const idMember = data.id_member || data.idMember || data.member_id;
+    logger.info(`🔑 Procesando membresía EVO: ${evento}`, { syncId, idMember });
+    if (!idMember || !Cliente) {
+      logger.warn('[WebhookProcessor] membresia: idMember o modelo Cliente no disponible', { syncId });
+      return 0;
+    }
+    const membershipStatus = evento === 'membresia.cancelada' ? 'inactivo' : 'activo';
+    const membershipEndDate = (data.end_date || data.expiration_date || data.membershipEndDate)
+      ? new Date(data.end_date || data.expiration_date || data.membershipEndDate)
+      : null;
+    await Cliente.updateOne(
+      { $or: [{ idMember }, { externalId: idMember }, { uniqueId: idMember }] },
+      {
+        $set: {
+          membershipStatus,
+          status: membershipStatus,
+          active: membershipStatus === 'activo',
+          ...(membershipEndDate && { membershipEndDate }),
+          ...(data.plan && { planName: data.plan }),
+          lastSyncAt: new Date()
+        }
+      }
+    );
+    logger.info(`✅ Membresía actualizada: ${idMember} → ${membershipStatus}`, { syncId });
+    return 1;
+  }
+
+  async procesarPagoEVO(evento, data, syncId) {
+    logger.info(`💳 Procesando pago EVO: ${evento}`, { syncId, pagoId: data.id });
+    const paymentStatusMap = {
+      'pago.realizado': 'Cerrada',
+      'pago.pendiente': 'Pendiente',
+      'pago.vencido':   'Vencida'
+    };
+    await upsertVenta({
+      ventaId:       data.id || data.payment_id,
+      eventoVentaId: data.id || data.payment_id,
+      externalId:    data.id || data.payment_id,
+      idMember:      data.member_id || data.idMember,
+      memberName:    data.member_name || data.memberName,
+      monto:         data.amount || data.value || 0,
+      totalAmount:   data.amount || data.value || 0,
+      paymentStatus: paymentStatusMap[evento] || data.status || 'Pendiente',
+      saleDate:      data.payment_date || data.date || new Date().toISOString(),
+      branchName:    data.branch || data.branchName,
+      source:        'evo-webhook'
+    });
+    return 1;
+  }
+
+  async procesarProspectoEVO(data, syncId) {
+    logger.info(`🎯 Procesando prospecto EVO`, { syncId, prospectId: data.id });
+    await upsertCliente({
+      clienteId:  data.id || data.prospect_id,
+      idMember:   data.id || data.prospect_id,
+      externalId: data.id || data.prospect_id,
+      nombre:     data.name || data.prospect_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Sin nombre',
+      email:      data.email,
+      telefono:   data.phone || data.cellPhone,
+      status:     'prospecto',
+      active:     false,
+      branchName: data.branch || data.branchName,
+      source:     'evo-webhook'
+    });
     return 1;
   }
 
   async procesarMiembroW12(data, syncId) {
-    logger.info(`📝 Procesando miembro W12`, { syncId, miembro: data.id });
+    logger.info(`📋 Procesando miembro W12`, { syncId, idMember: data.id });
+    await upsertCliente({
+      clienteId:   data.id || data.member_id,
+      idMember:    data.id || data.member_id,
+      externalId:  data.id || data.member_id,
+      nombre:      data.name || data.full_name,
+      email:       data.email,
+      telefono:    data.phone || data.cellPhone,
+      status:      data.status || 'activo',
+      active:      data.active !== false,
+      source:      'w12-webhook'
+    });
     return 1;
   }
 
   async procesarVentaW12(data, syncId) {
-    logger.info(`📝 Procesando venta W12`, { syncId, venta: data.id });
+    logger.info(`📋 Procesando venta W12`, { syncId, ventaId: data.id });
+    await upsertVenta({
+      ventaId:      data.id || data.sale_id,
+      eventoVentaId: data.id || data.sale_id,
+      externalId:   data.id || data.sale_id,
+      idMember:     data.member_id,
+      memberName:   data.member_name || data.name,
+      monto:        data.amount || data.total || 0,
+      totalAmount:  data.amount || data.total || 0,
+      paymentStatus: data.status || 'Pendiente',
+      saleDate:     data.date || data.created_at,
+      source:       'w12-webhook'
+    });
     return 1;
   }
 }

@@ -26,6 +26,17 @@ function normalizarValor(val) {
   return String(val);
 }
 
+function getClienteStatusLabel(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (['activo', 'active', 'true', '1'].includes(normalized)) {
+    return { label: 'Activo', className: 'activo' };
+  }
+  if (['prospecto', 'prospect'].includes(normalized)) {
+    return { label: 'Prospecto', className: 'prospecto' };
+  }
+  return { label: normalized ? 'Inactivo' : 'Sin estado', className: 'inactivo' };
+}
+
 export default function ClientesSection() {
   const [clientes, setClientes] = useState([]); // accumulated pages
   const [skip, setSkip] = useState(0);
@@ -193,19 +204,19 @@ export default function ClientesSection() {
       <h2>👥 Clientes</h2>
       <p>Los datos se obtienen de las importaciones realizadas en Excel/CSV.</p>
       {importsConnected === false && (
-        <div className="info-text" style={{ margin: '0.5rem 0' }}>
+        <div className="info-text">
           Imports desconectado: no hay datos de clientes.
         </div>
       )}
       {/* connection error banner */}
       {importsConnectionError && (
-        <div className="error-text" style={{ margin: '0.5rem 0' }}>
+        <div className="error-text">
           Error de conexión de imports: {importsConnectionError}{' '}
           <button className="btn-secondary" onClick={dispatchReload}>Reintentar</button>
         </div>
       )}
       {/* connection control */}
-      <div className="clientes-connection-status" style={{display:'flex', alignItems:'center', gap:'1rem', margin:'0.5rem 0'}}>
+      <div className="clientes-connection-status" style={{ display:'flex', alignItems:'center', gap:'1rem', margin:'0.5rem 0' }}>
         <span className={importsConnected ? 'badge badge-green' : 'badge badge-red'}>
           {importsConnected ? 'Conectadas' : 'Desconectadas'}
         </span>
@@ -223,7 +234,6 @@ export default function ClientesSection() {
         </button>
         <button
           className="btn-danger"
-          style={{ marginLeft: '0.5rem' }}
           disabled={cargando}
           onClick={async () => {
             if (!window.confirm('¿Eliminar TODOS los clientes importados? Esta acción no se puede deshacer.')) return;
@@ -282,7 +292,7 @@ export default function ClientesSection() {
       )}
 
       {!cargando && !error && clientes.length === 0 && !importsConnected && (
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className="empty-state">
           <h3 className="card-title">Importaciones desconectadas</h3>
           <p className="card-content" style={{ margin: '1rem 0' }}>
             Para ver los clientes importados, vuelve a conectar la fuente de datos.
@@ -295,7 +305,7 @@ export default function ClientesSection() {
 
       {/* only render table when connected; if disconnected show nothing */}
       {error && error.includes('Sesión expirada') && (
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className="empty-state">
           <h3 className="card-title">{error}</h3>
           <button className="btn-primary" onClick={() => navigate('/login')}>
             Iniciar sesión
@@ -316,12 +326,15 @@ export default function ClientesSection() {
             <tbody>
               {filtrados.map((cli, idx) => {
                 const rowKey = cli._id || cli.uniqueId || cli.idMember || `${cli.email||''}-${idx}`;
+                const statusInfo = getClienteStatusLabel(cli.estado || cli.status);
                 return (
-                  <tr key={rowKey} className="hover:bg-gray-50">
+                  <tr key={rowKey}>
                     <td>{cli.nombre || cli.nombre_cliente || cli.name || '(sin nombre)'}</td>
                     <td>{cli.email || '—'}</td>
                     <td>{cli.telefono || cli.cellPhone || '—'}</td>
-                    <td>{(cli.estado || cli.status) ? (String(cli.estado || cli.status).toLowerCase() === 'activo' || String(cli.estado || cli.status).toLowerCase() === 'true' ? 'Activo' : 'Inactivo') : '—'}</td>
+                    <td>
+                      <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
+                    </td>
                     <td>{cli.fuente || cli.source || '—'}</td>
                     <td>{cli.createdAt ? new Date(cli.createdAt).toLocaleDateString() : '—'}</td>
                     <td>{cli.updatedAt ? new Date(cli.updatedAt).toLocaleDateString() : '—'}</td>

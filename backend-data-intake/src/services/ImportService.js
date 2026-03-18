@@ -549,7 +549,7 @@ class ImportService {
         registrationDate: r.registrationdate || r.fecharegistro || null,
         fecha_registro: r.registrationdate || r.fecharegistro || null,
         origen: r.origen || r.source || null,
-        source: 'import_excel',
+        source: 'excel',
         customFields: r
       };
 
@@ -664,7 +664,7 @@ class ImportService {
           tax,
           totalAmount:   amount - discount + tax,
           branchName,
-          source:        'import_excel',
+          source:        'excel',
           lastSyncAt:    new Date(),
         };
 
@@ -719,7 +719,7 @@ class ImportService {
         const nombre   = r.nombre || r.name || r.firstname || null;
         const email    = r.email || null;
         const telefono = r.telefono || r.phone || r.cellphone || r.whatsapp || null;
-        const fuente   = r.fuente || r.source || r.origen || 'import_excel';
+        const fuente   = r.fuente || r.source || r.origen || 'excel';
         const estatus  = r.estatus || r.status || r.estado || 'Nuevo';
         const leadScore = parseNum(r.leadscore || r.score || 0);
 
@@ -733,7 +733,7 @@ class ImportService {
           fuente,
           estatus,
           leadScore,
-          source: 'import_excel',
+          source: 'excel',
           lastSyncAt: new Date(),
         };
 
@@ -815,7 +815,7 @@ class ImportService {
           endDate,
           status,
           checkedIn,
-          source: 'import_excel',
+          source: 'excel',
           lastSyncAt: new Date()
         };
 

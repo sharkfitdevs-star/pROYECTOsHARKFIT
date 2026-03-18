@@ -68,10 +68,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const handleExpired = () => {
       console.log('auth expired event, logging out');
-      // record a friendly message so that login page / other components
-      // can inform the user. using localStorage keeps it across reloads.
-      try { localStorage.setItem('authMessage', 'Sesión expirada'); } catch {}
-      logout();
+      try { localStorage.setItem('authMessage', 'Tu sesión expiró. Por favor inicia sesión nuevamente.'); } catch {}
+      // Limpiar estado directamente sin depender del closure de logout
+      clearApiToken();
+      clearAccessToken();
+      localStorage.removeItem('authUser');
+      // Redirigir al login
+      window.location.href = '/login';
     };
     window.addEventListener('auth:expired', handleExpired);
 

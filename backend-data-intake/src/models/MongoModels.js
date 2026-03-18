@@ -104,14 +104,13 @@ const syncLogSchema = new Schema({
   error_stack: { type: String, default: null },
   iniciado: { type: Date, default: null },
   finalizado: { type: Date, default: null },
-  duracion_ms: { type: Number, default: null },
   cambios: { type: String, default: '{}' },
   reintento_count: { type: Number, default: 0 },
 
   // Performance
   iniciado_en: { type: Date, default: Date.now },
   completado_en: Date,
-  duracion_ms: Number,
+  duracion_ms: { type: Number, default: null },
   
   // Metadata
   filtros: Schema.Types.Mixed,
@@ -226,7 +225,7 @@ const healthCheckSchema = new Schema({
   },
   estado: {
     type: String,
-    enum: ['healthy', 'degraded', 'unhealthy', 'skipped'],
+    enum: ['healthy', 'degraded', 'unhealthy', 'not_configured', 'skipped'],
     required: true
   },
   latencia_ms: Number,

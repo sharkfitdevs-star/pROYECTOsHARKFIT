@@ -1,15 +1,4 @@
-/**
- * 🔐 APP.JS MEJORADO - Seguridad + CORS + Validación
- * 
- * Cambios:
- * ✅ CORS validado contra variables de entorno
- * ✅ Helmet mejorado
- * ✅ Rate limiting activo
- * ✅ Validación en rutas
- * ✅ Error handling seguro
- * 
- * Ubicación: /backend-data-intake/src/app.IMPROVED.js
- */
+
 
 require('dotenv').config();
 const express = require('express');
@@ -89,13 +78,15 @@ function createApp() {
   if (process.env.CORS_ORIGIN) {
     corsOrigins.push(...process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean));
   }
-  // always allow local dev addresses for both ports 3000 and 5173
-  corsOrigins.push(
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173'
-  );
+  // allow local dev addresses only outside production
+  if (process.env.NODE_ENV !== 'production') {
+    corsOrigins.push(
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173'
+    );
+  }
   if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
     throw new Error('❌ CORS_ORIGIN no configurado en .env para producción');
   }
@@ -203,29 +194,6 @@ function createApp() {
     res.json({ ok: true, user: req.user });
   });
 
-  // ════════════════════════════════════════════════════════════════════
-  // ❌ ERROR HANDLING MIDDLEWARES (deben montarse al FINAL en server.js)
-  // ════════════════════════════════════════════════════════════════════
-
-  // Nota: no registramos un 404 aquí.  Se expone como middleware para que
-  // server.js pueda montarlo después de todas las rutas específicas.
-  
-  // Global error middleware logs structured error info and returns uniform JSON
-  app.use((err, req, res, next) => {
-    logger.error('[ERR]', {
-      method: req.method,
-      path: req.originalUrl || req.url,
-      message: err.message,
-      stack: err.stack
-    });
-
-    const statusCode = err.status || 500;
-    const message = process.env.NODE_ENV === 'production'
-      ? 'Error interno del servidor'
-      : err.message;
-
-    res.status(statusCode).json({ ok: false, error: 'INTERNAL_SERVER_ERROR', message });
-  });
 
   return app;
 }

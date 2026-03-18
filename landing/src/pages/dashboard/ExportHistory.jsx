@@ -50,7 +50,7 @@ function ExportHistory() {
               </thead>
               <tbody>
                 {runs.map(r => (
-                  <tr key={r.runId} className="hover:bg-gray-50 cursor-pointer" onClick={() => viewRun(r.runId)}>
+                  <tr key={r.runId} className="cursor-pointer" style={{ borderBottom: '1px solid var(--color-border)' }} onClick={() => viewRun(r.runId)}>
                     <td>{r.runId}</td>
                     <td>{new Date(r.createdAt).toLocaleString()}</td>
                     <td>{r.sourceType}</td>
@@ -85,7 +85,7 @@ function ExportHistory() {
                 </thead>
                 <tbody>
                   {(selectedRun.logs || []).map((log, i) => (
-                    <tr key={i} className={log.level === 'error' ? 'bg-red-50' : ''}>
+                    <tr key={i} style={log.level === 'error' ? { background: 'rgba(248, 113, 113, 0.12)' } : undefined}>
                       <td>{new Date(log.ts).toLocaleTimeString()}</td>
                       <td>{log.level}</td>
                       <td>{log.message || JSON.stringify(log.meta)}</td>

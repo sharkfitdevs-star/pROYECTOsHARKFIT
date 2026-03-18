@@ -380,8 +380,8 @@ export default function ImportarExcelSection() {
               <div style={S.fileRow}>
                 <span style={{fontSize:28}}>📄</span>
                 <div style={{flex:1,textAlign:'left'}}>
-                  <div style={{fontWeight:600,color:'#e6edf3',fontSize:'0.9rem'}}>{selectedFile.name}</div>
-                  <div style={{color:'#8b949e',fontSize:'0.72rem',marginTop:2}}>
+                  <div style={{fontWeight:600,color:'var(--color-text)',fontSize:'0.9rem'}}>{selectedFile.name}</div>
+                  <div style={{color:'var(--color-text-secondary)',fontSize:'0.72rem',marginTop:2}}>
                     {(selectedFile.size/1024).toFixed(1)} KB · {selectedFile.name.split('.').pop().toUpperCase()}
                   </div>
                 </div>
@@ -391,10 +391,10 @@ export default function ImportarExcelSection() {
             ) : (
               <>
                 <div style={{fontSize:'2.2rem',marginBottom:10,opacity:0.5}}>☁</div>
-                <div style={{color:'#e6edf3',fontSize:'0.9rem'}}>
+                <div style={{color:'var(--color-text)',fontSize:'0.9rem'}}>
                   Arrastra tu archivo aquí o <span style={{color:'#58a6ff',textDecoration:'underline'}}>selecciona</span>
                 </div>
-                <div style={{color:'#8b949e',fontSize:'0.72rem',marginTop:6}}>.xlsx · .xls · .csv — máx. 50 MB</div>
+                <div style={{color:'var(--color-text-secondary)',fontSize:'0.72rem',marginTop:6}}>.xlsx · .xls · .csv — máx. 50 MB</div>
               </>
             )}
           </div>
@@ -413,7 +413,7 @@ export default function ImportarExcelSection() {
                   return (
                     <div key={header} style={S.mappingRow}>
                       <div style={S.mappingColName} title={header}>{header}</div>
-                      <span style={{color:'#8b949e',fontSize:'0.8rem'}}>→</span>
+                      <span style={{color:'var(--color-text-secondary)',fontSize:'0.8rem'}}>→</span>
                       <select value={mappingObj[header]||''} className="imp-sel"
                         onChange={e=>setMappingObj(prev=>({...prev,[header]:e.target.value||undefined}))}
                         style={S.mappingSelect}>
@@ -459,7 +459,7 @@ export default function ImportarExcelSection() {
                   <tbody>
                     {previewData.primerosRegistros.map((row,ri)=>(
                       <tr key={ri} className="imp-row">
-                        <td style={{...S.td,textAlign:'center',color:'#4d5969',fontWeight:700}}>{ri+1}</td>
+                        <td style={{...S.td,textAlign:'center',color:'var(--color-text-secondary)',fontWeight:700}}>{ri+1}</td>
                         {previewData.columnas.map((col,ci)=>(
                           <td key={ci} style={S.td}>{row[col]??'—'}</td>
                         ))}
@@ -495,15 +495,15 @@ export default function ImportarExcelSection() {
                           ))}
                         </ul>
                       ) : (
-                        <div style={{fontSize:'0.8rem',color:'#8b949e',marginTop:'0.25rem'}}>Sin cambios detectados</div>
+                        <div style={{fontSize:'0.8rem',color:'var(--color-text-secondary)',marginTop:'0.25rem'}}>Sin cambios detectados</div>
                       )}
                       <div className="mt-2 flex gap-2">
                         <button className="imp-btn" onClick={()=>handleDecision(r.rowIndex,r.clienteIdBD,'actualizar')}
-                          style={decisiones[r.rowIndex]?.accion==='actualizar'?{background:'#34d27a',color:'#fff'}:{}}>
+                          style={decisiones[r.rowIndex]?.accion==='actualizar'?{background:'#34d27a',color:'var(--color-text)'}:{}}>
                           Actualizar
                         </button>
                         <button className="imp-btn" onClick={()=>handleDecision(r.rowIndex,r.clienteIdBD,'ignorar')}
-                          style={decisiones[r.rowIndex]?.accion==='ignorar'?{background:'#f87171',color:'#fff'}:{}}>
+                          style={decisiones[r.rowIndex]?.accion==='ignorar'?{background:'#f87171',color:'var(--color-text)'}:{}}>
                           Ignorar
                         </button>
                       </div>
@@ -522,7 +522,7 @@ export default function ImportarExcelSection() {
           {paso === 3 && resultado && (
             <div style={{textAlign:'center',padding:'2rem'}}>
               <h3 style={{fontSize:'1.1rem',marginBottom:'1rem'}}>✅ Importación completada</h3>
-              <div style={{display:'inline-block',textAlign:'left',background:'#161b22',padding:'1rem 1.5rem',borderRadius:8,border:'1px solid #30363d'}}>
+              <div style={{display:'inline-block',textAlign:'left',background:'var(--color-surface)',padding:'1rem 1.5rem',borderRadius:8,border:'1px solid var(--color-border)'}}>
                 <div>➕ {resultado.insertedCount} insertados</div>
                 <div>✏️ {resultado.updatedCount} actualizados</div>
                 <div>⏭️ {resultado.skippedCount} ignorados</div>
@@ -543,13 +543,13 @@ export default function ImportarExcelSection() {
         <div style={S.card}>
           <div style={S.sectionHeader}>
             <span style={S.sectionTitle}>Historial de importaciones</span>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:'0.78rem',color:'#8b949e',cursor:'pointer',userSelect:'none'}}>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:'0.78rem',color:'var(--color-text-secondary)',cursor:'pointer',userSelect:'none'}}>
               <input type="checkbox" checked={showHidden} onChange={e=>setShowHidden(e.target.checked)} />
               Mostrar ocultos
             </label>
           </div>
           {history.length===0 ? (
-            <div style={{padding:'3rem 1rem',textAlign:'center',color:'#4d5969',fontSize:'0.9rem'}}>
+            <div style={{padding:'3rem 1rem',textAlign:'center',color:'var(--color-text-secondary)',fontSize:'0.9rem'}}>
               <div style={{fontSize:36,marginBottom:8}}>📭</div>
               <div>No hay importaciones registradas</div>
             </div>
@@ -619,16 +619,16 @@ export default function ImportarExcelSection() {
 }
 
 const S = {
-  page:       { padding:'1.5rem 1.25rem', background:'#0d1117', minHeight:'100%',
-                fontFamily:"'JetBrains Mono','Fira Code',monospace", color:'#e6edf3', boxSizing:'border-box' },
+  page:       { padding:'1.5rem 1.25rem', background:'var(--color-bg)', minHeight:'100%',
+                fontFamily:"'JetBrains Mono','Fira Code',monospace", color:'var(--color-text)', boxSizing:'border-box' },
   header:     { display:'flex', justifyContent:'space-between', alignItems:'flex-start',
                 marginBottom:'1.5rem', flexWrap:'wrap', gap:'0.75rem' },
-  title:      { margin:0, fontSize:'1.35rem', fontWeight:800, color:'#e6edf3',
+  title:      { margin:0, fontSize:'1.35rem', fontWeight:800, color:'var(--color-text)',
                 display:'flex', alignItems:'center', gap:'0.5rem', letterSpacing:'-0.02em' },
   titleIcon:  { display:'inline-flex', alignItems:'center', justifyContent:'center',
                 width:32, height:32, borderRadius:8, fontSize:'0.95rem', fontWeight:900,
-                background:'linear-gradient(135deg,#238636 0%,#1f6feb 100%)', color:'#fff' },
-  subtitle:   { margin:'4px 0 0', fontSize:'0.8rem', color:'#8b949e' },
+                background:'linear-gradient(135deg,#238636 0%,#1f6feb 100%)', color:'var(--color-text)' },
+  subtitle:   { margin:'4px 0 0', fontSize:'0.8rem', color:'var(--color-text-secondary)' },
   connBadge:  ok=>({ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 14px',
                 borderRadius:20, fontSize:'0.75rem', fontWeight:700,
                 background: ok?'rgba(52,210,122,0.1)':'rgba(248,113,113,0.1)',
@@ -637,64 +637,64 @@ const S = {
   connDot:    { width:7, height:7, borderRadius:'50%', flexShrink:0 },
   statsGrid:  { display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',
                 gap:'0.75rem', marginBottom:'1.25rem' },
-  statCard:   { background:'#161b22', border:'1px solid #30363d', borderRadius:10,
+  statCard:   { background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius:10,
                 padding:'1rem 0.75rem', textAlign:'center', transition:'border-color 0.2s' },
   statIcon:   { fontSize:'1.1rem', marginBottom:6 },
   statVal:    { fontSize:'1.7rem', fontWeight:800, lineHeight:1 },
-  statLabel:  { fontSize:'0.68rem', color:'#8b949e', marginTop:5, lineHeight:1.3 },
-  tabBar:     { display:'flex', gap:'0.5rem', borderBottom:'1px solid #30363d',
+  statLabel:  { fontSize:'0.68rem', color:'var(--color-text-secondary)', marginTop:5, lineHeight:1.3 },
+  tabBar:     { display:'flex', gap:'0.5rem', borderBottom:'1px solid var(--color-border)',
                 paddingBottom:'0.75rem', marginBottom:'1rem' },
   tabBtn:     active=>({ padding:'6px 18px', borderRadius:6, border:'none', cursor:'pointer',
                 fontSize:'0.8rem', fontWeight:700, fontFamily:'inherit',
-                background: active?'#1f6feb':'transparent', color: active?'#fff':'#8b949e',
+                background: active?'var(--color-primary)':'transparent', color: active?'var(--color-text)':'var(--color-text-secondary)',
                 transition:'all 0.15s' }),
-  card:       { background:'#161b22', border:'1px solid #30363d', borderRadius:12,
+  card:       { background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius:12,
                 padding:'1.25rem', animation:'fadeIn 0.25s ease' },
   row:        { display:'flex', gap:'1rem', marginBottom:'1rem', flexWrap:'wrap' },
   fieldGroup: { flex:1, minWidth:140 },
-  label:      { display:'block', fontSize:'0.7rem', fontWeight:700, color:'#8b949e', marginBottom:6,
+  label:      { display:'block', fontSize:'0.7rem', fontWeight:700, color:'var(--color-text-secondary)', marginBottom:6,
                 textTransform:'uppercase', letterSpacing:'0.08em' },
-  select:     { width:'100%', padding:'8px 12px', background:'#1c2333', border:'1px solid #30363d',
-                borderRadius:7, color:'#e6edf3', fontSize:'0.84rem', fontFamily:'inherit',
+  select:     { width:'100%', padding:'8px 12px', background:'var(--color-surface)', border:'1px solid var(--color-border)',
+                borderRadius:7, color:'var(--color-text)', fontSize:'0.84rem', fontFamily:'inherit',
                 cursor:'pointer', transition:'border-color 0.15s' },
-  dropzone:   (drag,hasFile)=>({ border:`2px dashed ${drag?'#58a6ff':hasFile?'#238636':'#30363d'}`,
+  dropzone:   (drag,hasFile)=>({ border:`2px dashed ${drag?'var(--color-primary)':hasFile?'var(--color-success)':'var(--color-border)'}`,
                 borderRadius:10, padding:'2rem 1.5rem', textAlign:'center', cursor:'pointer',
                 marginBottom:'1rem', transition:'all 0.2s',
-                background: drag?'rgba(31,111,235,0.05)':hasFile?'rgba(35,134,54,0.05)':'#1c2333' }),
+                background: drag?'rgba(var(--color-primary-rgb),0.12)':hasFile?'rgba(74,222,128,0.08)':'var(--color-surface)' }),
   fileRow:    { display:'flex', alignItems:'center', gap:'0.75rem', textAlign:'left' },
-  clearBtn:   { width:26, height:26, borderRadius:'50%', border:'1px solid #30363d',
-                background:'#1c2333', color:'#8b949e', cursor:'pointer', fontSize:'0.75rem',
+  clearBtn:   { width:26, height:26, borderRadius:'50%', border:'1px solid var(--color-border)',
+                background:'var(--color-surface-card)', color:'var(--color-text-secondary)', cursor:'pointer', fontSize:'0.75rem',
                 display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 },
-  mappingBox: { background:'#1c2333', border:'1px solid #30363d', borderRadius:8,
+  mappingBox: { background:'var(--color-surface-card)', border:'1px solid var(--color-border)', borderRadius:8,
                 padding:'1rem', marginBottom:'1rem' },
-  mappingTitle: { fontSize:'0.75rem', fontWeight:700, color:'#8b949e', textTransform:'uppercase',
+  mappingTitle: { fontSize:'0.75rem', fontWeight:700, color:'var(--color-text-secondary)', textTransform:'uppercase',
                   letterSpacing:'0.08em', marginBottom:'0.75rem', display:'flex',
                   alignItems:'center', gap:'0.5rem' },
   mappingBadge: { padding:'2px 8px', borderRadius:20, fontSize:'0.7rem', fontWeight:700,
                   background:'rgba(88,166,255,0.12)', color:'#58a6ff' },
   mappingGrid:  { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:'0.5rem' },
-  mappingRow:   { display:'flex', alignItems:'center', gap:'0.5rem', background:'#161b22',
-                  border:'1px solid #30363d', borderRadius:6, padding:'6px 10px' },
-  mappingColName: { flex:1, fontSize:'0.78rem', color:'#e6edf3', whiteSpace:'nowrap',
+  mappingRow:   { display:'flex', alignItems:'center', gap:'0.5rem', background:'var(--color-surface)',
+                  border:'1px solid var(--color-border)', borderRadius:6, padding:'6px 10px' },
+  mappingColName: { flex:1, fontSize:'0.78rem', color:'var(--color-text)', whiteSpace:'nowrap',
                     overflow:'hidden', textOverflow:'ellipsis', minWidth:0 },
-  mappingSelect:  { flex:1, padding:'4px 8px', background:'#1c2333', border:'1px solid #30363d',
-                    borderRadius:5, color:'#e6edf3', fontSize:'0.78rem', fontFamily:'inherit',
+  mappingSelect:  { flex:1, padding:'4px 8px', background:'var(--color-surface-card)', border:'1px solid var(--color-border)',
+                    borderRadius:5, color:'var(--color-text)', fontSize:'0.78rem', fontFamily:'inherit',
                     cursor:'pointer', minWidth:0 },
   actions:    { display:'flex', gap:'0.75rem', flexWrap:'wrap', marginBottom:'0.75rem' },
-  btnSecondary: disabled=>({ flex:1, minWidth:140, padding:'10px 18px', border:'1px solid #30363d',
-                borderRadius:8, cursor:disabled?'not-allowed':'pointer', background:'#1c2333',
-                color:disabled?'#4d5969':'#e6edf3', fontSize:'0.84rem', fontWeight:700,
+  btnSecondary: disabled=>({ flex:1, minWidth:140, padding:'10px 18px', border:'1px solid var(--color-border)',
+                borderRadius:8, cursor:disabled?'not-allowed':'pointer', background:'var(--color-surface-card)',
+                color:disabled?'var(--color-text-muted)':'var(--color-text)', fontSize:'0.84rem', fontWeight:700,
                 fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center',
                 gap:8, opacity:disabled?0.55:1, transition:'all 0.15s' }),
   btnPrimary:  disabled=>({ flex:1, minWidth:180, padding:'10px 18px', border:'none',
                 borderRadius:8, cursor:disabled?'not-allowed':'pointer',
                 background:disabled?'#1a2d1a':'linear-gradient(135deg,#238636 0%,#2ea043 100%)',
-                color:disabled?'#4d5969':'#fff', fontSize:'0.84rem', fontWeight:800,
+                color:disabled?'var(--color-text-muted)':'var(--color-text)', fontSize:'0.84rem', fontWeight:800,
                 fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center',
                 gap:8, opacity:disabled?0.55:1, transition:'all 0.15s',
                 boxShadow:disabled?'none':'0 2px 12px rgba(35,134,54,0.35)' }),
   spinner:    { display:'inline-block', width:13, height:13, border:'2px solid rgba(255,255,255,0.25)',
-                borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.6s linear infinite', flexShrink:0 },
+                borderTopColor:'var(--color-text)', borderRadius:'50%', animation:'spin 0.6s linear infinite', flexShrink:0 },
   alert:      type=>({ display:'flex', alignItems:'flex-start', gap:'0.6rem', padding:'10px 14px',
                 borderRadius:8, fontSize:'0.82rem', fontFamily:'inherit', marginBottom:'0.5rem',
                 animation:'fadeIn 0.2s ease',
@@ -702,17 +702,17 @@ const S = {
                 color:type==='error'?'#f87171':'#34d27a',
                 border:`1px solid ${type==='error'?'rgba(218,54,51,0.25)':'rgba(52,210,122,0.25)'}` }),
   sectionHeader: { display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' },
-  sectionTitle:  { fontSize:'0.78rem', fontWeight:700, color:'#8b949e', textTransform:'uppercase', letterSpacing:'0.08em' },
-  tableWrap:  { overflowX:'auto', borderRadius:8, border:'1px solid #30363d' },
+  sectionTitle:  { fontSize:'0.78rem', fontWeight:700, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.08em' },
+  tableWrap:  { overflowX:'auto', borderRadius:8, border:'1px solid var(--color-border)' },
   table:      { width:'100%', borderCollapse:'collapse', fontSize:'0.8rem', fontFamily:'inherit' },
-  th:         { padding:'9px 14px', textAlign:'left', fontWeight:700, color:'#8b949e', fontSize:'0.7rem',
-                textTransform:'uppercase', letterSpacing:'0.06em', background:'#1c2333',
-                borderBottom:'1px solid #30363d', whiteSpace:'nowrap' },
-  td:         { padding:'9px 14px', color:'#c9d1d9', borderBottom:'1px solid #21262d', fontSize:'0.8rem',
+  th:         { padding:'9px 14px', textAlign:'left', fontWeight:700, color:'var(--color-text-secondary)', fontSize:'0.7rem',
+                textTransform:'uppercase', letterSpacing:'0.06em', background:'var(--color-surface-card)',
+                borderBottom:'1px solid var(--color-border)', whiteSpace:'nowrap' },
+  td:         { padding:'9px 14px', color:'var(--color-text)', borderBottom:'1px solid var(--color-border)', fontSize:'0.8rem',
                 maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
                 transition:'background 0.1s' },
-  iconBtn:    { padding:'5px 9px', borderRadius:6, border:'1px solid #30363d',
-                background:'rgba(139,148,158,0.08)', color:'#8b949e', cursor:'pointer',
+  iconBtn:    { padding:'5px 9px', borderRadius:6, border:'1px solid var(--color-border)',
+                background:'rgba(139,148,158,0.08)', color:'var(--color-text-secondary)', cursor:'pointer',
                 fontSize:'0.85rem', transition:'opacity 0.15s' },
 };
 

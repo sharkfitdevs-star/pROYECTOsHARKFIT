@@ -6,12 +6,22 @@
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger');
+const { RateLimiter } = require('../services/RateLimiter');
 
 class UniversalExtractor {
   constructor(config) {
     this.config = config || {};
     this.extractorId = uuidv4();
     this.logs = [];
+
+    // Rate limiter: use provided instance, create from apiName, or disable
+    if (this.config.rateLimiter) {
+      this.rateLimiter = this.config.rateLimiter;
+    } else if (this.config.apiName) {
+      this.rateLimiter = new RateLimiter(this.config.apiName);
+    } else {
+      this.rateLimiter = null;
+    }
 
     logger.info(`🚀 UniversalExtractor inicializado`, {
       id: this.extractorId,
@@ -115,21 +125,20 @@ class UniversalExtractor {
       const url = epConfig.path;
       let resp;
 
-      try {
-        resp = await client.request({
-          method: epConfig.method || 'GET',
-          url,
-          headers: epConfig.headers,
-          params,
-          timeout: epConfig.timeout || 15000
-        });
-      } catch (err) {
-        this.logs.push({
-          url,
-          statusCode: err.response?.status,
-          errorMessage: err.message
-        });
-        throw err;
+      const requestCfg = {
+        method: epConfig.method || 'GET',
+        url,
+        headers: epConfig.headers,
+        params,
+        timeout: epConfig.timeout || 15000
+      };
+
+      if (this.rateLimiter) {
+        await this.rateLimiter.wait();
+      }
+      resp = await this._requestWithRetry(client, requestCfg);
+      if (this.rateLimiter) {
+        this.rateLimiter.updateFromResponse(resp.headers);
       }
 
       const pageData = resp.data;
@@ -173,6 +182,68 @@ class UniversalExtractor {
       meta: { count, pages: totalPages },
       logs: this.logs.slice()
     };
+  }
+
+  /**
+   * Ejecuta un request con retry y exponential backoff según el tipo de error.
+   * - 401/403 : 1 reintento después de 2 s
+   * - 429     : espera Retry-After, hasta MAX_RETRIES reintentos
+   * - 5xx     : backoff exponencial 1 s / 2 s / 4 s, hasta MAX_RETRIES
+   * - red     : 1 reintento después de 3 s
+   */
+  async _requestWithRetry(client, requestConfig, maxRetries = 3) {
+    const url = requestConfig.url || '';
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await client.request(requestConfig);
+      } catch (err) {
+        if (err.message?.startsWith('MONTHLY_LIMIT_EXCEEDED')) {
+          logger.error('🚫 Límite mensual de API alcanzado, abortando extracción');
+          throw err;
+        }
+
+        if (attempt === maxRetries) {
+          this.logs.push({ url, statusCode: err.response?.status, errorMessage: err.message });
+          throw err;
+        }
+
+        const status = err.response?.status;
+        let delayMs;
+
+        if (status === 429) {
+          const retryAfterRaw =
+            err.response.headers['retry-after'] ||
+            err.response.headers['x-ratelimit-reset'];
+          const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) : 5;
+          delayMs = (retryAfterSec + 1) * 1000;
+        } else if (status === 401 || status === 403) {
+          delayMs = 2000;
+          // On second auth failure we stop immediately — no token renewal available
+          if (attempt > 1) {
+            this.logs.push({ url, statusCode: status, errorMessage: err.message });
+            throw err;
+          }
+        } else if (status >= 500) {
+          delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        } else {
+          // Network errors: ECONNREFUSED, ETIMEDOUT, ENOTFOUND, etc.
+          delayMs = 3000;
+          if (attempt > 1) {
+            this.logs.push({ url, statusCode: err.code, errorMessage: err.message });
+            throw err;
+          }
+        }
+
+        logger.warn('⚠️  Reintentando request...', {
+          endpoint: url,
+          attempt,
+          maxRetries,
+          status: status || err.code,
+          delayS: delayMs / 1000
+        });
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
   }
 
   _createHttpClient() {

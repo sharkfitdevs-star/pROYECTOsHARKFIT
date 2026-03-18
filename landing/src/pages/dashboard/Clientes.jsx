@@ -31,7 +31,7 @@ function Modal({ children, open, onClose }) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{
-        background: "#fff", borderRadius: 8,
+        background: "var(--color-surface)", borderRadius: 8,
         boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
         maxWidth: 720, width: "100%", padding: "1.5rem",
         maxHeight: "90vh", overflowY: "auto",
@@ -233,7 +233,7 @@ export default function Clientes() {
           </thead>
           <tbody>
             {!cargando && filtrados.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign:"center", padding:"1rem", color:"#999" }}>Sin clientes registrados</td></tr>
+              <tr><td colSpan={9} style={{ textAlign:"center", padding:"1rem", color:"var(--color-text-secondary)" }}>Sin clientes registrados</td></tr>
             )}
             {filtrados.map((c, idx) => {
               const estado = c.estado || c.status || "inactivo"
@@ -256,13 +256,13 @@ export default function Clientes() {
                   <td>
                     <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
                       <button onClick={() => openProfile(c._id)} title="Ver perfil"
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"#6b7280" }}>
+                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"var(--color-text-secondary)" }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                         </svg>
                       </button>
                       <button onClick={() => openEdit(c)} title="Editar"
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"#6b7280" }}>
+                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"var(--color-text-secondary)" }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -296,26 +296,26 @@ export default function Clientes() {
           <h3 style={{ margin:0, fontSize:"1.1rem", fontWeight:700 }}>
             {profileData ? `${profileData.name||""} ${profileData.lastName||""}`.trim() : "Perfil"}
           </h3>
-          <button onClick={() => setProfileOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color:"#6b7280" }}>×</button>
+          <button onClick={() => setProfileOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color:"var(--color-text-secondary)" }}>×</button>
         </div>
         {profileLoading ? <p className="info-text">Cargando...</p> : profileData ? (
           <>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem", fontSize:"0.875rem" }}>
-              <div><span style={{ color:"#6b7280" }}>Email:</span> {profileData.email||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Teléfono:</span> {profileData.cellPhone||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>RUT/CPF:</span> {profileData.cpf||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>ID Miembro:</span> {profileData.idMember||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Plan:</span> {profileData.planName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Sede:</span> {profileData.branchName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Inicio:</span> {profileData.membershipStartDate ? new Date(profileData.membershipStartDate).toLocaleDateString("es-CL") : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Vence:</span>  {profileData.membershipEndDate  ? new Date(profileData.membershipEndDate).toLocaleDateString("es-CL")  : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Estado:</span> {profileData.status||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Asistencias:</span> {profileData.attendances||0}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Email:</span> {profileData.email||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Teléfono:</span> {profileData.cellPhone||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>RUT/CPF:</span> {profileData.cpf||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>ID Miembro:</span> {profileData.idMember||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Plan:</span> {profileData.planName||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Sede:</span> {profileData.branchName||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Inicio:</span> {profileData.membershipStartDate ? new Date(profileData.membershipStartDate).toLocaleDateString("es-CL") : "-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Vence:</span>  {profileData.membershipEndDate  ? new Date(profileData.membershipEndDate).toLocaleDateString("es-CL")  : "-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Estado:</span> {profileData.status||"-"}</div>
+              <div><span style={{ color:"var(--color-text-secondary)" }}>Asistencias:</span> {profileData.attendances||0}</div>
             </div>
             <hr style={{ margin:"1rem 0" }}/>
             <div style={{ textAlign:"right" }}>
               <button onClick={() => { setProfileOpen(false); openEdit(profileData) }}
-                style={{ padding:"0.4rem 1rem", background:"#2563eb", color:"#fff", border:"none", borderRadius:6, cursor:"pointer", fontSize:"0.875rem" }}>
+                style={{ padding:"0.4rem 1rem", background:"var(--color-primary)", color:"var(--color-text)", border:"none", borderRadius:6, cursor:"pointer", fontSize:"0.875rem" }}>
                 Editar datos completos
               </button>
             </div>
@@ -329,7 +329,7 @@ export default function Clientes() {
           <h3 style={{ margin:0, fontSize:"1.1rem", fontWeight:700 }}>
             {editingClient ? "Editar cliente" : "Nuevo cliente"}
           </h3>
-          <button onClick={() => setEditOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color:"#6b7280" }}>×</button>
+          <button onClick={() => setEditOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color:"var(--color-text-secondary)" }}>×</button>
         </div>
         <form onSubmit={submitForm}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem" }}>
@@ -344,15 +344,15 @@ export default function Clientes() {
               { label:"Sede",       key:"branchName" },
             ].map(({ label, key, type="text", required }) => (
               <div key={key}>
-                <label style={{ display:"block", fontSize:"0.8rem", fontWeight:500, color:"#374151", marginBottom:4 }}>{label}</label>
+                <label style={{ display:"block", fontSize:"0.8rem", fontWeight:500, color:"var(--color-text)", marginBottom:4 }}>{label}</label>
                 <input type={type} required={required} value={formData[key]||""} onChange={(e) => setFormData({...formData,[key]:e.target.value})}
-                  style={{ width:"100%", border:"1px solid #d1d5db", borderRadius:6, padding:"0.4rem 0.6rem", fontSize:"0.875rem", boxSizing:"border-box" }}/>
+                  style={{ width:"100%", border:"1px solid var(--color-border)", borderRadius:6, padding:"0.4rem 0.6rem", fontSize:"0.875rem", boxSizing:"border-box", background:"var(--color-surface-card)", color:"var(--color-text)" }}/>
               </div>
             ))}
             <div>
-              <label style={{ display:"block", fontSize:"0.8rem", fontWeight:500, color:"#374151", marginBottom:4 }}>Estado</label>
+              <label style={{ display:"block", fontSize:"0.8rem", fontWeight:500, color:"var(--color-text)", marginBottom:4 }}>Estado</label>
               <select value={formData.estado||"activo"} onChange={(e) => setFormData({...formData,estado:e.target.value})}
-                style={{ width:"100%", border:"1px solid #d1d5db", borderRadius:6, padding:"0.4rem 0.6rem", fontSize:"0.875rem" }}>
+                style={{ width:"100%", border:"1px solid var(--color-border)", borderRadius:6, padding:"0.4rem 0.6rem", fontSize:"0.875rem", background:"var(--color-surface-card)", color:"var(--color-text)" }}>
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
                 <option value="por vencer">Por vencer</option>
@@ -362,11 +362,11 @@ export default function Clientes() {
           {formError && <p style={{ color:"#ef4444", fontSize:"0.875rem", marginTop:"0.5rem" }}>{formError}</p>}
           <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:"1rem" }}>
             <button type="button" onClick={() => setEditOpen(false)}
-              style={{ padding:"0.4rem 1rem", border:"1px solid #d1d5db", borderRadius:6, background:"#fff", cursor:"pointer", fontSize:"0.875rem" }}>
+              style={{ padding:"0.4rem 1rem", border:"1px solid var(--color-border)", borderRadius:6, background:"var(--color-surface)", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:"0.875rem" }}>
               Cancelar
             </button>
             <button type="submit" disabled={formLoading}
-              style={{ padding:"0.4rem 1rem", background:"#2563eb", color:"#fff", border:"none", borderRadius:6, cursor:"pointer", fontSize:"0.875rem", opacity:formLoading?0.6:1 }}>
+              style={{ padding:"0.4rem 1rem", background:"var(--color-primary)", color:"var(--color-text)", border:"none", borderRadius:6, cursor:"pointer", fontSize:"0.875rem", opacity:formLoading?0.6:1 }}>
               {formLoading ? "Guardando..." : "Guardar"}
             </button>
           </div>

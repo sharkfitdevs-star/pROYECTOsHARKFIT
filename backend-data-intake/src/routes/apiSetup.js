@@ -14,7 +14,9 @@ const path = require('path');
 const fs = require('fs');
 const { logger } = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
-const { extractAndSync, extractAllApis } = require('../index');
+const { extractionRateLimiter } = require('../middleware/rateLimiter');
+const { encrypt, decrypt } = require('../utils/encryption');
+const { extractAndSync, extractAndSyncWithConfig, extractAllApis } = require('../index');
 const { findEvoMapping, applyEvoMapping, getEvoEndpointSuggestions } = require('../connectors/EvoMappings');
 
 // models and repository helpers used by the new persistence logic
@@ -25,6 +27,20 @@ const {
   upsertLead
 } = require('../db/repositories.js');
 
+/**
+ * SISTEMA A: Setup visual de integraciones API.
+ *
+ * Este router implementa el flujo guiado de configuración desde UI
+ * (info, auth, endpoints, guardar) y expone endpoints bajo /api/setup/*,
+ * incluyendo validación, pruebas, creación de configuración y extracción manual/selectiva.
+ *
+ * La extracción real se ejecuta a través de index.js, que utiliza
+ * UniversalExtractor para obtener datos y repositories.js para persistencia.
+ *
+ * Nota de arquitectura:
+ * Este módulo pertenece al Sistema A y no debe confundirse con extractorRouter.js,
+ * que implementa el Sistema B (Extractor directo con configuración en Mongo).
+ */
 const router = express.Router();
 
 /**
@@ -63,6 +79,84 @@ function detectDataTypes(record) {
   }
 
   return types;
+}
+
+function loadConfigFromFilesystem(configName) {
+  const configPath = path.join(__dirname, '../../configs', `${configName}.json`);
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+
+  const raw = fs.readFileSync(configPath, 'utf8');
+  return JSON.parse(raw.replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] || ''));
+}
+
+async function loadConfigFromMongo(configName) {
+  const doc = await ApiIntegration.findOne({ tenantId: configName }).lean();
+  if (!doc || !doc.configData) {
+    return null;
+  }
+
+  let parsedConfigData;
+  try {
+    parsedConfigData = JSON.parse(doc.configData);
+  } catch (err) {
+    logger.warn('configData inválido en MongoDB, usando fallback filesystem', {
+      tenantId: configName,
+      message: err.message
+    });
+    return null;
+  }
+
+  if (!Array.isArray(parsedConfigData.endpoints) || parsedConfigData.endpoints.length === 0) {
+    return null;
+  }
+
+  let auth = { type: parsedConfigData.auth?.type || 'bearer' };
+  if (doc.encryptedToken) {
+    try {
+      const decryptedAuth = decrypt(doc.encryptedToken);
+      const parsedAuth = JSON.parse(decryptedAuth);
+      if (parsedAuth && typeof parsedAuth === 'object') {
+        auth = parsedAuth;
+      }
+    } catch (err) {
+      logger.warn('No se pudo descifrar auth desde MongoDB, usando auth.type', {
+        tenantId: configName,
+        message: err.message
+      });
+    }
+  }
+
+  return {
+    id: doc.tenantId,
+    name: doc.name || configName,
+    type: 'rest',
+    description: `Extrae datos de ${doc.name || configName} hacia MongoDB`,
+    baseURL: parsedConfigData.baseURL || doc.dns,
+    auth,
+    endpoints: parsedConfigData.endpoints,
+    webhooks: parsedConfigData.webhooks || { enabled: false },
+    historical: parsedConfigData.historical || { startDate: null, endDate: null },
+    syncInterval: parsedConfigData.syncInterval || 60,
+    timeout: parsedConfigData.timeout || 30000
+  };
+}
+
+async function loadConfigMongoFirst(configName) {
+  const mongoConfig = await loadConfigFromMongo(configName);
+  if (mongoConfig) {
+    logger.info('Config cargada desde MongoDB', { configName });
+    return mongoConfig;
+  }
+
+  const filesystemConfig = loadConfigFromFilesystem(configName);
+  if (filesystemConfig) {
+    logger.info('Config cargada desde filesystem', { configName });
+    return filesystemConfig;
+  }
+
+  return null;
 }
 
 
@@ -106,12 +200,12 @@ router.post('/validate-url', requireAuth, async (req, res) => {
       }
       return res.json({
         success: false,
-        error: `❌ Error: ${error.message}`
+        error: '❌ Error de conexión al validar URL'
       });
     }
   } catch (error) {
-    logger.error('Error validando URL:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error validando URL', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -147,7 +241,7 @@ router.post('/test-auth', requireAuth, async (req, res) => {
       } catch (error) {
         return res.json({
           success: false,
-          error: `❌ OAuth fallido: ${error.response?.data?.error || error.message}`
+          error: '❌ OAuth fallido: credenciales o endpoint inválidos'
         });
       }
     }
@@ -176,12 +270,12 @@ router.post('/test-auth', requireAuth, async (req, res) => {
     } catch (error) {
       return res.json({
         success: false,
-        error: `❌ Error: ${error.message}`
+        error: '❌ Error validando autenticación'
       });
     }
   } catch (error) {
-    logger.error('Error probando auth:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error probando auth', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -261,12 +355,12 @@ router.post('/test-endpoint', requireAuth, async (req, res) => {
       }
       return res.json({
         success: false,
-        error: `❌ Error: ${error.message}`
+        error: '❌ Error validando endpoint'
       });
     }
   } catch (error) {
-    logger.error('Error probando endpoint:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error probando endpoint', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -346,14 +440,23 @@ router.post('/create', requireAuth, async (req, res) => {
           dns: config.baseURL,
           endpointsCount: Array.isArray(endpoints) ? endpoints.length : 0,
           status: 'active',
-          encryptedToken: JSON.stringify(auth), // TODO: encrypt later
+          encryptedToken: encrypt(JSON.stringify(auth)),
+          configData: JSON.stringify({
+            endpoints: config.endpoints,
+            historical: config.historical,
+            webhooks: config.webhooks,
+            auth: { type: config.auth.type },
+            baseURL: config.baseURL,
+            syncInterval: config.syncInterval,
+            timeout: config.timeout
+          }),
           updatedAt: new Date()
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     } catch (err) {
       // log warning but don't fail the request since JSON file is still valid
-      logger.warn('Mongo upsert failed for ApiIntegration', { err: err.message });
+      logger.warn('Mongo upsert failed for ApiIntegration', { message: err.message });
     }
 
     logger.info(`✅ Config guardada: api-${configName}`, { userId: req.user.id });
@@ -365,15 +468,15 @@ router.post('/create', requireAuth, async (req, res) => {
       endpoint: `/api/setup/extract/${configName}`
     });
   } catch (error) {
-    logger.error('Error creando config:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error creando config', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
 /**
  * Ejecutar extracción manual (una config o todas)
  */
-router.post('/extract', requireAuth, async (req, res) => {
+router.post('/extract', requireAuth, extractionRateLimiter, async (req, res) => {
   try {
     const { configName } = req.body;
 
@@ -386,7 +489,11 @@ router.post('/extract', requireAuth, async (req, res) => {
       }
 
       // run the generic extractor which also returns raw data per endpoint
-      const result = await extractAndSync(configName);
+      const loadedConfig = await loadConfigMongoFirst(configName);
+      const result = await extractAndSyncWithConfig({
+        ...(loadedConfig || { id: configName }),
+        userId: req.user?.id || null
+      });
 
       // build a human-friendly summary using the returned data arrays
       const summary = {
@@ -438,7 +545,7 @@ router.post('/extract', requireAuth, async (req, res) => {
               if (r.updated) summary.updated.prospectos++;
             }
           } catch (e) {
-            summary.errors.push({ endpoint: epName, error: e.message });
+            summary.errors.push({ endpoint: epName, error: 'Error procesando registro' });
           }
         }
       }
@@ -449,8 +556,8 @@ router.post('/extract', requireAuth, async (req, res) => {
     const results = await extractAllApis();
     return res.json({ success: true, results });
   } catch (error) {
-    logger.error('Error en extracción manual:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en extracción manual', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -466,31 +573,24 @@ router.get('/config/:configName', requireAuth, async (req, res) => {
       return res.redirect(`/setup/config/${normalizedName}`);
     }
 
-    const configPath = path.join(
-      __dirname,
-      '../../configs',
-      `${configName}.json`
-    );
-
-    if (!fs.existsSync(configPath)) {
+    const config = await loadConfigMongoFirst(configName);
+    if (!config) {
       return res.status(404).json({
         success: false,
         error: 'Configuración no encontrada'
       });
     }
-
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     res.json({ success: true, config });
   } catch (error) {
-    logger.error('Error obteniendo config:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error obteniendo config', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
 /**
  * Extraer solo tipos de datos seleccionados
  */
-router.post('/extract-selective', requireAuth, async (req, res) => {
+router.post('/extract-selective', requireAuth, extractionRateLimiter, async (req, res) => {
   try {
     const { configName, selectedDataTypes } = req.body;
 
@@ -508,43 +608,95 @@ router.post('/extract-selective', requireAuth, async (req, res) => {
       });
     }
 
-    // Leer configuración
-    const configPath = path.join(
-      __dirname,
-      '../../configs',
-      `${configName}.json`
-    );
-
-    if (!fs.existsSync(configPath)) {
+    // Leer configuración (MongoDB primero, filesystem fallback)
+    const config = await loadConfigMongoFirst(configName);
+    if (!config) {
       return res.status(404).json({
         success: false,
         error: 'Configuración no encontrada'
       });
     }
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
     // Filtrar endpoints por tipos seleccionados
-    const filteredEndpoints = config.endpoints.filter(ep => 
+    const filteredEndpoints = (config.endpoints || []).filter(ep =>
       selectedDataTypes.includes(ep.dataType)
     );
+
+    if (filteredEndpoints.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No hay endpoints para los tipos seleccionados'
+      });
+    }
 
     logger.info(`[SELECTIVE_EXTRACT] ${configName}: extrayendo ${selectedDataTypes.join(', ')}`);
     logger.info(`[SELECTIVE_EXTRACT] Endpoints a extraer: ${filteredEndpoints.length}`);
 
-    // TODO: Aquí se ejecutaría la extracción real con los endpoints filtrados
-    // Por ahora, solo confirmamos que se inició
+    const filteredConfig = {
+      ...config,
+      endpoints: filteredEndpoints,
+      userId: req.user?.id || null
+    };
 
-    return res.json({
+    const result = await extractAndSyncWithConfig(filteredConfig);
+
+    const summary = {
       success: true,
-      message: `✅ Extracción selectiva iniciada: ${selectedDataTypes.join(', ')}`,
-      configName,
-      selectedDataTypes,
-      endpointsToExtract: filteredEndpoints.length
-    });
+      inserted: { ventas: 0, clientes: 0, prospectos: 0 },
+      updated:  { ventas: 0, clientes: 0, prospectos: 0 },
+      errors: []
+    };
+
+    for (const [epName, epRes] of Object.entries(result.results || {})) {
+      if (!epRes.success || !Array.isArray(epRes.data)) continue;
+      const dt = epRes.dataType;
+      for (const item of epRes.data) {
+        try {
+          const mapping = findEvoMapping(epRes.source || epName);
+          const itemToProcess = mapping ? mapping.mapTo(item) : item;
+          const it = itemToProcess;
+
+          if (dt === 'ventas') {
+            const venta = {
+              ventaId: it.id || it.code || it.evo_sale_id,
+              eventoVentaId: it.id,
+              monto: it.value || it.amount || it.totalAmount || 0,
+              nombreCliente: it.prospect_name || it.memberName || it.name,
+              sede: it.branch || it.branchName || it.location,
+              fecha: it.sale_date || it.saleDate || it.date,
+              estatus: it.status || it.paymentStatus || 'Pendiente',
+              fuente: 'api-import'
+            };
+            const r = await upsertVenta(venta);
+            if (r.inserted) summary.inserted.ventas++;
+            if (r.updated) summary.updated.ventas++;
+          } else if (dt === 'clientes' || dt === 'miembros') {
+            const cliente = {
+              uniqueId: it.id || it.member_id,
+              name: it.name || (it.first_name && it.last_name ? it.first_name + ' ' + it.last_name : null),
+              email: it.email,
+              phone: it.phone || it.cellPhone,
+              registrationDate: it.registration_date || it.created_at,
+              source: 'api-import'
+            };
+            const r = await upsertCliente(cliente);
+            if (r.inserted) summary.inserted.clientes++;
+            if (r.updated) summary.updated.clientes++;
+          } else if (dt === 'prospectos') {
+            const r = await upsertLead(it);
+            if (r.inserted) summary.inserted.prospectos++;
+            if (r.updated) summary.updated.prospectos++;
+          }
+        } catch (e) {
+          summary.errors.push({ endpoint: epName, error: 'Error procesando registro' });
+        }
+      }
+    }
+
+    return res.json(summary);
   } catch (error) {
-    logger.error('Error en extracción selectiva:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error en extracción selectiva', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -554,6 +706,18 @@ router.post('/extract-selective', requireAuth, async (req, res) => {
 // Sugerencias de endpoints EVO conocidos
 router.get('/evo-suggestions', requireAuth, (req, res) => {
   res.json({ success: true, suggestions: getEvoEndpointSuggestions() });
+});
+
+router.get('/evo-usage', requireAuth, async (req, res) => {
+  try {
+    const { RateLimiter } = require('../services/RateLimiter');
+    const limiter = new RateLimiter('EVO');
+    const usage = await limiter.getMonthlyUsage();
+    res.json({ success: true, usage });
+  } catch (err) {
+    logger.error('Error obteniendo uso de EVO API', { message: err.message });
+    res.status(500).json({ success: false, error: 'Error obteniendo uso de API' });
+  }
 });
 
 router.get('/list', requireAuth, async (req, res) => {
@@ -603,8 +767,8 @@ router.get('/list', requireAuth, async (req, res) => {
 
     res.json({ success: true, configs });
   } catch (error) {
-    logger.error('Error listando configs:', error);
-    res.status(500).json({ success: false, error: error.message });
+    logger.error('Error listando configs', { message: error.message });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 

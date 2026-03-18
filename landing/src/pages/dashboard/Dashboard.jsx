@@ -21,6 +21,7 @@ import WidgetWrapper from '../../components/dashboard/WidgetWrapper'
 import ChartBuilder from '../../components/dashboard/ChartBuilder'
 import DynamicChart from '../../components/dashboard/DynamicChart'
 import HiddenWidgetsPanel from '../../components/dashboard/HiddenWidgetsPanel'
+import SessionWarning from '../../components/SessionWarning';
 
 function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
@@ -29,7 +30,7 @@ function Dashboard() {
   const navigate = useNavigate()
   const [overview, setOverview] = useState(null)
   const [loadingOverview, setLoadingOverview] = useState(true)
-  const { widgets, visibleWidgets, removeWidget, restoreWidget, addWidget } = useOverviewLayout();
+  const { widgets, visibleWidgets, removeWidget, restoreWidget, reorderWidgets, addWidget, deleteWidget } = useOverviewLayout();
   const [showBuilder, setShowBuilder] = useState(false);
   const hiddenWidgets = widgets.filter(w => !w.visible);
 
@@ -74,10 +75,9 @@ function Dashboard() {
     }
     return (
       <button
-        className="nav-item"
+        className={`nav-item imports-toggle ${importsConnected ? 'on' : 'off'}`}
         onClick={handleClick}
         disabled={isTogglingImports}
-        style={{ color: importsConnected ? 'black' : '#c53030' }}
       >
         Datos importados: {importsConnected ? 'ON' : 'OFF'}
       </button>
@@ -90,75 +90,94 @@ function Dashboard() {
       content: () => (
         <div>
           <div className="overview-toolbar">
-            <HiddenWidgetsPanel hiddenWidgets={hiddenWidgets} onRestore={restoreWidget} />
+            <HiddenWidgetsPanel hiddenWidgets={widgets.filter(w => !w.visible)} onRestore={restoreWidget} />
             <button onClick={() => setShowBuilder(true)} className="btn-create-chart">
               + Crear nuevo gráfico
             </button>
           </div>
-          {visibleWidgets.includes('kpi_block') && (
-            <WidgetWrapper id="kpi_block" title="KPI resumen" isDefault={true} onRemove={removeWidget}>
-              <div className="overview-cards">
-                <div className="overview-card">
-                  <span className="overview-card-title">Ventas Este Mes</span>
-                  {loadingOverview
-                    ? <span className="overview-card-value">...</span>
-                    : <span className="overview-card-value">{fmt$(overview?.ventasEsteMes?.monto)}</span>
-                  }
-                  {!loadingOverview && overview?.ventasEsteMes?.variacion != null && (
-                    <span className={'overview-card-sub ' + (parseFloat(overview.ventasEsteMes.variacion) >= 0 ? 'positive' : 'negative')}>
-                      {fmtPct(overview.ventasEsteMes.variacion)} vs mes anterior
-                    </span>
-                  )}
+          <div
+            className="overview-grid"
+            onDragOver={(e) => e.preventDefault()}
+          >
+            {widgets
+              .filter(w => w.visible)
+              .sort((a, b) => a.order - b.order)
+              .map((widget) => (
+                <div
+                  key={widget.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('widgetId', widget.id)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('widgetId');
+                    if (draggedId === widget.id) return;
+                    const ids = widgets
+                      .filter(w => w.visible)
+                      .sort((a, b) => a.order - b.order)
+                      .map(w => w.id);
+                    const fromIdx = ids.indexOf(draggedId);
+                    const toIdx   = ids.indexOf(widget.id);
+                    if (fromIdx === -1 || toIdx === -1) return;
+                    const newIds = [...ids];
+                    newIds.splice(fromIdx, 1);
+                    newIds.splice(toIdx, 0, draggedId);
+                    reorderWidgets(newIds);
+                  }}
+                  style={{ cursor: 'grab' }}
+                >
+                  <WidgetWrapper
+                    id={widget.id}
+                    title={widget.title}
+                    isDefault={widget.isDefault}
+                    onRemove={deleteWidget || removeWidget}
+                  >
+                    {widget.id === 'kpi_block' && (
+                      <div className="overview-cards">
+                        <div className="overview-card">
+                          <span className="overview-card-title">Ventas Este Mes</span>
+                          {loadingOverview
+                            ? <span className="overview-card-value">...</span>
+                            : <span className="overview-card-value">{fmt$(overview?.ventasEsteMes?.monto)}</span>
+                          }
+                        </div>
+                        <div className="overview-card">
+                          <span className="overview-card-title">Clientes Activos</span>
+                          {loadingOverview
+                            ? <span className="overview-card-value">...</span>
+                            : <span className="overview-card-value">{overview?.clientesActivos?.total ?? '-'}</span>
+                          }
+                          {!loadingOverview && overview?.clientesActivos?.nuevosEsteMes != null && (
+                            <span className="overview-card-sub positive">+{overview.clientesActivos.nuevosEsteMes} nuevos</span>
+                          )}
+                        </div>
+                        <div className="overview-card">
+                          <span className="overview-card-title">Tareas Pendientes</span>
+                          {loadingOverview
+                            ? <span className="overview-card-value">...</span>
+                            : <span className="overview-card-value">{overview?.tareasPendientes?.total ?? '-'}</span>
+                          }
+                        </div>
+                        <div className="overview-card">
+                          <span className="overview-card-title">Tasa de Conversión</span>
+                          {loadingOverview
+                            ? <span className="overview-card-value">...</span>
+                            : <span className="overview-card-value">{overview?.tasaConversion?.porcentaje ?? '-'}%</span>
+                          }
+                        </div>
+                      </div>
+                    )}
+                    {widget.type === 'ventas_panel'     && <VentasOverview />}
+                    {widget.type === 'clientes_panel'   && <ClientesOverview />}
+                    {widget.type === 'prospectos_panel' && <ProspectosOverview />}
+                    {!['kpi_block','ventas_panel','clientes_panel','prospectos_panel'].includes(widget.id) &&
+                     !['ventas_panel','clientes_panel','prospectos_panel'].includes(widget.type) && (
+                      <DynamicChart config={widget} />
+                    )}
+                  </WidgetWrapper>
                 </div>
-                <div className="overview-card">
-                  <span className="overview-card-title">Clientes Activos</span>
-                  {loadingOverview
-                    ? <span className="overview-card-value">...</span>
-                    : <span className="overview-card-value">{overview?.clientesActivos?.total ?? '-'}</span>
-                  }
-                  {!loadingOverview && overview?.clientesActivos?.nuevosEsteMes != null && (
-                    <span className="overview-card-sub positive">+{overview.clientesActivos.nuevosEsteMes} nuevos</span>
-                  )}
-                </div>
-                <div className="overview-card">
-                  <span className="overview-card-title">Tareas Pendientes</span>
-                  {loadingOverview
-                    ? <span className="overview-card-value">...</span>
-                    : <span className="overview-card-value">{overview?.tareasPendientes?.total ?? '-'}</span>
-                  }
-                </div>
-                <div className="overview-card">
-                  <span className="overview-card-title">Tasa de Conversion</span>
-                  {loadingOverview
-                    ? <span className="overview-card-value">...</span>
-                    : <span className="overview-card-value">{overview?.tasaConversion?.porcentaje ?? '-'}%</span>
-                  }
-                  {!loadingOverview && overview?.tasaConversion?.variacion != null && (
-                    <span className={'overview-card-sub ' + (parseFloat(overview.tasaConversion.variacion) >= 0 ? 'positive' : 'negative')}>
-                      {fmtPct(overview.tasaConversion.variacion)} pts vs mes anterior
-                    </span>
-                  )}
-                </div>
-              </div>
-            </WidgetWrapper>
-          )}
-
-          {visibleWidgets.includes('panel_ventas') && (
-            <WidgetWrapper id="panel_ventas" title="Ventas" isDefault={false} onRemove={removeWidget}>
-              <VentasOverview />
-            </WidgetWrapper>
-          )}
-          {visibleWidgets.includes('panel_clientes') && (
-            <WidgetWrapper id="panel_clientes" title="Clientes" isDefault={false} onRemove={removeWidget}>
-              <ClientesOverview />
-            </WidgetWrapper>
-          )}
-          {visibleWidgets.includes('panel_prospectos') && (
-            <WidgetWrapper id="panel_prospectos" title="Prospectos" isDefault={false} onRemove={removeWidget}>
-              <ProspectosOverview />
-            </WidgetWrapper>
-          )}
-
+              ))
+            }
+          </div>
         </div>
       )
     },
@@ -178,6 +197,21 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      <SessionWarning
+        onExtend={async () => {
+          try {
+            const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+            const data = await res.json();
+            if (data.accessToken) {
+              const { setAccessToken } = await import('../../config/authStorage');
+              const { setAccessToken: setApiToken } = await import('../../api/axios');
+              setAccessToken(data.accessToken);
+              setApiToken(data.accessToken);
+            }
+          } catch {}
+        }}
+        onLogout={logout}
+      />
       <header className="dashboard-header">
         <div className="header-content">
           <h1>SharkFit Dashboard</h1>
@@ -188,7 +222,7 @@ function Dashboard() {
             onNavigateToAlertas={() => { setActiveSection('alerts') }}
           />
           <button className="btn-icon" onClick={() => { logout(); navigate('/login') }} title="Salir">
-            <i className="bi bi-box-arrow-right" style={{ fontSize: '18px', color: '#ef4444' }}></i>
+            <i className="bi bi-box-arrow-right"></i>
           </button>
           <div className="user-menu">
             <button className="btn-user">
@@ -201,14 +235,14 @@ function Dashboard() {
       <div className="dashboard-main">
         <aside className="dashboard-sidebar">
           <nav className="sidebar-nav">
-            <button className={'nav-item ' + (activeSection === 'overview'    ? 'active' : '')} onClick={() => setActiveSection('overview')}>Overview</button>
-            <button className={'nav-item ' + (activeSection === 'clients'     ? 'active' : '')} onClick={() => setActiveSection('clients')}>Clientes</button>
-            <button className={'nav-item ' + (activeSection === 'ventas'      ? 'active' : '')} onClick={() => setActiveSection('ventas')}>Ventas</button>
-            <button className={'nav-item ' + (activeSection === 'alerts'      ? 'active' : '')} onClick={() => setActiveSection('alerts')}>Alertas</button>
-            <button className={'nav-item ' + (activeSection === 'importar'    ? 'active' : '')} onClick={() => setActiveSection('importar')}>Importar Excel</button>
-            <button className={'nav-item ' + (activeSection === 'api-import'  ? 'active' : '')} onClick={() => setActiveSection('api-import')}>Importación por API</button>
-            <div style={{ height: '1px', background: '#2d5a8e', margin: '15px 0', opacity: 0.5 }}></div>
-            <button className={'nav-item ' + (activeSection === 'exportar'    ? 'active' : '')} onClick={() => setActiveSection('exportar')}>Exportar datos</button>
+            <button className={'nav-item ' + (activeSection === 'overview'    ? 'active' : '')} onClick={() => setActiveSection('overview')}><i className="bi bi-speedometer2"></i><span>Overview</span></button>
+            <button className={'nav-item ' + (activeSection === 'clients'     ? 'active' : '')} onClick={() => setActiveSection('clients')}><i className="bi bi-people"></i><span>Clientes</span></button>
+            <button className={'nav-item ' + (activeSection === 'ventas'      ? 'active' : '')} onClick={() => setActiveSection('ventas')}><i className="bi bi-cash-coin"></i><span>Ventas</span></button>
+            <button className={'nav-item ' + (activeSection === 'alerts'      ? 'active' : '')} onClick={() => setActiveSection('alerts')}><i className="bi bi-bell"></i><span>Alertas</span></button>
+            <button className={'nav-item ' + (activeSection === 'importar'    ? 'active' : '')} onClick={() => setActiveSection('importar')}><i className="bi bi-file-earmark-arrow-up"></i><span>Importar Excel</span></button>
+            <button className={'nav-item ' + (activeSection === 'api-import'  ? 'active' : '')} onClick={() => setActiveSection('api-import')}><i className="bi bi-plug"></i><span>Importación por API</span></button>
+            <div className="sidebar-separator"></div>
+            <button className={'nav-item ' + (activeSection === 'exportar'    ? 'active' : '')} onClick={() => setActiveSection('exportar')}><i className="bi bi-download"></i><span>Exportar datos</span></button>
             <ImportToggle />
           </nav>
           <div className="sidebar-footer">

@@ -14,9 +14,9 @@
 .ov-tab {
   padding: 0.45rem 1.1rem;
   border-radius: 20px;
-  border: 1px solid #3d3d58;
+  border: 1px solid var(--color-border);
   background: transparent;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -24,21 +24,21 @@
 }
 
 .ov-tab:hover {
-  border-color: #a78bfa;
-  color: #e2e8f0;
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .ov-tab.active {
-  background: #a78bfa22;
-  border-color: #a78bfa;
-  color: #a78bfa;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
   font-weight: 600;
 }
 
 /* Chart card */
 .ov-chart-card {
-  background: #1e1e2e;
-  border: 1px solid #2d2d44;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 1.5rem;
   animation: fadeInUp 0.35s ease both;
@@ -59,13 +59,13 @@
 .ov-chart-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--color-text);
   margin: 0 0 0.2rem 0;
 }
 
 .ov-chart-sub {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -78,20 +78,20 @@
   white-space: nowrap;
 }
 .ov-badge.pos {
-  background: #4ade8022;
-  color: #4ade80;
-  border: 1px solid #4ade8044;
+  background: rgba(74, 222, 128, 0.15);
+  color: #86efac;
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 .ov-badge.neg {
-  background: #f8717122;
-  color: #f87171;
-  border: 1px solid #f8717144;
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
 /* Tooltip */
 .ov-tooltip {
-  background: #1a1a2e;
-  border: 1px solid #3d3d58;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.6rem 0.9rem;
   font-size: 0.8rem;
@@ -99,7 +99,7 @@
 }
 
 .ov-tooltip-label {
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   font-weight: 600;
   margin: 0 0 0.35rem 0;
   font-size: 0.75rem;
@@ -117,7 +117,7 @@
 }
 
 .ov-skeleton-bar {
-  background: linear-gradient(90deg, #2d2d44 25%, #3d3d58 50%, #2d2d44 75%);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-card) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 6px;

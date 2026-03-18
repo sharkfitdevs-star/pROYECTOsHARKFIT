@@ -6,6 +6,14 @@ import { useAuth } from "../../context/AuthContext";
 import { createToast } from "@/components/ui/use-toast";
 import "../../styles/Dashboard.css";
 
+function getPaymentBadgeClass(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (['pagado', 'completada', 'completado'].includes(normalized)) return 'pagado';
+  if (['pendiente'].includes(normalized)) return 'pendiente';
+  if (['vencido', 'anulada', 'anulado', 'rechazada'].includes(normalized)) return 'vencido';
+  return 'pendiente';
+}
+
 export default function VentasSection() {
   const [ventas, setVentas] = useState([]);
   const [page, setPage] = useState(1);
@@ -134,6 +142,11 @@ export default function VentasSection() {
     page * limit
   );
 
+  const ventasMontoTotal = ventasFiltradas.reduce((acc, venta) => acc + (Number(venta.amount) || 0), 0);
+  const ventasPagadas = ventasFiltradas.filter((venta) =>
+    ['pagado', 'completada', 'completado'].includes(String(venta.paymentStatus || '').toLowerCase())
+  ).length;
+
   // log first venta to inspect available fields, and reset page when filters change
   useEffect(() => {
     if (ventas.length > 0) {
@@ -149,6 +162,20 @@ export default function VentasSection() {
     <div className="ventas-section">
       <h2>Ventas</h2>
       <p className="info-text">Los datos se obtienen de las importaciones realizadas en Excel/CSV.</p>
+      <div className="ventas-kpis">
+        <div className="ventas-kpi-card">
+          <div className="ventas-kpi-label">Monto total filtrado</div>
+          <div className="ventas-kpi-value amount">${ventasMontoTotal.toLocaleString()}</div>
+        </div>
+        <div className="ventas-kpi-card">
+          <div className="ventas-kpi-label">Ventas filtradas</div>
+          <div className="ventas-kpi-value count">{ventasFiltradas.length}</div>
+        </div>
+        <div className="ventas-kpi-card">
+          <div className="ventas-kpi-label">Pagadas</div>
+          <div className="ventas-kpi-value count">{ventasPagadas}</div>
+        </div>
+      </div>
       <div className="ventas-toolbar">
         <div>
           <label htmlFor="busqueda-venta">Buscar: </label>
@@ -198,7 +225,7 @@ export default function VentasSection() {
             </tr>
           </thead>
           <tbody>
-            {!cargando && ventasPagina.length === 0 && <tr><td colSpan={13} style={{ textAlign: 'center', padding: '1rem', color: '#999' }}>Sin ventas registradas</td></tr>}
+            {!cargando && ventasPagina.length === 0 && <tr><td colSpan={13} style={{ textAlign: 'center', padding: '1rem' }}>Sin ventas registradas</td></tr>}
             {ventasPagina.map((v, idx) => (
               <tr key={v._id || v.idSale || idx}>
                 <td>{v.saleDate ? new Date(v.saleDate).toLocaleDateString() : '-'}</td>
@@ -206,7 +233,9 @@ export default function VentasSection() {
                 <td>{v.whatsapp || v.cellPhone || '-'}</td>
                 <td>{v.dueDate ? new Date(v.dueDate).toLocaleDateString() : '-'}</td>
                 <td>{v.saleType || '-'}</td>
-                <td>{v.paymentStatus || '-'}</td>
+                <td>
+                  <span className={`payment-badge ${getPaymentBadgeClass(v.paymentStatus)}`}>{v.paymentStatus || '-'}</span>
+                </td>
                 <td>{v.employeeName || '-'}</td>
                 <td>{v.fechaCompra ? new Date(v.fechaCompra).toLocaleDateString() : '-'}</td>
                 <td>{v.planName || '-'}</td>
@@ -216,21 +245,22 @@ export default function VentasSection() {
                 <td>{v.branchName || '-'}</td>
                 <td>
                   <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
-                    <button onClick={() => openVenta(v._id)} title="Ver detalle"
-                      style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"#6b7280" }}>
+                    <button onClick={() => openVenta(v._id)} title="Ver detalle" className="table-action-btn">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                       </svg>
                     </button>
-                    <button onClick={() => openEditVenta(v)} title="Editar"
-                      style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"#6b7280" }}>
+                    <button onClick={() => openEditVenta(v)} title="Editar" className="table-action-btn">
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                       </svg>
                     </button>
-                    <button onClick={() => toggleEstadoVenta(v._id, v.paymentStatus)} title={v.paymentStatus === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
-                      style={{ background:"none", border:"none", cursor:"pointer", padding:2, color: v.paymentStatus === "pagado" ? "#22c55e" : "#ef4444" }}>
+                    <button
+                      onClick={() => toggleEstadoVenta(v._id, v.paymentStatus)}
+                      title={v.paymentStatus === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
+                      className={`table-action-btn ${v.paymentStatus === "pagado" ? 'table-action-btn--success' : 'table-action-btn--danger'}`}
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="12" r="10"/>
                       </svg>
@@ -248,29 +278,29 @@ export default function VentasSection() {
         <button onClick={() => setPage(p => p + 1)} disabled={ventasFiltradas.length < limit} className="btn-secondary">Siguiente</button>
       </div>
     {ventaOpen && (
-      <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.5)" }}
+      <div className="ventas-modal-overlay"
         onClick={(e) => { if (e.target === e.currentTarget) setVentaOpen(false); }}>
-        <div style={{ background:"#fff", borderRadius:8, boxShadow:"0 4px 24px rgba(0,0,0,0.15)", maxWidth:600, width:"100%", padding:"1.5rem", maxHeight:"90vh", overflowY:"auto" }}>
+        <div className="ventas-modal">
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
-            <h3 style={{ margin:0, fontSize:"1.1rem", fontWeight:700 }}>Detalle de venta</h3>
-            <button onClick={() => setVentaOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color:"#6b7280" }}>×</button>
+            <h3 className="ventas-modal-title">Detalle de venta</h3>
+            <button onClick={() => setVentaOpen(false)} className="ventas-modal-close">×</button>
           </div>
-          {ventaLoading ? <p style={{ color:"#6b7280" }}>Cargando...</p> : ventaData ? (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem", fontSize:"0.875rem" }}>
-              <div><span style={{ color:"#6b7280" }}>Cliente:</span> {ventaData.memberName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>WhatsApp:</span> {ventaData.cellPhone||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Plan:</span> {ventaData.planName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Monto:</span> {ventaData.amount != null ? "$"+Number(ventaData.amount).toLocaleString() : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Vendedor:</span> {ventaData.employeeName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Sede:</span> {ventaData.branchName||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Estado:</span> {ventaData.paymentStatus||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Tipo:</span> {ventaData.saleType||"-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Fecha compra:</span> {ventaData.saleDate ? new Date(ventaData.saleDate).toLocaleDateString("es-CL") : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Fecha visita:</span> {ventaData.dueDate ? new Date(ventaData.dueDate).toLocaleDateString("es-CL") : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Descuento:</span> {ventaData.discount != null ? "$"+Number(ventaData.discount).toLocaleString() : "-"}</div>
-              <div><span style={{ color:"#6b7280" }}>Inscripcion:</span> {ventaData.tax != null ? "$"+Number(ventaData.tax).toLocaleString() : "-"}</div>
+          {ventaLoading ? <p className="info-text">Cargando...</p> : ventaData ? (
+            <div className="ventas-modal-grid">
+              <div><span className="ventas-modal-label">Cliente:</span> {ventaData.memberName||"-"}</div>
+              <div><span className="ventas-modal-label">WhatsApp:</span> {ventaData.cellPhone||"-"}</div>
+              <div><span className="ventas-modal-label">Plan:</span> {ventaData.planName||"-"}</div>
+              <div><span className="ventas-modal-label">Monto:</span> {ventaData.amount != null ? "$"+Number(ventaData.amount).toLocaleString() : "-"}</div>
+              <div><span className="ventas-modal-label">Vendedor:</span> {ventaData.employeeName||"-"}</div>
+              <div><span className="ventas-modal-label">Sede:</span> {ventaData.branchName||"-"}</div>
+              <div><span className="ventas-modal-label">Estado:</span> {ventaData.paymentStatus||"-"}</div>
+              <div><span className="ventas-modal-label">Tipo:</span> {ventaData.saleType||"-"}</div>
+              <div><span className="ventas-modal-label">Fecha compra:</span> {ventaData.saleDate ? new Date(ventaData.saleDate).toLocaleDateString("es-CL") : "-"}</div>
+              <div><span className="ventas-modal-label">Fecha visita:</span> {ventaData.dueDate ? new Date(ventaData.dueDate).toLocaleDateString("es-CL") : "-"}</div>
+              <div><span className="ventas-modal-label">Descuento:</span> {ventaData.discount != null ? "$"+Number(ventaData.discount).toLocaleString() : "-"}</div>
+              <div><span className="ventas-modal-label">Inscripcion:</span> {ventaData.tax != null ? "$"+Number(ventaData.tax).toLocaleString() : "-"}</div>
             </div>
-          ) : <p style={{ color:"#ef4444" }}>Error cargando detalle</p>}
+          ) : <p className="error-text">Error cargando detalle</p>}
         </div>
       </div>
     )}
