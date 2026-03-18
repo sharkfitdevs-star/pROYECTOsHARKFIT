@@ -1,138 +1,54 @@
 const mongoose = require('mongoose');
 
 const ventaSchema = new mongoose.Schema({
-  // Identificación única
-  idSale: { 
-    type: String, 
-    required: true, 
-    unique: true,
-    index: true 
-  },
-  
-  // Cliente relacionado
-  idMember: { 
-    type: String, 
-    required: true,
-    index: true 
-  },
+  idSale: { type: String, required: true, unique: true, index: true },
+  idMember: { type: String, index: true },
   memberName: String,
-  
-  // Sucursal
-  idBranch: { 
-    type: String,
-    index: true 
-  },
+  idBranch: { type: String, index: true },
   branchName: String,
-  
-  // Tipo de venta
-  saleType: { 
-    type: String, 
-    enum: ['plan', 'producto', 'servicio', 'renovacion', 'upgrade'],
-    required: true,
-    index: true 
-  },
-  
-  // Detalles de la venta
+  saleType: { type: String, index: true },
   description: String,
   planName: String,
   productName: String,
   serviceName: String,
-  
-  // Montos
-  amount: { 
-    type: Number, 
-    required: true,
-    index: true 
-  },
-  discount: { 
-    type: Number, 
-    default: 0 
-  },
-  tax: { 
-    type: Number, 
-    default: 0 
-  },
-  totalAmount: { 
-    type: Number, 
-    required: true 
-  },
-  
-  // Fechas
-  saleDate: { 
-    type: Date, 
-    required: true,
-    index: true 
-  },
+  cellPhone: String,
+  whatsapp: String,          // se mantiene por compatibilidad con algunos imports
+  amount: { type: Number, default: 0, index: true },
+  discount: { type: Number, default: 0 },
+  tax: { type: Number, default: 0 },
+  totalAmount: { type: Number, default: 0 },
+  saleDate: { type: Date, default: Date.now, index: true },
+  fechaCompra: Date,         // campo adicional para reportes de Excel
   dueDate: Date,
   paidDate: Date,
-  
-  // Estado de pago
-  paymentStatus: { 
-    type: String, 
-    enum: ['pendiente', 'pagado', 'parcial', 'cancelado', 'reembolsado'],
-    default: 'pendiente',
-    index: true 
-  },
-  
-  // Método de pago
-  paymentMethod: { 
-    type: String, 
-    enum: ['efectivo', 'tarjeta', 'transferencia', 'pix', 'boleto', 'otro'],
-    index: true 
-  },
-  
-  // Información del empleado
+  paymentStatus: { type: String, default: 'Pendiente', index: true },
+  paymentMethod: String,
   idEmployee: String,
   employeeName: String,
-  
-  // Detalles adicionales
-  installments: { 
-    type: Number, 
-    default: 1 
-  },
-  currentInstallment: { 
-    type: Number, 
-    default: 1 
-  },
-  
+  installments: { type: Number, default: 1 },
+  currentInstallment: { type: Number, default: 1 },
   notes: String,
   invoiceNumber: String,
-  
-  // Items de la venta (para ventas con múltiples productos)
-  items: [{
-    itemType: String,
-    itemName: String,
-    quantity: Number,
-    unitPrice: Number,
-    subtotal: Number
-  }],
-  
-  // Metadata
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  items: [{ itemType: String, itemName: String, quantity: Number, unitPrice: Number, subtotal: Number }],
+  lastSyncAt: { type: Date, default: Date.now },
+  source: {
+    type:    String,
+    enum:    ['excel', 'api', 'manual', 'merged', 'import'],
+    default: 'import',
+    index:   true,
   },
-  updatedAt: { 
-    type: Date, 
-    default: Date.now 
-  },
-  lastSyncAt: { 
-    type: Date, 
-    default: Date.now 
-  },
-  
-  // Origen de datos
-  source: { 
-    type: String, 
-    default: 'evo',
-    index: true 
+  dataSource: {
+    type: {
+      type:    String,
+      enum:    ['excel', 'api', 'manual', 'merged'],
+    },
+    connectionName: String,   // Ej: "EVO producción"
+    sourceId:       String,   // ID externo en EVO/W12
+    importJobId:    String,   // referencia al SyncLog._id
+    importedAt:     Date,
   },
   externalId: String
-}, {
-  timestamps: true,
-  collection: 'ventas'
-});
-
+}, { timestamps: true, collection: 'ventas' });
 // Índices compuestos
 ventaSchema.index({ idBranch: 1, saleDate: -1 });
 ventaSchema.index({ idMember: 1, saleDate: -1 });
@@ -144,7 +60,12 @@ ventaSchema.pre('save', function(next) {
   if (!this.totalAmount) {
     this.totalAmount = this.amount - this.discount + this.tax;
   }
-  this.updatedAt = new Date();
+  // sincronizar whatsapp/cellPhone para evitar datos duplicados
+  if (this.whatsapp && !this.cellPhone) {
+    this.cellPhone = this.whatsapp;
+  } else if (this.cellPhone && !this.whatsapp) {
+    this.whatsapp = this.cellPhone;
+  }
   next();
 });
 

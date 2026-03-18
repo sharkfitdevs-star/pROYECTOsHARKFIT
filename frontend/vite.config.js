@@ -14,13 +14,21 @@ export default defineConfig({
     strictPort: false,
     host: true,
     cors: true,
+    force: true,
+    hmr: true,
     proxy: {
+      // authentication requests should hit the users microservice (default port 4000)
+      '/api/auth': {
+        target: 'http://localhost:4001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/auth/, '/api/auth')
+      },
+      // everything else continues to point at backend-data-intake on 3005
       '/api': {
-        // proxy now points to backend-data-intake running on port 3005
         target: 'http://localhost:3005',
         changeOrigin: true,
         secure: false,
-        // keep the /api prefix when forwarding to the backend
         rewrite: (path) => path.replace(/^\/api/, '/api')
       }
     }
@@ -28,6 +36,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+  },
+  optimizeDeps: {
+    force: true
   },
   define: {
     'process.env': {}

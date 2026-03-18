@@ -1,7 +1,3 @@
-export const Onboarding_Clientes = {
-  list: async (sort) => [],
-  get: async (id) => null,
-  create: async (data) => data,
-  update: async (id, data) => data,
-  delete: async (id) => true
-};
+import { BaseEntity } from './_base';
+class OnboardingClientesEntity extends BaseEntity { constructor() { super(null); } }
+export const Onboarding_Clientes = new OnboardingClientesEntity();

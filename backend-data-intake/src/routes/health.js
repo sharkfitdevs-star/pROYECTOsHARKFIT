@@ -18,17 +18,19 @@ const healthService = getHealthCheckService();
 router.get('/', async (req, res) => {
   try {
     const workerStats = await getWorkerStats().catch(() => ({}));
+    const { readyState, ok } = require('../db/db').getDbStatus();
 
     res.status(200).json({
+      status: 'ok',
+      mongo: { readyState, ok },
       servicio: 'DATA-INTAKE',
       estado: 'healthy',
-      message: '✅ Todos los servicios operativos (modo desarrollo - fallback)',
       workers: workerStats,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     logger.error('Error en health root:', error);
-    res.status(503).json({ servicio: 'DATA-INTAKE', estado: 'unhealthy', error: error.message });
+    res.status(503).json({ status:'ok', mongo:{readyState:-1,ok:false}, servicio: 'DATA-INTAKE', estado: 'unhealthy', error: error.message });
   }
 });
 

@@ -12,6 +12,7 @@
 const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { RateLimiter } = require('../services/RateLimiter');
+const { v4: uuidv4 } = require('uuid');
 
 // ============================================================================
 // CONFIGURACIÓN DE COLAS
@@ -257,24 +258,35 @@ async function processSyncTask(job) {
  * job.data expected: { type: 'excel'|'csv', file: { path, originalname }, mapeo, entidad, delimitador }
  */
 async function processImport(job) {
-  const { type, file, mapeo, entidad = 'clientes', delimitador } = job.data;
-  logger.info(`📥 [IMPORT-WORKER] Procesando import (${type}) - ${file?.originalname || file?.path}`, { jobId: job.id });
+  const { type, file, mapeo, entidad = 'clientes', delimitador, syncId } = job.data;
+  logger.info(`📥 [IMPORT-WORKER] Procesando import (${type}) - ${file?.originalname || file?.path}`, { jobId: job.id, entidad, syncId });
 
   try {
-    const { ImportService } = require('../services/ImportService');
+    // `ImportService` is exported as an instance, not as a named export
+    const ImportService = require('../services/ImportService');
 
+    let result;
     if (String(type).toLowerCase() === 'csv') {
-      const result = await ImportService.processCSVFile(file, mapeo, entidad, delimitador || ',');
-      logger.info(`✅ [IMPORT-WORKER] CSV import completado`, { jobId: job.id });
-      return result;
+      result = await ImportService.processCSVFile(file, mapeo, entidad, delimitador || ',', syncId);
+      logger.info(`✅ [IMPORT-WORKER] CSV import completado`, { jobId: job.id, resultado: result });
+    } else {
+      // Default to Excel
+      result = await ImportService.processExcelFile(file, mapeo, entidad, syncId);
+      logger.info(`✅ [IMPORT-WORKER] Excel import completado`, { jobId: job.id, resultado: result });
     }
 
-    // Default to Excel
-    const result = await ImportService.processExcelFile(file, mapeo, entidad);
-    logger.info(`✅ [IMPORT-WORKER] Excel import completado`, { jobId: job.id });
     return result;
   } catch (error) {
     logger.error(`❌ [IMPORT-WORKER] Error en import:`, { jobId: job.id, error: error.message });
+    // intentar actualizar sync log en caso de tener syncId
+    if (syncId) {
+      try {
+        const { updateSyncLog } = require('../db/repositories');
+        await updateSyncLog(syncId, { estatus: 'Fallido', errorMessage: error.message, errorStack: error.stack, finalizado: new Date() });
+      } catch (e) {
+        logger.warn('[IMPORT-WORKER] No se pudo actualizar SyncLog tras error', { error: e.message });
+      }
+    }
     throw error;
   }
 }
@@ -544,13 +556,16 @@ async function queueSyncTask(sourceApi, endpoint, options = {}) {
  * job.data: { type, file, mapeo, entidad, delimitador }
  */
 async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opts = {}) {
+  // allow caller to provide syncId (for tracing) or generate one
+  const syncId = opts.syncId || uuidv4();
   const job = await importQueue.add(
     {
       type,
       file,
       mapeo,
       entidad,
-      delimitador: opts.delimitador
+      delimitador: opts.delimitador,
+      syncId
     },
     {
       attempts: opts.attempts || 2,
@@ -559,7 +574,7 @@ async function queueImportTask(type, file, mapeo = {}, entidad = 'clientes', opt
     }
   );
 
-  logger.info(`📋 [QUEUE] Import task en cola: ${job.id}`, { type, file: file?.path || file?.originalname });
+  logger.info(`📋 [QUEUE] Import task en cola: ${job.id}`, { type, entidad, file: file?.path || file?.originalname, syncId });
   return job;
 }
 
@@ -663,3 +678,32 @@ module.exports = {
   // Clase Circuit Breaker
   CircuitBreaker
 };
+
+// Si el archivo se ejecuta directamente (`node src/workers/api-worker.js`),
+// inicializa la conexión a Mongo y mantiene el proceso vivo para atender jobs.
+if (require.main === module) {
+  (async () => {
+    const { connectDB } = require('../db/mongodb');
+    try {
+      await connectDB();
+      logger.info('[WORKER] Conectado a MongoDB - worker listo');
+    } catch (err) {
+      logger.error('[WORKER] No se pudo conectar a MongoDB:', err.message || err);
+      process.exit(1);
+    }
+
+    // Mantener el proceso abierto
+    process.stdin.resume();
+
+    // Capturar señales para un cierre ordenado
+    process.on('SIGTERM', () => {
+      logger.info('[WORKER] SIGTERM recibido, cerrando...');
+      process.exit(0);
+    });
+    process.on('SIGINT', () => {
+      logger.info('[WORKER] SIGINT recibido, cerrando...');
+      process.exit(0);
+    });
+  })();
+}
+

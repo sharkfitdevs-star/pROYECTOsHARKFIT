@@ -1,20 +1,68 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { Cliente } = require('../models');
+const Setting = require('../models/Setting');
+const { requireAuth } = require('../middleware/auth');
+const { logger } = require('../utils/logger');
 
 /**
  * GET /api/clientes
  * Listar clientes
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
+  // ensure DB connection available before proceeding
+  if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ ok: false, error: 'DB_UNAVAILABLE' });
+  }
+  const { page = 1, limit = 10, status, active, search, idBranch, estado, branchName, planName } = req.query;
+  let importsConnected = true;
   try {
-    const { page = 1, limit = 10, status, active, search, idBranch } = req.query;
-    
+    const sett = await Setting.findOne({ key: 'imports_connected' }).lean();
+    if (sett) {
+      if (typeof sett.value === 'boolean') {
+        importsConnected = sett.value;
+      } else if (typeof sett.value === 'object' && sett.value !== null) {
+        if (typeof sett.value.importsConnected === 'boolean') {
+          importsConnected = sett.value.importsConnected;
+        }
+      }
+    }
+  } catch (e) {
+    // ignore failure reading setting, assume connected
+    logger.warn('failed to read imports_connected setting', { error: e.message });
+  }
+
+  // when disconnected we don't want to disclose any client records at all;
+  // this keeps behavior consistent with the UI (which hides the table) and
+  // simplifies downstream callers. short‑circuit before building the query.
+  if (!importsConnected) {
+    logger.info('listar_clientes', { importsConnected, clientes_count: 0 });
+    return res.json({
+      ok: true,
+      importsConnected,
+      data: [],
+      clientes: [],
+      total: 0,
+      page: parseInt(page),
+      pages: 0,
+      meta: {
+        limit: Number(limit),
+        skip: 0,
+        count: 0
+      }
+    });
+  }
+
+  try {
+    // build base query
     const query = {};
-    
     if (status) query.status = status;
+    if (estado) query.status = estado;
     if (active !== undefined) query.active = active === 'true';
     if (idBranch) query.idBranch = idBranch;
+    if (branchName) query.branchName = branchName;
+    if (planName) query.planName = planName;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -23,27 +71,61 @@ router.get('/', async (req, res) => {
         { cellPhone: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
+    // if disconnected, only return legacy records (no importId)
+    if (!importsConnected) {
+      const hideClause = {
+        $or: [
+          { importId: { $exists: false } },
+          { importId: null },
+          { importId: "" }
+        ]
+      };
+      // merge with existing query
+      if (query.$or) {
+        const or = query.$or;
+        delete query.$or;
+        query.$and = [{ $or: or }, hideClause];
+      } else {
+        Object.assign(query, hideClause);
+      }
+    }
+
     const clientes = await Cliente.find(query)
       .sort({ registrationDate: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-    
     const count = await Cliente.countDocuments(query);
-    
+
+    logger.info('listar_clientes', {
+      importsConnected,
+      clientes_count: clientes.length,
+      legacy_count: !importsConnected ? count : undefined
+    });
+
     res.json({
-      success: true,
+      ok: true,
+      importsConnected,
       data: clientes,
+      clientes,              // alias for compatibility with older clients
       total: count,
       page: parseInt(page),
-      pages: Math.ceil(count / limit)
+      pages: Math.ceil(count / limit),
+      meta: {
+        limit: Number(limit),
+        skip: Number(page > 0 ? (page - 1) * limit : 0),
+        count
+      }
     });
   } catch (error) {
-    const { logger } = require('../utils/logger');
-    logger.error('Error listing clientes:', { error });
+    logger.error('Error listing clientes:', {
+      error: error.message,
+      importsConnected
+    });
     res.status(500).json({
-      error: true,
-      message: 'Error al listar clientes'
+      ok: false,
+      error: 'Error al obtener clientes',
+      details: { errorMessage: error.message }
     });
   }
 });
@@ -147,6 +229,18 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/clientes/importados — debe ir ANTES de /:id para no ser capturado como ID
+router.delete('/importados', requireAuth, async (req, res) => {
+  try {
+    const result = await Cliente.deleteMany({ source: 'import_excel' });
+    logger.info(`[clientes] eliminados ${result.deletedCount} clientes importados`);
+    res.json({ ok: true, deleted: result.deletedCount });
+  } catch (error) {
+    logger.error('[clientes] error eliminando importados:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 /**
  * DELETE /api/clientes/:id
  * Eliminar cliente
@@ -203,5 +297,30 @@ router.get('/stats/resumen', async (req, res) => {
   }
 });
 
+
+// simple helper for frontend debugging/proxy verification
+router.get('/whoami', requireAuth, (req, res) => {
+  const { id, role } = req.user || {};
+  res.json({ ok: true, sub: id, role });
+});
+
+router.patch('/:id/estado', requireAuth, async (req, res) => {
+  try {
+    const { estado } = req.body;
+    if (!['activo', 'inactivo', 'por_vencer'].includes(estado)) {
+      return res.status(400).json({ ok: false, error: 'Estado inválido' });
+    }
+    const Cliente = require('../models/Cliente');
+    const cliente = await Cliente.findByIdAndUpdate(
+      req.params.id,
+      { estado },
+      { new: true }
+    );
+    if (!cliente) return res.status(404).json({ ok: false, error: 'Cliente no encontrado' });
+    return res.json({ ok: true, cliente });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 module.exports = router;

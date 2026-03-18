@@ -1,7 +1,3 @@
-export const Alertas_Checklist = {
-  list: async (sort) => [],
-  get: async (id) => null,
-  create: async (data) => data,
-  update: async (id, data) => data,
-  delete: async (id) => true
-};
+import { BaseEntity } from './_base';
+class AlertasChecklistEntity extends BaseEntity { constructor() { super(null); } }
+export const Alertas_Checklist = new AlertasChecklistEntity();

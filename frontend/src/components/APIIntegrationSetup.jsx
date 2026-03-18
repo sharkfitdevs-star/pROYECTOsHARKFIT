@@ -9,11 +9,9 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import client from '@/api/client';
 import './APIIntegrationSetup.css';
 import { useToast } from './ui/use-toast';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const APIIntegrationSetup = () => {
   const [step, setStep] = useState(1); // 1: Datos, 2: Auth, 3: Endpoints, 4: Resumen
@@ -68,16 +66,7 @@ const APIIntegrationSetup = () => {
 
   // Usar axios o fetch
   const api = async (method, url, data) => {
-    const token = localStorage.getItem('token');
-    const response = await axios({
-      method,
-      url: `${API_BASE_URL}${url}`,
-      data,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await client({ method, url, data });
     return response.data;
   };
 
@@ -400,6 +389,25 @@ const APIIntegrationSetup = () => {
           description: result.message,
           variant: 'success'
         });
+
+        const apiNameEnv = apiName.toUpperCase().replace(/\s+/g, '_');
+        let envVariables = [];
+        if (authType === 'bearer') {
+          envVariables = [`API_TOKEN_${apiNameEnv}`];
+        } else if (authType === 'apikey') {
+          envVariables = [`API_KEY_${apiNameEnv}`];
+        } else if (authType === 'basic') {
+          envVariables = [`API_USER_${apiNameEnv}`, `API_PASS_${apiNameEnv}`];
+        }
+
+        if (envVariables.length > 0) {
+          toast({
+            title: 'Configura tu .env',
+            description: `Agrega estas variables a tu archivo .env:\n${envVariables.map(v => `${v}=tu_valor_real`).join('\n')}`,
+            variant: 'warning'
+          });
+        }
+
         await loadConfigs();
         // Reset form
         setTimeout(() => {
@@ -476,11 +484,23 @@ const APIIntegrationSetup = () => {
       const result = await api('POST', '/setup/extract-selective', payload);
 
       if (result.success) {
-        setSuccess(`✅ Sincronización iniciada: ${selectedDataTypesForExtraction.join(', ')}`);
+        const insertedTotal = Object.values(result.inserted || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
+        const updatedTotal = Object.values(result.updated || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
+        const errorTotal = Array.isArray(result.errors)
+          ? result.errors.length
+          : Object.values(result.errors || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
+
+        setSuccess(`✅ Sincronización completada: ${selectedDataTypesForExtraction.join(', ')}`);
         toast({
-          title: 'Sincronizacion iniciada',
-          description: selectedDataTypesForExtraction.join(', '),
-          variant: 'success'
+          title: 'Sincronizacion completada',
+          description: `Insertados: ${insertedTotal} | Actualizados: ${updatedTotal} | Errores: ${errorTotal}`,
+          variant: 'success',
+          duration: 12000,
+          actions: [
+            { label: 'Ver Clientes', onClick: () => { window.location.href = '/clientes'; } },
+            { label: 'Ver Ventas', onClick: () => { window.location.href = '/ventas'; } },
+            { label: 'Ver Dashboard', onClick: () => { window.location.href = '/dashboard'; } }
+          ]
         });
         setShowDataTypeSelector(false);
         // Reload configs

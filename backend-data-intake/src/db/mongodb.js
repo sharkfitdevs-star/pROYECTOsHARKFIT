@@ -38,6 +38,13 @@ const connectDB = async () => {
   const primaryUri = (process.env.MONGODB_URI || 'mongodb://localhost:27017/sharkfit').trim();
   const fallbackUri = (process.env.MONGODB_URI_FALLBACK || process.env.MONGODB_URI_LOCAL || '').trim();
 
+  // log what URI we are trying to use (sanitize passwords)
+  const sanitize = (uri) => uri.replace(/:(?:[^@]+)@/, ':***@');
+  logger.info('🔍 Intentando conectar a MongoDB', {
+    primary: sanitize(primaryUri),
+    fallback: fallbackUri ? sanitize(fallbackUri) : undefined,
+  });
+
   try {
     await mongoose.connect(primaryUri, getMongoOptions());
 

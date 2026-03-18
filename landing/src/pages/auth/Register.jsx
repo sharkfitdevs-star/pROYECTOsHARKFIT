@@ -19,6 +19,13 @@ function Register() {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  // estado para reglas de contraseña
+  const [passwordRules, setPasswordRules] = useState({
+    hasMinLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false
+  });
 
   const validate = () => {
     const errs = {};
@@ -27,8 +34,17 @@ function Register() {
     if (!form.username) errs.username = 'Nombre de usuario es obligatorio';
     if (!form.email) errs.email = 'Correo es obligatorio';
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.email = 'Correo inválido';
+
+    // contraseña: mínimo 6, al menos una mayúscula, una minúscula y un número
     if (!form.password) errs.password = 'Contraseña es obligatoria';
-    else if (form.password.length < 6) errs.password = 'Debe tener al menos 6 caracteres';
+    else {
+      if (form.password.length < 6) {
+        errs.password = 'Debe tener al menos 6 caracteres';
+      } else if (!/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+        errs.password = 'La contraseña debe incluir mayúsculas, minúsculas y números';
+      }
+    }
+
     if (form.password !== form.confirm) errs.confirm = 'Las contraseñas no coinciden';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -37,6 +53,15 @@ function Register() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+
+    if (name === 'password') {
+      setPasswordRules({
+        hasMinLength: value.length >= 6,
+        hasUppercase: /[A-Z]/.test(value),
+        hasLowercase: /[a-z]/.test(value),
+        hasNumber: /[0-9]/.test(value)
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -58,18 +83,23 @@ function Register() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data.error || data.message || 'Error en registro';
-        // manejar conflicto de usuario/email
-        if (res.status === 409) {
-          if (msg.toLowerCase().includes('username')) {
-            setErrors({ username: msg });
-          } else if (msg.toLowerCase().includes('email')) {
-            setErrors({ email: msg });
+        // campo específico devuelto por backend (ej. validación de password)
+        if (data.fields && data.fields.password) {
+          setErrors({ password: data.fields.password });
+        } else {
+          const msg = data.error || data.message || 'Error en registro';
+          // manejar conflicto de usuario/email
+          if (res.status === 409) {
+            if (msg.toLowerCase().includes('username')) {
+              setErrors({ username: msg });
+            } else if (msg.toLowerCase().includes('email')) {
+              setErrors({ email: msg });
+            } else {
+              setErrors({ server: msg });
+            }
           } else {
             setErrors({ server: msg });
           }
-        } else {
-          setErrors({ server: msg });
         }
       } else {
         setMessage(data.message || 'Usuario registrado');
@@ -131,7 +161,20 @@ function Register() {
             <div>
               <label>Contraseña</label>
               <input name="password" type="password" value={form.password} onChange={handleChange} />
-              {errors.password && <span style={{ color: 'red' }}>{errors.password}</span>}
+
+              {/* mensaje de error proveniente del backend, si existe */}
+              {errors.password && <span style={{ color: 'red', display: 'block' }}>{errors.password}</span>}
+
+              {/* checklist dinámico de reglas */}
+              <div className="password-rules">
+                <p>Requisitos de contraseña:</p>
+                <ul>
+                  <li className={passwordRules.hasMinLength ? 'ok' : 'bad'}>Mínimo 6 caracteres</li>
+                  <li className={passwordRules.hasUppercase ? 'ok' : 'bad'}>Incluye una letra mayúscula</li>
+                  <li className={passwordRules.hasLowercase ? 'ok' : 'bad'}>Incluye una letra minúscula</li>
+                  <li className={passwordRules.hasNumber ? 'ok' : 'bad'}>Incluye al menos un número</li>
+                </ul>
+              </div>
             </div>
             <div>
               <label>Confirmar contraseña</label>

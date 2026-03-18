@@ -488,20 +488,20 @@ export default function GastosAds() {
             <div className="text-center py-8 text-gray-500">No hay registros en el periodo seleccionado</div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Fecha(s)</TableHead>
-                    <TableHead>Sede</TableHead>
-                    <TableHead className="text-right">Monto (periodo filtrado)</TableHead>
-                    <TableHead className="text-right">Monto Total</TableHead>
-                    <TableHead>Plataforma</TableHead>
-                    <TableHead>Campaña</TableHead>
-                    <TableHead className="text-center">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Tipo</th>
+                    <th className="text-left p-2 font-medium">Fecha(s)</th>
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <TableHead className="text-right">Monto (periodo filtrado)</th>
+                    <TableHead className="text-right">Monto Total</th>
+                    <th className="text-left p-2 font-medium">Plataforma</th>
+                    <th className="text-left p-2 font-medium">Campaña</th>
+                    <TableHead className="text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {gastosFiltrados.map((gasto) => {
                     const sede = sucursales.find(s => s.id === gasto.sede);
                     const montoMostrado = calcularMontoMostrado(gasto);
@@ -509,7 +509,7 @@ export default function GastosAds() {
                     
                     return (
                       <TableRow key={gasto.id}>
-                        <TableCell>
+                        <td className="p-2">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                             gasto.tipo_gasto === 'periodo' 
                               ? 'bg-blue-100 text-blue-800' 
@@ -522,8 +522,8 @@ export default function GastosAds() {
                               </>
                             ) : 'Único'}
                           </span>
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="p-2">
                           {gasto.tipo_gasto === 'periodo' ? (
                             <div className="text-sm">
                               <div>{format(parseISO(gasto.fecha), 'dd/MM/yyyy')}</div>
@@ -533,8 +533,8 @@ export default function GastosAds() {
                           ) : (
                             format(parseISO(gasto.fecha), 'dd/MM/yyyy')
                           )}
-                        </TableCell>
-                        <TableCell>{sede?.nombre_sede || gasto.sede}</TableCell>
+                        </td>
+                        <td className="p-2">{sede?.nombre_sede || gasto.sede}</td>
                         <TableCell className="text-right font-medium">
                           ${montoMostrado.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           {gasto.tipo_gasto === 'periodo' && (
@@ -542,12 +542,12 @@ export default function GastosAds() {
                               ${(gasto.gasto_diario || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/día
                             </div>
                           )}
-                        </TableCell>
+                        </td>
                         <TableCell className="text-right text-gray-600">
                           ${montoTotal.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </TableCell>
-                        <TableCell>{gasto.plataforma || '-'}</TableCell>
-                        <TableCell>{gasto.campana || '-'}</TableCell>
+                        </td>
+                        <td className="p-2">{gasto.plataforma || '-'}</td>
+                        <td className="p-2">{gasto.campana || '-'}</td>
                         <TableCell className="text-center">
                           <Button
                             variant="ghost"
@@ -556,12 +556,12 @@ export default function GastosAds() {
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

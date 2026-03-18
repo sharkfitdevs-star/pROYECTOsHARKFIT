@@ -1,7 +1,3 @@
-export const Seguimiento_Online = {
-  list: async (sort) => [],
-  get: async (id) => null,
-  create: async (data) => data,
-  update: async (id, data) => data,
-  delete: async (id) => true
-};
+import { BaseEntity } from './_base';
+class SeguimientoOnlineEntity extends BaseEntity { constructor() { super(null); } }
+export const Seguimiento_Online = new SeguimientoOnlineEntity();

@@ -1,7 +1,5 @@
-export const Clientes = {
-  list: async (sort) => [],
-  get: async (id) => null,
-  create: async (data) => data,
-  update: async (id, data) => data,
-  delete: async (id) => true
-};
+import { BaseEntity } from './_base';
+class ClientesEntity extends BaseEntity {
+  constructor() { super('/clientes'); }
+}
+export const Clientes = new ClientesEntity();

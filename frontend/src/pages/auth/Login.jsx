@@ -44,7 +44,12 @@ export default function Login() {
     }
   };
 
-  // (Eliminada duplicidad y cierre inválido)
+  // validate form fields for login/register
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!isLogin) {
+      // registration-specific checks
       if (!formData.email) {
         newErrors.email = 'El email es requerido';
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -107,6 +112,14 @@ export default function Login() {
     }
   };
 
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
   const toggleMode = () => {
     const nextIsLogin = !isLogin;
     setIsLogin(nextIsLogin);
@@ -362,3 +375,4 @@ export default function Login() {
     </div>
   );
 }
+

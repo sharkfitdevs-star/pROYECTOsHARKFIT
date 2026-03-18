@@ -91,10 +91,26 @@ const clienteSchema = new mongoose.Schema({
   customFields: mongoose.Schema.Types.Mixed,
   
   // Origen de datos
-  source: { 
-    type: String, 
+  source: {
+    type:    String,
+    enum:    ['excel', 'api', 'manual', 'merged', 'evo', 'import'],
     default: 'evo',
-    index: true 
+    index:   true,
+  },
+  dataSource: {
+    type: {
+      type:    String,
+      enum:    ['excel', 'api', 'manual', 'merged'],
+    },
+    connectionName: String,
+    sourceId:       String,
+    importJobId:    String,
+    importedAt:     Date,
+  },
+  importId: {
+    type: String,
+    index: true,
+    default: null
   },
   externalId: String
 }, {
@@ -109,7 +125,6 @@ clienteSchema.index({ name: 'text', email: 'text' });
 
 // Middleware pre-save
 clienteSchema.pre('save', function(next) {
-  this.lastUpdate = new Date();
   next();
 });
 

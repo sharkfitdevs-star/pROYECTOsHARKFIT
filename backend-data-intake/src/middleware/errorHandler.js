@@ -9,27 +9,22 @@ const { logger } = require('../utils/logger');
  * Error handler global
  */
 function errorHandler(err, req, res, next) {
-  logger.error('Error no manejado:', {
-    error: err.message,
-    stack: err.stack,
+  // always log full error info on server
+  logger.error('Unhandled error', {
+    message: err?.message,
+    stack: err?.stack,
     path: req.path,
-    method: req.method,
-    body: req.body
+    method: req.method
   });
 
-  if (err.code === 'SQLITE_CONSTRAINT') {
-    return res.status(409).json({
-      exito: false,
-      error: 'Duplicado detectado'
-    });
+
+  // generic response
+  const payload = { ok: false, error: 'INTERNAL_SERVER_ERROR' };
+  if (process.env.NODE_ENV !== 'production' && err && err.stack) {
+    const lines = err.stack.split('\n').slice(0, 5);
+    payload.stack = lines.join('\n');
   }
-
-  // Error genérico
-  res.status(err.status || 500).json({
-    exito: false,
-    error: err.message || 'Error interno del servidor',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  res.status(500).json(payload);
 }
 
 module.exports = { errorHandler };

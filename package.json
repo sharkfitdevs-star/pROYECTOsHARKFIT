@@ -2,9 +2,12 @@
   "name": "sharkfit-monorepo",
   "private": true,
   "scripts": {
-    "dev:all": "concurrently -n FRONT,INTAKE \"npm --prefix landing run dev\" \"npm --prefix backend-data-intake run dev\""
+    "dev:all": "concurrently -n USERS,INTAKE,FRONT \"npm --prefix users-microservice run dev\" \"npm --prefix backend-data-intake run dev\" \"npm --prefix landing run dev\"",
+    "dev:stable": "powershell -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1"
   },
   "dependencies": {
-    "concurrently": "^8.0.1"
+    "concurrently": "^8.0.1",
+    "node-cron": "^4.2.1",
+    "prop-types": "^15.8.1"
   }
 }

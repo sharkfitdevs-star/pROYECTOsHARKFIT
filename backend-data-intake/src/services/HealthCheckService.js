@@ -36,13 +36,7 @@ if (!HealthCheck) {
 
 const HEALTH_CHECKS = {
   EVO: {
-    url: `${process.env.EVO_BASE_URL || 'https://evo-integracao.w12app.com.br'}/api/health`,
-    auth: {
-      username: process.env.EVO_DNS,
-      password: process.env.EVO_TOKEN
-    },
-    timeout: 5000,
-    interval: 60000 // Cada 1 minuto
+    enabled: false, // EVO no tiene endpoint /api/health — deshabilitar para no consumir requests ni llenar logs
   },
   W12: {
     url: `${process.env.W12_BASE_URL || 'https://sharkfitchile.w12app.com.br'}/api/health`,
@@ -54,7 +48,9 @@ const HEALTH_CHECKS = {
     interval: 60000
   },
   DJANGO: {
-    url: `${process.env.DJANGO_BASE_URL || 'http://localhost:8000'}/health/`,
+    url: process.env.DJANGO_BASE_URL
+      ? `${process.env.DJANGO_BASE_URL}/health/`
+      : null,
     timeout: 5000,
     interval: 30000 // Cada 30 segundos
   },
@@ -73,6 +69,20 @@ class HealthCheckService {
     this.lastStatus = new Map();
     this.checks = new Map();
     this._timers = []; // almacenar referencias a timers para permitir limpieza
+
+    // track if we've already warned about missing config for a service
+    this._skippedReported = new Set();
+    // track last time an error was logged per service (for backoff)
+    this._lastErrorLog = new Map();
+  }
+
+  async executeCheck(name, check, fn) {
+    if (!check.enabled) {
+      logger.info(`⏭️ [HEALTH] ${name} deshabilitado, se omite health check`);
+      return;
+    }
+
+    return fn();
   }
 
   /**
@@ -81,6 +91,16 @@ class HealthCheckService {
   async checkEVO() {
     const start = Date.now();
     const config = HEALTH_CHECKS.EVO;
+
+    // skip if configuration incomplete
+    if (!config.url || !config.auth?.username || !config.auth?.password) {
+      if (!this._skippedReported.has('EVO')) {
+        logger.info('⏭️ [HEALTH] EVO no configurado, se omite health check');
+        this._skippedReported.add('EVO');
+      }
+      await this.recordHealth('EVO', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -95,7 +115,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] EVO fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('EVO') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] EVO fallo:', error.message);
+        this._lastErrorLog.set('EVO', now);
+      }
       await this.recordHealth('EVO', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }
@@ -107,6 +132,15 @@ class HealthCheckService {
   async checkW12() {
     const start = Date.now();
     const config = HEALTH_CHECKS.W12;
+
+    if (!config.url || !config.auth?.username || !config.auth?.password) {
+      if (!this._skippedReported.has('W12')) {
+        logger.info('⏭️ [HEALTH] W12 no configurado, se omite health check');
+        this._skippedReported.add('W12');
+      }
+      await this.recordHealth('W12', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -121,7 +155,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] W12 fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('W12') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] W12 fallo:', error.message);
+        this._lastErrorLog.set('W12', now);
+      }
       await this.recordHealth('W12', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }
@@ -133,6 +172,15 @@ class HealthCheckService {
   async checkDjango() {
     const start = Date.now();
     const config = HEALTH_CHECKS.DJANGO;
+
+    if (!config.url) {
+      if (!this._skippedReported.has('DJANGO')) {
+        logger.info('⏭️ [HEALTH] Django no configurado, se omite health check');
+        this._skippedReported.add('DJANGO');
+      }
+      await this.recordHealth('DJANGO', 'not_configured', 0, 'Falta configuración');
+      return { estado: 'not_configured' };
+    }
 
     try {
       const response = await axios.get(config.url, {
@@ -146,7 +194,12 @@ class HealthCheckService {
       return { estado, latency, statusCode: response.status };
 
     } catch (error) {
-      logger.error('❌ [HEALTH] Django fallo:', error.message);
+      const now = Date.now();
+      const lastLog = this._lastErrorLog.get('DJANGO') || 0;
+      if (now - lastLog > 5 * 60 * 1000) {
+        logger.error('❌ [HEALTH] Django fallo:', error.message);
+        this._lastErrorLog.set('DJANGO', now);
+      }
       await this.recordHealth('DJANGO', 'unhealthy', Date.now() - start, `Error: ${error.message}`);
       return { estado: 'unhealthy', latency: Date.now() - start, error: error.message };
     }
@@ -260,19 +313,19 @@ class HealthCheckService {
     logger.info('🏥 Iniciando health checks periódicos...');
 
     // EVO
-    this._timers.push(setInterval(() => this.checkEVO(), HEALTH_CHECKS.EVO.interval));
-    this.checkEVO();
+    this._timers.push(setInterval(() => this.executeCheck('EVO', HEALTH_CHECKS.EVO, () => this.checkEVO()), HEALTH_CHECKS.EVO.interval || 60000));
+    this.executeCheck('EVO', HEALTH_CHECKS.EVO, () => this.checkEVO());
 
     // W12
-    this._timers.push(setInterval(() => this.checkW12(), HEALTH_CHECKS.W12.interval));
-    this.checkW12();
+    this._timers.push(setInterval(() => this.executeCheck('W12', HEALTH_CHECKS.W12, () => this.checkW12()), HEALTH_CHECKS.W12.interval));
+    this.executeCheck('W12', HEALTH_CHECKS.W12, () => this.checkW12());
 
     // Django
-    this._timers.push(setInterval(() => this.checkDjango(), HEALTH_CHECKS.DJANGO.interval));
-    this.checkDjango();
+    this._timers.push(setInterval(() => this.executeCheck('DJANGO', HEALTH_CHECKS.DJANGO, () => this.checkDjango()), HEALTH_CHECKS.DJANGO.interval));
+    this.executeCheck('DJANGO', HEALTH_CHECKS.DJANGO, () => this.checkDjango());
 
     // MongoDB
-    this._timers.push(setInterval(() => this.checkMongoDB(), HEALTH_CHECKS.MONGODB.interval));
+    this._timers.push(setInterval(() => this.executeCheck('MONGODB', HEALTH_CHECKS.MONGODB, () => this.checkMongoDB()), HEALTH_CHECKS.MONGODB.interval));
   }
 
   /**

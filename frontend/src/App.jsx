@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/shared/ProtectedRoute'
 
 // Páginas
-// import Home from './pages/Home'
+import Home from './pages/Home'
 import Login from './pages/auth/Login'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
@@ -35,7 +35,7 @@ function App() {
               - Se elimina cualquier redirect automático desde Login.
               - UX: El usuario debe autenticarse explícitamente cada vez que entra por '/'.
             */}
-            <Route path="/" element={<Login />} />
+            <Route path="/" element={<Home />} />
             {/*
               La ruta '/login' sigue disponible y funcional.
               Si se accede manualmente, se muestra la pantalla de login.
@@ -90,3 +90,4 @@ function App() {
 }
 
 export default App
+

@@ -49,6 +49,21 @@ router.post('/evo', async (req, res) => {
       });
     }
 
+    // Verificación de firma HMAC (si WEBHOOK_SECRET está configurado)
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const provided = req.headers['x-webhook-signature'] || '';
+      const expected = crypto.createHmac('sha256', webhookSecret)
+        .update(JSON.stringify(req.body)).digest('hex');
+      const providedBuf  = Buffer.from(provided.padEnd(64, '\0'));
+      const expectedBuf  = Buffer.from(expected.padEnd(64, '\0'));
+      const lengthMatch  = provided.length === expected.length;
+      if (!lengthMatch || !crypto.timingSafeEqual(providedBuf, expectedBuf)) {
+        logger.warn('🚫 Webhook EVO rechazado — firma inválida', { evento });
+        return res.status(403).json({ exito: false, error: 'Firma inválida' });
+      }
+    }
+
     // Generar ID único del webhook
     const contentHash = crypto
       .createHash('sha256')
@@ -57,17 +72,18 @@ router.post('/evo', async (req, res) => {
 
     const webhookId = `evo-${contentHash}-${Date.now()}`;
 
-    // Verificar si ya fue procesado (idempotencia)
+    // Verificar si ya fue procesado (idempotencia) — usar hash del contenido,
+    // nunca el webhookId que incluye Date.now() y siempre sería único.
     const existing = await Webhook.findOne({
-      webhook_id: webhookId,
+      hash_contenido: contentHash,
       estado: 'completado'
     });
 
     if (existing) {
-      logger.warn(`⏭️  Webhook EVO duplicado ignorado: ${webhookId}`);
+      logger.warn(`⏭️  Webhook EVO duplicado ignorado: ${existing.webhook_id}`);
       return res.json({
         exito: true,
-        webhookId,
+        webhookId: existing.webhook_id,
         procesado: false,
         razon: 'Ya fue procesado'
       });
@@ -137,17 +153,17 @@ router.post('/w12', async (req, res) => {
 
     const webhookId = `w12-${contentHash}-${Date.now()}`;
 
-    // Verificar idempotencia
+    // Verificar idempotencia — usar hash del contenido, no webhookId con timestamp
     const existing = await Webhook.findOne({
-      webhook_id: webhookId,
+      hash_contenido: contentHash,
       estado: 'completado'
     });
 
     if (existing) {
-      logger.warn(`⏭️  Webhook W12 duplicado ignorado: ${webhookId}`);
+      logger.warn(`⏭️  Webhook W12 duplicado ignorado: ${existing.webhook_id}`);
       return res.json({
         exito: true,
-        webhookId,
+        webhookId: existing.webhook_id,
         procesado: false,
         razon: 'Ya fue procesado'
       });

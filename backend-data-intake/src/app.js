@@ -46,7 +46,9 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
   process.exit(1);
 }
 
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+// default origins for development include both frontends used by team
+// (CRA at :3000 and Vite at :5173).  CLI or CI can override via CORS_ORIGIN.
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:5173')
   .split(',')
   .map(origin => origin.trim());
 
@@ -87,20 +89,46 @@ app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize());  // Evitar NoSQL injection
 app.use(hpp());  // Evitar HTTP Parameter Pollution
 
-// Logger middleware
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`);
-  next();
-});
+// Dev‑only request logger with request-id and status
+if (process.env.NODE_ENV !== 'production') {
+  const { randomUUID } = require('crypto');
+  app.use((req, res, next) => {
+    req.requestId = randomUUID();
+
+    // intercept status setter so we can tag 401 responses automatically
+    const origStatus = res.status;
+    res.status = function(code) {
+      if (code === 401) {
+        res.set('X-Service', 'backend-data-intake');
+      }
+      return origStatus.call(this, code);
+    };
+
+    res.on('finish', () => {
+      logger.info(`[${req.requestId}] ${req.method} ${req.path} ${res.statusCode}`);
+    });
+
+    next();
+  });
+}
+
+// For production we still want the minimal log once per request
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // ==================== RUTAS ====================
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuariosNew');
-const clientesRoutes = require('./routes/clientesNew');
+const clientesRoutes = require('./routes/clientesRoutes');
+const clientesNew = require('./routes/clientesNew');
 const ventasRoutes = require('./routes/ventasNew');
 
 const agendamientosRoutes = require('./routes/agendamientosNew');
-const alertasRoutes = require('./routes/alertasNew');
+const alertasRoutes = require('./routes/alertasRouter');
 const reportesRoutes = require('./routes/reportesNew');
 const importRoutes = require('./routes/import');
 const exportRoutes = require('./routes/export');  // nuevo
@@ -113,17 +141,21 @@ const auditLogRoutes = require('./routes/auditLog');
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/clientes', clientesRoutes);
+app.use('/api/clientes', clientesNew);
 app.use('/api/ventas', ventasRoutes);
 app.use('/api/agendamientos', agendamientosRoutes);
 app.use('/api/alertas', alertasRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/export', exportRoutes);  // rutas de exportación/importación de datos
+app.use('/api/extractor', require('./routes/extractorRouter'));
 
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/evo', evoRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/audit-log', auditLogRoutes);
+const setupRoutes = require('./routes/apiSetup');
+app.use('/api/setup', setupRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
@@ -170,6 +202,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// simple service-specific health (no auth) so proxy tests can distinguish
+app.get('/api/health/service', (req, res) => {
+  res.json({ ok: true, service: 'backend-data-intake' });
+});
+
 // ==================== MANEJO DE ERRORES ====================
 app.use((err, req, res, next) => {
   logger.error('Error:', err);
@@ -197,6 +234,22 @@ const startServer = async () => {
   try {
     // Esperar a que MongoDB esté completamente conectado
     await connectDB();
+
+    // Activa el cron KPI apenas conectada la DB
+    const { initCron } = require('./services/kpiAlertasService');
+    initCron();
+
+    // development logging of Mongo connection info
+    if (process.env.NODE_ENV !== 'production') {
+      const mongoose = require('mongoose');
+      const uri = process.env.MONGODB_URI || '(not set)';
+      const safeUri = uri.replace(/(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@/, '$1$2:****@');
+      mongoose.connection.on('connected', () => {
+        console.log('[DEV] intake Mongo URI:', safeUri);
+        console.log('[DEV] intake DB name:', mongoose.connection.name);
+      });
+    }
+
     await seedOwner();
 
     // Inicializar Agenda si está habilitado (no en tests)
@@ -254,3 +307,4 @@ process.on('SIGINT', () => {
 });
 
 module.exports = app;
+

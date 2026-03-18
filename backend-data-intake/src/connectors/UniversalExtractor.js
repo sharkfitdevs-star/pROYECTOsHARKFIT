@@ -1,72 +1,95 @@
 /**
- * GENERIC API CLIENT
- *
- * Transforma un `config` sencillo en un cliente que puede recorrer uno o
- * varios endpoints HTTP y regresar todos los registros, manejando paginación
- * automática y generando un informe de logs.
- *
- * Config esperado:
- * {
- *   baseUrl: 'https://api.foo.com',
- *   endpoints: [
- *     { name: 'members', path: '/v1/members', method: 'GET', headers:{}, params:{}, pagination: { type:'page-limit', pageParam:'page', limitParam:'limit', limit:100 } },
- *     // o { path:'/v2/items', pagination:{type:'cursor', cursorParam:'cursor', nextField:'nextCursor'} }
- *   ]
- * }
- *
- * Retorna
- *   { data: [...], meta:{count,pages}, logs:[{url,statusCode,bodyPreview,count,errorMessage}], sourceInfo }
- *
- * Ejemplo de uso:
- *   const extractor = new UniversalExtractor({ baseUrl:'https://api.example.com', endpoints:[{path:'/members',pagination:{type:'page-limit',limit:50}}] });
- *   const res = await extractor.extract({path:'/members'});
+ * UNIVERSAL EXTRACTOR - API REST
+ * Versión corregida: dataPath, auth, baseURL unificado, sin métodos duplicados
  */
 
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger');
+const { RateLimiter } = require('../services/RateLimiter');
 
 class UniversalExtractor {
   constructor(config) {
     this.config = config || {};
     this.extractorId = uuidv4();
     this.logs = [];
-logger.info(`🚀 API Extractor initialized`, {
+
+    // Rate limiter: use provided instance, create from apiName, or disable
+    if (this.config.rateLimiter) {
+      this.rateLimiter = this.config.rateLimiter;
+    } else if (this.config.apiName) {
+      this.rateLimiter = new RateLimiter(this.config.apiName);
+    } else {
+      this.rateLimiter = null;
+    }
+
+    logger.info(`🚀 UniversalExtractor inicializado`, {
       id: this.extractorId,
-      baseUrl: this.config.baseUrl
+      baseURL: this.config.baseURL || this.config.baseUrl,
+      endpoints: (this.config.endpoints || []).length
     });
   }
 
   /**
-   * ⭐ MAIN: Extrae datos de cualquier fuente
-   * @param {String} endpoint - Nombre del endpoint o tabla
-   * @returns {Promise<Object>} { success, data, source, duration, attempts }
-   */
-  /**
-   * Extrae datos de un endpoint API.
-   * `endpoint` puede ser un objeto de configuración o una cadena que
-   * coincide con `config.endpoints[].name` o `path`.
+   * Extrae datos de un endpoint por path o nombre
+   * @returns { success, data, source, duration, dataType, records }
    */
   async extract(endpoint) {
+    const startTime = Date.now();
     const epConfig = this._resolveEndpoint(endpoint);
+
     if (!epConfig) {
-      throw new Error('Endpoint no encontrado: ' + endpoint);
+      return {
+        success: false,
+        error: `Endpoint no encontrado: ${endpoint}`,
+        data: [],
+        records: 0,
+        duration: 0
+      };
     }
 
-    const { data, meta, logs, sourceInfo } = await this._fetchAll(epConfig);
-    return { data, meta, logs, sourceInfo };
+    try {
+      logger.info(`▶ Iniciando extracción: ${epConfig.path}`);
+      const { rawData, meta, logs } = await this._fetchAll(epConfig);
+
+      // Aplicar dataPath
+      const data = this._applyDataPath(rawData, epConfig.dataPath);
+
+      // Aplicar filtro de fields
+      const filtered = this._filterFields(data, epConfig.fields);
+
+      const duration = Date.now() - startTime;
+
+      logger.info(`✅ ${epConfig.path} → ${filtered.length} registros (${duration}ms)`);
+
+      return {
+        success: true,
+        data: filtered,
+        records: filtered.length,
+        source: epConfig.path,
+        dataType: epConfig.dataType || null,
+        duration,
+        meta,
+        logs
+      };
+
+    } catch (err) {
+      const duration = Date.now() - startTime;
+      logger.error(`❌ Error en ${epConfig.path}: ${err.message}`);
+      return {
+        success: false,
+        error: err.message,
+        data: [],
+        records: 0,
+        source: epConfig.path,
+        dataType: epConfig.dataType || null,
+        duration
+      };
+    }
   }
 
-  /**
-   * Construye estrategias según tipo de fuente
-   */
-  // ya no utiliza buildStrategies
+  // ─── PRIVATE ────────────────────────────────────────────
 
-  // removed old DB and other private methods - rewritten below
-
-  /**
-   * Buscar configuración de endpoint por objeto o clave
-   */
   _resolveEndpoint(endpoint) {
     if (!endpoint) return null;
     if (typeof endpoint === 'object') return endpoint;
@@ -75,9 +98,6 @@ logger.info(`🚀 API Extractor initialized`, {
     );
   }
 
-  /**
-   * Core: recorrer paginación y juntar resultados
-   */
   async _fetchAll(epConfig) {
     const client = this._createHttpClient();
     let collected = [];
@@ -88,6 +108,7 @@ logger.info(`🚀 API Extractor initialized`, {
 
     while (true) {
       const params = Object.assign({}, epConfig.params);
+
       if (epConfig.pagination) {
         const p = epConfig.pagination;
         if (p.type === 'page-limit') {
@@ -103,40 +124,44 @@ logger.info(`🚀 API Extractor initialized`, {
 
       const url = epConfig.path;
       let resp;
-      try {
-        resp = await client.request({
-          method: epConfig.method || 'GET',
-          url,
-          headers: epConfig.headers,
-          params,
-          timeout: epConfig.timeout || 10000
-        });
-      } catch (err) {
-        const errInfo = {
-          url,
-          statusCode: err.response?.status,
-          bodyPreview: err.response?.data,
-          errorMessage: err.message
-        };
-        this.logs.push(errInfo);
-        throw err;
+
+      const requestCfg = {
+        method: epConfig.method || 'GET',
+        url,
+        headers: epConfig.headers,
+        params,
+        timeout: epConfig.timeout || 15000
+      };
+
+      if (this.rateLimiter) {
+        await this.rateLimiter.wait();
+      }
+      resp = await this._requestWithRetry(client, requestCfg);
+      if (this.rateLimiter) {
+        this.rateLimiter.updateFromResponse(resp.headers);
       }
 
       const pageData = resp.data;
-      const items = Array.isArray(pageData) ? pageData : pageData.items || [];
-      collected.push(...items);
-      count += items.length;
-      this.logs.push({ url, statusCode: resp.status, bodyPreview: items.slice(0,3), count: items.length });
+      // Guardar raw completo para que dataPath lo procese después
+      collected.push(pageData);
+      count++;
 
-      // handle pagination
+      this.logs.push({
+        url,
+        statusCode: resp.status,
+        count: Array.isArray(pageData) ? pageData.length : 1
+      });
+
+      // Paginación
       if (epConfig.pagination) {
         const p = epConfig.pagination;
         if (p.type === 'page-limit') {
           totalPages = resp.data.totalPages || resp.data.pages || 0;
-          if (page >= totalPages || items.length === 0) break;
+          if (page >= totalPages || !resp.data) break;
           page++;
           continue;
         } else if (p.type === 'take-skip') {
+          const items = this._applyDataPath(pageData, epConfig.dataPath);
           if (items.length < (p.limit || 100)) break;
           page++;
           continue;
@@ -149,163 +174,147 @@ logger.info(`🚀 API Extractor initialized`, {
       break;
     }
 
+    // Si solo hay una página, devolver el objeto directo (no array de páginas)
+    const rawData = collected.length === 1 ? collected[0] : collected;
+
     return {
-      data: collected,
+      rawData,
       meta: { count, pages: totalPages },
-      logs: this.logs.slice(),
-      sourceInfo: { baseUrl: this.config.baseUrl, endpoint: epConfig.path }
+      logs: this.logs.slice()
     };
   }
 
   /**
-   * Crea cliente HTTP con auth y headers del config
+   * Ejecuta un request con retry y exponential backoff según el tipo de error.
+   * - 401/403 : 1 reintento después de 2 s
+   * - 429     : espera Retry-After, hasta MAX_RETRIES reintentos
+   * - 5xx     : backoff exponencial 1 s / 2 s / 4 s, hasta MAX_RETRIES
+   * - red     : 1 reintento después de 3 s
    */
-  _createHttpClient() {
-    const client = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: 10000
-    });
-    if (this.config.headers) {
-      client.defaults.headers.common = Object.assign({}, client.defaults.headers.common, this.config.headers);
-    }
-    return client;
-  }
+  async _requestWithRetry(client, requestConfig, maxRetries = 3) {
+    const url = requestConfig.url || '';
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await client.request(requestConfig);
+      } catch (err) {
+        if (err.message?.startsWith('MONTHLY_LIMIT_EXCEEDED')) {
+          logger.error('🚫 Límite mensual de API alcanzado, abortando extracción');
+          throw err;
+        }
 
-  /**
-   * filtrar campos de un conjunto si se solicita
-   * (la versión completa está más abajo, esta es la definición antigua
-   * que se eliminó para evitar duplicados y errores de sintaxis)
-   */
-  // (el método real se encuentra más adelante, después de helpers)
+        if (attempt === maxRetries) {
+          this.logs.push({ url, statusCode: err.response?.status, errorMessage: err.message });
+          throw err;
+        }
 
-  /**
-   * Genera reporte detallado cuando TODO falla
-   */ 
+        const status = err.response?.status;
+        let delayMs;
 
-  /**
-   * Genera reporte detallado cuando TODO falla
-   */
-  buildFailureReport(result, endpoint) {
-    logger.error(`❌ Todas las estrategias fallaron`, {
-      extractorId: this.extractorId,
-      endpoint,
-      attempts: result.attempts.length
-    });
+        if (status === 429) {
+          const retryAfterRaw =
+            err.response.headers['retry-after'] ||
+            err.response.headers['x-ratelimit-reset'];
+          const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) : 5;
+          delayMs = (retryAfterSec + 1) * 1000;
+        } else if (status === 401 || status === 403) {
+          delayMs = 2000;
+          // On second auth failure we stop immediately — no token renewal available
+          if (attempt > 1) {
+            this.logs.push({ url, statusCode: status, errorMessage: err.message });
+            throw err;
+          }
+        } else if (status >= 500) {
+          delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        } else {
+          // Network errors: ECONNREFUSED, ETIMEDOUT, ENOTFOUND, etc.
+          delayMs = 3000;
+          if (attempt > 1) {
+            this.logs.push({ url, statusCode: err.code, errorMessage: err.message });
+            throw err;
+          }
+        }
 
-    logger.info('──────────────────────────────────────────────────────────────────────────────');
-    console.log(`❌ REPORTE DE FALLOS - ${endpoint.toUpperCase()}\n`);
-
-    result.attempts.forEach((attempt, idx) => {
-      console.log(`${idx + 1}. ${attempt.strategy}`);
-      console.log(`   ${attempt.error}`);
-      if (attempt.message) {
-        console.log(`   💬 ${attempt.message}`);
+        logger.warn('⚠️  Reintentando request...', {
+          endpoint: url,
+          attempt,
+          maxRetries,
+          status: status || err.code,
+          delayS: delayMs / 1000
+        });
+        await new Promise(r => setTimeout(r, delayMs));
       }
-      console.log('');
-    });
-
-    console.log(`Duración total: ${result.duration}ms`);
-    console.log(`Próximo intento: ${new Date(Date.now() + 30 * 60 * 1000).toLocaleTimeString()}`);
-    console.log('═'.repeat(75) + '\n');
-
-    result.success = false;
-    result.error = `No se pudo extraer datos de "${endpoint}" desde ${this.config.id}`;
-
-    return result;
+    }
   }
 
-  // ─────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────
-
   _createHttpClient() {
+    const baseURL = this.config.baseURL || this.config.baseUrl;
+
     const client = axios.create({
-      baseURL: this.config.baseURL,
-      timeout: 10000
+      baseURL,
+      timeout: 15000
     });
 
-    // Applicar autenticación según tipo
     const auth = this.config.auth || {};
 
     if (auth.type === 'basic') {
       client.defaults.auth = {
-        username: auth.username,
-        password: auth.password
+        username: auth.username || (auth.usernameEnv ? process.env[auth.usernameEnv] : undefined),
+        password: auth.password || (auth.passwordEnv ? process.env[auth.passwordEnv] : undefined)
       };
     } else if (auth.type === 'bearer') {
       client.defaults.headers.common['Authorization'] = `Bearer ${auth.token}`;
-    } else if (auth.type === 'apikey') {
-      client.defaults.headers.common[auth.headerName] = auth.key;
+    } else if (auth.type === 'apikey' || auth.type === 'apiKey') {
+      const headerName = auth.headerName || 'X-API-Key';
+      client.defaults.headers.common[headerName] = auth.key;
     } else if (auth.type === 'custom') {
       client.defaults.headers.common[auth.headerName] = auth.value;
+    }
+
+    if (this.config.headers) {
+      Object.assign(client.defaults.headers.common, this.config.headers);
     }
 
     return client;
   }
 
-  _extractData(rawData, config) {
-    const array = Array.isArray(rawData) ? rawData : [rawData];
-    return this._filterFields(array, config?.fields);
+  _applyDataPath(data, dataPath) {
+    if (!dataPath || dataPath === '' || dataPath === '*') {
+      return Array.isArray(data) ? data : [data];
+    }
+
+    const keys = dataPath.split('.');
+    let result = data;
+
+    for (const key of keys) {
+      if (result == null) return [];
+      result = result[key];
+    }
+
+    if (Array.isArray(result)) return result;
+    if (result != null) return [result];
+    return [];
   }
 
   _filterFields(data, fields) {
-    if (!fields || fields === '*' || fields.length === 0) {
-      return data;
-    }
+    if (!fields || fields === '*' || fields.length === 0) return data;
 
-    const isArray = Array.isArray(data);
-    const arrayData = isArray ? data : [data];
+    const fieldList = Array.isArray(fields)
+      ? fields
+      : fields.split(',').map(f => f.trim());
 
-    const filtered = arrayData.map(item => {
-      if (typeof item !== 'object') return item;
-
+    return data.map(item => {
+      if (typeof item !== 'object' || item === null) return item;
       const mapped = {};
-      (Array.isArray(fields) ? fields : fields.split(',')).forEach(field => {
-        const trimmed = field.trim();
-        mapped[trimmed] = this._getNestedValue(item, trimmed);
+      fieldList.forEach(f => {
+        mapped[f] = this._getNestedValue(item, f);
       });
       return mapped;
     });
-
-    return isArray ? filtered : filtered[0];
   }
 
   _getNestedValue(obj, path) {
     if (!obj || !path) return null;
-    return path.split('.').reduce((current, prop) => current?.[prop], obj);
-  }
-
-  _findFirstArray(obj, depth = 0) {
-    if (depth > 5) return null;
-    if (Array.isArray(obj)) return obj;
-    if (typeof obj !== 'object' || obj === null) return null;
-
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const result = this._findFirstArray(obj[key], depth + 1);
-        if (result) return result;
-      }
-    }
-
-    return null;
-  }
-
-  _cacheData(key, data) {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
-  }
-
-  _buildGraphQLQuery(entity) {
-    // Query genérico si no está definido
-    return `query { ${entity} { id created_at updated_at } }`;
-  }
-
-  _createTimeoutPromise(ms) {
-    return new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), ms)
-    );
+    return path.split('.').reduce((cur, prop) => cur?.[prop], obj);
   }
 
   _countRecords(data) {

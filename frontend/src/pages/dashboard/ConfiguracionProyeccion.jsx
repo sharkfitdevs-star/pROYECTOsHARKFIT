@@ -397,51 +397,51 @@ export default function ConfiguracionProyeccion() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sede</TableHead>
-                    <TableHead>Mes</TableHead>
-                    <TableHead className="text-right">Presupuesto Proyectado</TableHead>
-                    <TableHead className="text-right">Costo/Lead</TableHead>
-                    <TableHead className="text-right">% Agend.</TableHead>
-                    <TableHead className="text-right">% Asist.</TableHead>
-                    <TableHead className="text-right">% Conv.</TableHead>
-                    <TableHead className="text-right">Ticket Prom.</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <th className="text-left p-2 font-medium">Mes</th>
+                    <TableHead className="text-right">Presupuesto Proyectado</th>
+                    <TableHead className="text-right">Costo/Lead</th>
+                    <TableHead className="text-right">% Agend.</th>
+                    <TableHead className="text-right">% Asist.</th>
+                    <TableHead className="text-right">% Conv.</th>
+                    <TableHead className="text-right">Ticket Prom.</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <TableHead className="text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {configuraciones.map((config) => (
                     <TableRow key={config.id}>
-                      <TableCell className="font-medium">{getSedeNombre(config.sede)}</TableCell>
-                      <TableCell>{config.mes}</TableCell>
+                      <TableCell className="font-medium">{getSedeNombre(config.sede)}</td>
+                      <td className="p-2">{config.mes}</td>
                       <TableCell className="text-right text-blue-600 font-semibold">
                         {config.presupuesto_mensual ? formatCurrency(config.presupuesto_mensual) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         {config.costo_por_lead ? formatCurrency(config.costo_por_lead) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         {config.porcentaje_agendamiento ? formatPercent(config.porcentaje_agendamiento) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         {config.porcentaje_asistencia ? formatPercent(config.porcentaje_asistencia) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         {config.porcentaje_conversion ? formatPercent(config.porcentaje_conversion) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         {config.ticket_promedio ? formatCurrency(config.ticket_promedio) : <span className="text-gray-400">Auto</span>}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-2">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           config.activo !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                         }`}>
                           {config.activo !== false ? 'Activo' : 'Inactivo'}
                         </span>
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -459,11 +459,11 @@ export default function ConfiguracionProyeccion() {
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
@@ -476,39 +476,39 @@ export default function ConfiguracionProyeccion() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Sede</TableHead>
-                  <TableHead className="text-right">Gasto Real</TableHead>
-                  <TableHead className="text-right">Leads</TableHead>
-                  <TableHead className="text-right">Costo/Lead</TableHead>
-                  <TableHead className="text-right">% Agendamiento</TableHead>
-                  <TableHead className="text-right">% Asistencia</TableHead>
-                  <TableHead className="text-right">% Conversión</TableHead>
-                  <TableHead className="text-right">Ticket Promedio</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b hover:bg-gray-50">
+                  <th className="text-left p-2 font-medium">Sede</th>
+                  <TableHead className="text-right">Gasto Real</th>
+                  <TableHead className="text-right">Leads</th>
+                  <TableHead className="text-right">Costo/Lead</th>
+                  <TableHead className="text-right">% Agendamiento</th>
+                  <TableHead className="text-right">% Asistencia</th>
+                  <TableHead className="text-right">% Conversión</th>
+                  <TableHead className="text-right">Ticket Promedio</th>
+                </tr>
+              </thead>
+              <tbody>
                 {sedes.map((sede) => {
                   const metricas = metricasCalculadas[sede.id];
                   if (!metricas || metricas.totalGasto === 0) return null;
                   
                   return (
                     <TableRow key={sede.id}>
-                      <TableCell className="font-medium">{sede.nombre_sede}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(metricas.totalGasto)}</TableCell>
-                      <TableCell className="text-right">{metricas.totalLeads}</TableCell>
-                      <TableCell className="text-right text-blue-600">{formatCurrency(metricas.costoLead)}</TableCell>
-                      <TableCell className="text-right">{formatPercent(metricas.porcAgendamiento)}</TableCell>
-                      <TableCell className="text-right">{formatPercent(metricas.porcAsistencia)}</TableCell>
-                      <TableCell className="text-right">{formatPercent(metricas.porcConversion)}</TableCell>
-                      <TableCell className="text-right text-green-600">{formatCurrency(metricas.ticketPromedio)}</TableCell>
-                    </TableRow>
+                      <TableCell className="font-medium">{sede.nombre_sede}</td>
+                      <TableCell className="text-right">{formatCurrency(metricas.totalGasto)}</td>
+                      <TableCell className="text-right">{metricas.totalLeads}</td>
+                      <TableCell className="text-right text-blue-600">{formatCurrency(metricas.costoLead)}</td>
+                      <TableCell className="text-right">{formatPercent(metricas.porcAgendamiento)}</td>
+                      <TableCell className="text-right">{formatPercent(metricas.porcAsistencia)}</td>
+                      <TableCell className="text-right">{formatPercent(metricas.porcConversion)}</td>
+                      <TableCell className="text-right text-green-600">{formatCurrency(metricas.ticketPromedio)}</td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

@@ -16,12 +16,34 @@ export default function Home() {
     setTestResult(null);
     
     try {
-      const response = await axios.post('/api/testSincronizacionEvo5', {});
-      setTestResult(response.data);
+      const response = await axios.get('/api/health');
+      const data = response.data || {};
+      const isHealthy = data.status === 'ok' && data.estado === 'healthy';
+
+      setTestResult({
+        success: isHealthy,
+        resumen: {
+          total: 1,
+          exitosos: isHealthy ? 1 : 0,
+          fallidos: isHealthy ? 0 : 1
+        },
+        tests: {
+          health: {
+            status: isHealthy ? 'success' : 'error',
+            message: isHealthy
+              ? `Health check OK (${data.servicio || 'DATA-INTAKE'})`
+              : `Health check no saludable (${data.estado || 'unknown'})`
+          }
+        },
+        recomendaciones: isHealthy
+          ? []
+          : ['Revisar logs del backend y estado de MongoDB antes de sincronizar.']
+      });
     } catch (error) {
+      const backendError = error.response?.data?.error;
       setTestResult({
         success: false,
-        error: error.message,
+        error: backendError || 'No se pudo ejecutar el test de conexión',
         resumen: { total: 0, exitosos: 0, fallidos: 1 }
       });
     } finally {
@@ -34,12 +56,25 @@ export default function Home() {
     setSyncResult(null);
     
     try {
-      const response = await axios.post('/api/sincronizarEvo5', {});
-      setSyncResult(response.data);
+      const response = await axios.post('/api/sync/run', {
+        sourceId: 'evo',
+        modo: 'incremental',
+        entidades: ['clientes', 'ventas']
+      });
+      const data = response.data || {};
+
+      setSyncResult({
+        success: Boolean(data.exito),
+        miembrosSincronizados: 0,
+        prospectosSincronizados: 0,
+        actividadesSincronizadas: 0,
+        error: data.exito ? null : (data.error || 'No se pudo completar la sincronización')
+      });
     } catch (error) {
+      const backendError = error.response?.data?.error;
       setSyncResult({
         success: false,
-        error: error.message
+        error: backendError || 'No se pudo completar la sincronización'
       });
     } finally {
       setSyncLoading(false);

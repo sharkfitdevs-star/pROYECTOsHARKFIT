@@ -6,10 +6,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "worker": "node src/workers/worker.js",
     "verify": "node verify-config.js",
     "prestart": "node verify-config.js",
     "create-owner": "node create-owner.js",
-    "test": "jest --coverage",
+    "test": "cross-env NODE_ENV=test jest --coverage",
+    "test:one": "cross-env NODE_ENV=test jest tests/settings.routes.test.js --runInBand --detectOpenHandles",
     "migrate:sqlite-to-mongo": "echo \"DEPRECATED: sqlite migration removed; use web/API ingestion\"",
     "seed": "node src/scripts/seedData.js",
     "evo-proxy": "node src/evo-w12-proxy.js",
@@ -17,7 +19,8 @@
     "evo-encrypt-token": "node scripts/encrypt-token.js",
     "setup": "node scripts/setup-universal-api.js",
     "extract": "node src/index.js",
-    "extract-all": "node src/index.js --all"
+    "extract-all": "node src/index.js --all",
+    "migrate:legacy-importid": "node scripts/migrations/assignLegacyImportId.js"
   },
   "type": "commonjs",
   "keywords": [
@@ -57,6 +60,7 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
     "supertest": "^6.3.3",

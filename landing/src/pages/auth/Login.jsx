@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import '../../styles/Auth.css'
 
 function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -21,14 +21,15 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    localStorage.removeItem('authMessage');
     setLocalError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login({ identifier, password })
       navigate('/dashboard', { replace: true })
     } catch (err) {
-      // el contexto ya puso authError, aquí sólo guardamos fallback
-      setLocalError(err.message || 'Error al iniciar sesión')
+      const msg = err?.response?.data?.error || err.message || 'Error al iniciar sesión'
+      setLocalError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -53,6 +54,20 @@ function Login() {
 
       <div className="auth-content">
         <div className="auth-card">
+          {localStorage.getItem('authMessage') && (
+            <div style={{
+              background: 'rgba(251,191,36,0.12)',
+              border: '1px solid rgba(251,191,36,0.4)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '1rem',
+              color: '#fbbf24',
+              fontSize: '0.875rem',
+              textAlign: 'center',
+            }}>
+              {localStorage.getItem('authMessage')}
+            </div>
+          )}
           <div className="auth-card-inner">
             <h2>Bienvenido de vuelta</h2>
             <p className="auth-subtitle">Ingresa tus credenciales para acceder</p>
@@ -67,12 +82,12 @@ function Login() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="identifier">Email o usuario</label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 disabled={disabled}
               />
             </div>

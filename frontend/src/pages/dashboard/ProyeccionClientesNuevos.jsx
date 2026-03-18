@@ -523,19 +523,19 @@ export default function ProyeccionClientesNuevos() {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Sede</TableHead>
-                        <TableHead className="text-right">Presupuesto Proyectado</TableHead>
-                        <TableHead className="text-right">Leads Proyectados</TableHead>
-                        <TableHead className="text-right">Agendados Proyectados</TableHead>
-                        <TableHead className="text-right">Asistencias Proyectadas</TableHead>
-                        <TableHead className="text-right">Clientes Nuevos Proyectados</TableHead>
-                        <TableHead className="text-right">Ventas Proyectadas</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b hover:bg-gray-50">
+                        <th className="text-left p-2 font-medium">Sede</th>
+                        <TableHead className="text-right">Presupuesto Proyectado</th>
+                        <TableHead className="text-right">Leads Proyectados</th>
+                        <TableHead className="text-right">Agendados Proyectados</th>
+                        <TableHead className="text-right">Asistencias Proyectadas</th>
+                        <TableHead className="text-right">Clientes Nuevos Proyectados</th>
+                        <TableHead className="text-right">Ventas Proyectadas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {proyeccionesPorSede.map((p) => (
                         <TableRow key={p.sedeId}>
                           <TableCell className="font-medium">
@@ -543,23 +543,23 @@ export default function ProyeccionClientesNuevos() {
                             {p.tieneConfigManual && (
                               <span className="ml-2 text-xs text-blue-600">(Manual)</span>
                             )}
-                          </TableCell>
+                          </td>
                           <TableCell className="text-right text-blue-600 font-medium">
                             {formatCurrency(p.presupuestoMensual)}
-                          </TableCell>
-                          <TableCell className="text-right">{p.leadsProyectados}</TableCell>
-                          <TableCell className="text-right">{p.agendadosProyectados}</TableCell>
-                          <TableCell className="text-right">{p.asistenciasProyectadas}</TableCell>
+                          </td>
+                          <TableCell className="text-right">{p.leadsProyectados}</td>
+                          <TableCell className="text-right">{p.agendadosProyectados}</td>
+                          <TableCell className="text-right">{p.asistenciasProyectadas}</td>
                           <TableCell className="text-right text-indigo-600 font-semibold">
                             {p.clientesNuevosProyectados}
-                          </TableCell>
+                          </td>
                           <TableCell className="text-right text-green-600 font-bold">
                             {formatCurrency(p.ventasProyectadas)}
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

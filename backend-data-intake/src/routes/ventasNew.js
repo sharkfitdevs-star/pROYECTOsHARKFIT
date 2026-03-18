@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { Venta } = require('../models');
+const { requireAuth } = require('../middleware/auth');
+const { logger } = require('../utils/logger');
 
 /**
  * GET /api/ventas
@@ -8,31 +10,68 @@ const { Venta } = require('../models');
  */
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 10, saleType, paymentStatus, idBranch, idMember } = req.query;
-    
+    const {
+      search,
+      estado,
+      branchName,
+      planName,
+      page = 1,
+      limit = 50,
+      saleType,
+      paymentStatus,
+      idBranch,
+      idMember,
+      source,
+      dateFrom,
+      dateTo,
+    } = req.query;
+
     const query = {};
-    
+
+    // Filtro por origen de datos (excel, api, merged)
+    if (source) query.source = source;
+
+    // Filtro por rango de fechas
+    if (dateFrom || dateTo) {
+      query.saleDate = {};
+      if (dateFrom) query.saleDate.$gte = new Date(dateFrom);
+      if (dateTo)   query.saleDate.$lte = new Date(dateTo);
+    }
+
+    // text search across some fields
+    if (search) {
+      query.$or = [
+        { memberName: { $regex: search, $options: 'i' } },
+        { employeeName: { $regex: search, $options: 'i' } },
+        { planName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (estado) query.paymentStatus = estado;
+    if (branchName) query.branchName = branchName;
+    if (planName) query.planName = planName;
+
+    // preserve existing filters for backwards compatibility
     if (saleType) query.saleType = saleType;
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (idBranch) query.idBranch = idBranch;
     if (idMember) query.idMember = idMember;
-    
+
     const ventas = await Venta.find(query)
       .sort({ saleDate: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
     const count = await Venta.countDocuments(query);
-    
+
     res.json({
       success: true,
       data: ventas,
       total: count,
-      page: parseInt(page),
+      page: Number(page),
       pages: Math.ceil(count / limit)
     });
   } catch (error) {
-    const { logger } = require('../utils/logger');
     logger.error('Error listing ventas:', { error });
     res.status(500).json({
       error: true,
@@ -141,30 +180,15 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/ventas/:id
- * Eliminar venta
+ * DELETE /api/ventas/importados
+ * Eliminar todas las ventas importadas
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/importados', requireAuth, async (req, res) => {
   try {
-    const venta = await Venta.findByIdAndDelete(req.params.id);
-    
-    if (!venta) {
-      return res.status(404).json({
-        error: true,
-        message: 'Venta no encontrada'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Venta eliminada'
-    });
+    const result = await Venta.deleteMany({ source: 'import_excel' });
+    res.json({ ok: true, deleted: result.deletedCount });
   } catch (error) {
-    logger.error('Error deleting venta:', { error });
-    res.status(500).json({
-      error: true,
-      message: 'Error al eliminar venta'
-    });
+    res.status(500).json({ ok: false, error: 'Error al eliminar ventas importadas' });
   }
 });
 
@@ -199,6 +223,36 @@ router.get('/stats/resumen', async (req, res) => {
     });
   }
 });
+
+/**
+ * DELETE /api/ventas/:id
+ * Eliminar venta
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const venta = await Venta.findByIdAndDelete(req.params.id);
+    
+    if (!venta) {
+      return res.status(404).json({
+        error: true,
+        message: 'Venta no encontrada'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Venta eliminada'
+    });
+  } catch (error) {
+    logger.error('Error deleting venta:', { error });
+    res.status(500).json({
+      error: true,
+      message: 'Error al eliminar venta'
+    });
+  }
+});
+
+
 
 
 module.exports = router;

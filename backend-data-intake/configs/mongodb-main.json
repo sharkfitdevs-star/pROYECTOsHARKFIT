@@ -1,0 +1,65 @@
+{
+  "id": "mongodb-main",
+  "name": "MongoDB Principal",
+  "type": "database",
+  "engine": "mongodb",
+  "description": "Extrae datos desde MongoDB de forma resiliente",
+  
+  "source": {
+    "host": "${MONGODB_HOST}",
+    "port": "${MONGODB_PORT}",
+    "user": "${MONGODB_USER}",
+    "password": "${MONGODB_PASSWORD}",
+    "database": "${MONGODB_DATABASE}",
+    "timeout": 10000,
+    "retries": 3,
+    "connectionLimit": 10
+  },
+
+  "endpoints": [
+    {
+      "path": "usuarios",
+      "table": "users",
+      "columns": "*",
+      "fields": ["_id", "nombre", "email", "telefono", "estado"],
+      "idField": "_id",
+      "where": {
+        "field": "estado",
+        "operator": "=",
+        "value": "activo"
+      },
+      "limit": 1000,
+      "offset": 0,
+      "sort": { "createdAt": -1 }
+    },
+    {
+      "path": "productos",
+      "table": "products",
+      "columns": "*",
+      "fields": ["_id", "nombre", "precio", "stock", "categoria"],
+      "idField": "_id",
+      "limit": 5000
+    },
+    {
+      "path": "ordenes",
+      "table": "orders",
+      "columns": "*",
+      "fields": "*",
+      "idField": "_id",
+      "where": {
+        "field": "estado",
+        "operator": "!=",
+        "value": "cancelado"
+      }
+    }
+  ],
+
+  "syncInterval": 5,
+  "retryStrategy": {
+    "maxAttempts": 5,
+    "backoffMs": 2000,
+    "timeoutMs": 10000
+  },
+
+  "createdAt": "2026-02-13T00:00:00Z"
+}

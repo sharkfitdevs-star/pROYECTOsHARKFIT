@@ -473,42 +473,42 @@ export default function DashboardCostos() {
             <div className="text-center py-8 text-gray-500">No hay datos disponibles</div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sede</TableHead>
-                    <TableHead className="text-right">Gasto Total</TableHead>
-                    <TableHead className="text-right">Leads</TableHead>
-                    <TableHead className="text-right">Agendados</TableHead>
-                    <TableHead className="text-right">Clientes Nuevos</TableHead>
-                    <TableHead className="text-right">CPL</TableHead>
-                    <TableHead className="text-right">Costo/Agendado</TableHead>
-                    <TableHead className="text-right">Costo/Conversión</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hover:bg-gray-50">
+                    <th className="text-left p-2 font-medium">Sede</th>
+                    <TableHead className="text-right">Gasto Total</th>
+                    <TableHead className="text-right">Leads</th>
+                    <TableHead className="text-right">Agendados</th>
+                    <TableHead className="text-right">Clientes Nuevos</th>
+                    <TableHead className="text-right">CPL</th>
+                    <TableHead className="text-right">Costo/Agendado</th>
+                    <TableHead className="text-right">Costo/Conversión</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {metricasPorSede.map((m) => (
                     <TableRow key={m.sedeId}>
-                      <TableCell className="font-medium">{m.sede}</TableCell>
+                      <TableCell className="font-medium">{m.sede}</td>
                       <TableCell className="text-right font-bold text-red-600">
                         ${m.gasto.toLocaleString('es-CL')}
-                      </TableCell>
-                      <TableCell className="text-right">{m.leads}</TableCell>
-                      <TableCell className="text-right">{m.agendados}</TableCell>
-                      <TableCell className="text-right">{m.clientesNuevos}</TableCell>
+                      </td>
+                      <TableCell className="text-right">{m.leads}</td>
+                      <TableCell className="text-right">{m.agendados}</td>
+                      <TableCell className="text-right">{m.clientesNuevos}</td>
                       <TableCell className="text-right text-blue-600 font-medium">
                         ${m.cpl}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right text-green-600 font-medium">
                         ${m.costoPorAgendado}
-                      </TableCell>
+                      </td>
                       <TableCell className="text-right text-purple-600 font-medium">
                         ${m.costoPorConversion}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

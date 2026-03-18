@@ -1,6 +1,3 @@
-/**
- * Mock User Entity
- * Placeholder para prevenir errores de importación
- */
-
-// Eliminado: ya no se usa User.js, usar AuthContext y UsuariosService
+import { BaseEntity } from './_base';
+class UserEntity extends BaseEntity { constructor() { super(null); } }
+export const User = new UserEntity();

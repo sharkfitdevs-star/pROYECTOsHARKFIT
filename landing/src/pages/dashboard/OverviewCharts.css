@@ -1,0 +1,129 @@
+/* ── OverviewCharts ─────────────────────────────────────────────── */
+
+.ov-charts-wrapper {
+  margin-top: 0.5rem;
+}
+
+/* Tabs */
+.ov-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ov-tab {
+  padding: 0.45rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ov-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.ov-tab.active {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+  font-weight: 600;
+}
+
+/* Chart card */
+.ov-chart-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  animation: fadeInUp 0.35s ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ov-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.ov-chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 0.2rem 0;
+}
+
+.ov-chart-sub {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Badge variación */
+.ov-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ov-badge.pos {
+  background: rgba(74, 222, 128, 0.15);
+  color: #86efac;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.ov-badge.neg {
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+/* Tooltip */
+.ov-tooltip {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.ov-tooltip-label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  margin: 0 0 0.35rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ov-tooltip-row {
+  margin: 0.2rem 0;
+}
+
+/* Skeleton */
+.ov-skeleton {
+  padding: 0.5rem 0;
+}
+
+.ov-skeleton-bar {
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-card) 50%, var(--color-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

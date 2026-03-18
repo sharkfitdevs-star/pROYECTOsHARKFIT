@@ -1,41 +1,107 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ExportarDatos from './ExportarDatos'
 import '../../styles/Dashboard.css'
+import { fetchDashboardOverview } from '../../services/dashboardApi';
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [overview, setOverview] = useState(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardOverview()
+      .then(data => setOverview(data))
+      .catch(err => console.error('Overview error:', err))
+      .finally(() => setLoadingOverview(false));
+  }, []);
+
+  const fmt$ = (n) => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—';
+  const fmtPct = (n) => n != null ? `${n > 0 ? '+' : ''}${n}%` : null;
 
   const sections = {
     overview: {
       title: '📊 Dashboard',
       content: () => (
-        <div className="overview-grid">
-          <div className="card">
-            <h3>Ventas Este Mes</h3>
-            <p className="large-number">$45,230</p>
-            <span className="trend positive">↑ 12% vs mes anterior</span>
+        <>
+          <div className="overview-cards">
+            <div className="overview-card">
+              <span className="overview-card-title">Ventas Este Mes</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {fmt$(overview?.ventasEsteMes?.monto)}
+                  </span>
+                  {overview?.ventasEsteMes?.variacion != null && (
+                    <span className={`overview-card-sub ${parseFloat(overview.ventasEsteMes.variacion) >= 0 ? 'positive' : 'negative'}`}>
+                      {fmtPct(overview.ventasEsteMes.variacion)} vs mes anterior
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="overview-card">
+              <span className="overview-card-title">Clientes Activos</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.clientesActivos?.total ?? '—'}
+                  </span>
+                  {overview?.clientesActivos?.nuevosEsteMes != null && (
+                    <span className="overview-card-sub positive">
+                      +{overview.clientesActivos.nuevosEsteMes} nuevos
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="overview-card">
+              <span className="overview-card-title">Tareas Pendientes</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.tareasPendientes?.total ?? '—'}
+                  </span>
+                  {overview?.tareasPendientes?.requiereAtencion && (
+                    <span className="overview-card-sub negative">
+                      ⚠ Requiere atención
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="overview-card">
+              <span className="overview-card-title">Tasa de Conversión</span>
+              {loadingOverview ? (
+                <span className="overview-card-value">...</span>
+              ) : (
+                <>
+                  <span className="overview-card-value">
+                    {overview?.tasaConversion?.porcentaje ?? '—'}%
+                  </span>
+                  {overview?.tasaConversion?.variacion != null && (
+                    <span className={`overview-card-sub ${parseFloat(overview.tasaConversion.variacion) >= 0 ? 'positive' : 'negative'}`}>
+                      {fmtPct(overview.tasaConversion.variacion)} pts vs mes anterior
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-          <div className="card">
-            <h3>Clientes Activos</h3>
-            <p className="large-number">328</p>
-            <span className="trend positive">↑ 8 nuevos</span>
-          </div>
-          <div className="card">
-            <h3>Tareas Pendientes</h3>
-            <p className="large-number">47</p>
-            <span className="trend neutral">⏳ Requiere atención</span>
-          </div>
-          <div className="card">
-            <h3>Tasa de Conversión</h3>
-            <p className="large-number">24%</p>
-            <span className="trend positive">↑ 3% vs mes anterior</span>
-          </div>
-        </div>
-      )
+        </>
+      ),
     },
     clients: {
       title: '👥 Clientes',
@@ -123,22 +189,16 @@ export default function Dashboard() {
             >
               🚨 Alertas
             </button>
-
-            {/* Línea separadora */}
-            <div style={{ height: '1px', background: '#93509e', margin: '15px 0', opacity: 0.5 }}></div>
-
-            {/* Sección de administración */}
+            <div style={{ height: '1px', background: 'rgba(59,130,246,0.3)', margin: '15px 0' }}></div>
             <button
               className={`nav-item ${activeSection === 'exportar' ? 'active' : ''}`}
               onClick={() => setActiveSection('exportar')}
-              title="Exportar datos en múltiples formatos e integración con APIs"
             >
               📥 Exportar datos
             </button>
             <button
-              className={`nav-item`}
+              className="nav-item"
               onClick={() => navigate('/admin')}
-              title="Panel de administración"
             >
               ⚙️ Admin
             </button>
@@ -155,7 +215,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="version">v2.0.0</p>
-            <button className="btn-logout" onClick={logout} title="Cerrar sesión">
+            <button className="btn-logout" onClick={logout}>
               🚪 Salir
             </button>
           </div>
