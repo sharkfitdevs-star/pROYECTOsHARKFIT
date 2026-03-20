@@ -160,6 +160,20 @@
   font-weight: 600;
 }
 
+.nav-group-title {
+  padding: 10px 20px 6px;
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav-subitem {
+  padding-left: 34px;
+  font-size: 14px;
+}
+
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid rgba(59, 130, 246, 0.3);

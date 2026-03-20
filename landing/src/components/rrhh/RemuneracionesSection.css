@@ -1,0 +1,661 @@
+.remuneraciones-section {
+  padding: 1.5rem;
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.section-header p {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0.25rem 0 0 0;
+  font-size: 0.9rem;
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.tab-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+/* Resumen Cards */
+.resumen-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.resumen-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.resumen-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resumen-icon i {
+  font-size: 1.25rem;
+  color: #818cf8;
+}
+
+.resumen-icon.generadas {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.resumen-icon.generadas i {
+  color: #10b981;
+}
+
+.resumen-icon.pendientes {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.resumen-icon.pendientes i {
+  color: #f59e0b;
+}
+
+.resumen-icon.total {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.resumen-icon.total i {
+  color: #8b5cf6;
+}
+
+.resumen-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.resumen-valor {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.resumen-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Liquidaciones Header */
+.liquidaciones-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filtros-grupo {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filtro-select {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.filtro-select:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.filtro-select option {
+  background: #1f2937;
+  color: white;
+}
+
+.btn-generar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-generar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+/* Table */
+.liquidaciones-table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.liquidaciones-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.liquidaciones-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.liquidaciones-table td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.liquidaciones-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.col-nombre {
+  font-weight: 500;
+}
+
+.col-monto {
+  font-family: 'Monaco', 'Consolas', monospace;
+  text-align: right;
+}
+
+.col-monto.descuento {
+  color: #ef4444;
+}
+
+.col-monto.liquido {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.estado-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.col-acciones {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.btn-accion {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-accion.ver {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.btn-accion.ver:hover {
+  background: rgba(59, 130, 246, 0.4);
+}
+
+.btn-accion.aprobar {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.btn-accion.aprobar:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+.btn-accion.pagar {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+.btn-accion.pagar:hover {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+/* Adelantos */
+.adelantos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.adelantos-header h3 {
+  font-size: 1rem;
+  color: white;
+  margin: 0;
+}
+
+.btn-nuevo-adelanto {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  color: #10b981;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-nuevo-adelanto:hover {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.adelantos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.adelanto-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.adelanto-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.adelanto-colaborador {
+  font-weight: 500;
+  color: white;
+}
+
+.adelanto-tipo {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: capitalize;
+}
+
+.adelanto-montos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.monto-solicitado {
+  font-weight: 600;
+  color: white;
+}
+
+.cuotas-info {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.adelanto-estado {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+
+.adelanto-estado.estado-solicitado {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.adelanto-estado.estado-aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.adelanto-estado.estado-rechazado {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.adelanto-estado.estado-completado {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+/* Estados comunes */
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.loading-state i,
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.5rem 0;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #1f2937;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-content.modal-lg {
+  max-width: 800px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  color: white;
+  margin: 0;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Detalle Liquidación */
+.detalle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detalle-colaborador h3 {
+  color: white;
+  margin: 0 0 0.25rem 0;
+}
+
+.detalle-colaborador p {
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.detalle-periodo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.periodo-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.detalle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.detalle-seccion h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.75rem 0;
+}
+
+.detalle-table {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.detalle-table td {
+  padding: 0.4rem 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.detalle-table td.monto {
+  text-align: right;
+  font-family: 'Monaco', 'Consolas', monospace;
+}
+
+.detalle-table td.monto.descuento {
+  color: #ef4444;
+}
+
+.detalle-table tr.total-row td {
+  font-weight: 600;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.detalle-totales {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.total-item .valor {
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-weight: 500;
+}
+
+.total-item .valor.descuento {
+  color: #ef4444;
+}
+
+.total-item.liquido {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.total-item.liquido .valor {
+  color: #10b981;
+}
+
+/* Botones */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.btn-secondary {
+  padding: 0.6rem 1.2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .remuneraciones-section {
+    padding: 1rem;
+  }
+  
+  .resumen-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .liquidaciones-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .detalle-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .liquidaciones-table {
+    font-size: 0.75rem;
+  }
+}

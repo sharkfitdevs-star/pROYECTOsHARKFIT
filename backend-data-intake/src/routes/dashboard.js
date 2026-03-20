@@ -331,8 +331,8 @@ router.get('/historico', requireAuth, async (req, res) => {
 router.get('/layout', requireAuth, async (req, res) => {
   try {
     const OverviewLayout = require('../models/OverviewLayout');
-    const userId = req.user?.id || req.user?._id;
-    const layout = await OverviewLayout.findOne({ userId });
+    const usuarioId = req.user?.id || req.user?._id;
+    const layout = await OverviewLayout.findOne({ usuario: usuarioId });
     res.json({ success: true, widgets: layout?.widgets || [] });
   } catch (err) {
     logger.error('Error en GET /api/dashboard/layout', { message: err.message });
@@ -344,14 +344,20 @@ router.get('/layout', requireAuth, async (req, res) => {
 router.post('/layout', requireAuth, async (req, res) => {
   try {
     const OverviewLayout = require('../models/OverviewLayout');
-    const userId = req.user?.id || req.user?._id;
+    const usuarioId = req.user?.id || req.user?._id;
+    const rol = req.user?.role || 'staff';
     const { widgets } = req.body || {};
     if (!Array.isArray(widgets)) {
       return res.status(400).json({ success: false, error: 'widgets debe ser un array' });
     }
     const layout = await OverviewLayout.findOneAndUpdate(
-      { userId },
-      { widgets, updatedAt: new Date() },
+      { usuario: usuarioId },
+      {
+        usuario: usuarioId,
+        rol: rol,
+        widgets,
+        updatedAt: new Date()
+      },
       { upsert: true, new: true }
     );
     res.json({ success: true, widgets: layout.widgets });

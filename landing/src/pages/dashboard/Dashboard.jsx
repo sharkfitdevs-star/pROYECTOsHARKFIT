@@ -7,55 +7,30 @@ import ImportarExcelSection from './ImportarExcelSection'
 import Clientes from './Clientes'
 import VentasSection from './VentasSection'
 import AlertasSection from './AlertasSection'
-import OverviewCharts from './OverviewCharts'
-import VentasOverview from './VentasOverview'
-import ClientesOverview from './ClientesOverview'
-import ProspectosOverview from './ProspectosOverview'
 import './Dashboard.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import NotificationsDropdown from './NotificationsDropdown'
 import ApiImportSection from './ApiImportSection'
-import { fetchDashboardOverview } from '../../services/dashboardApi'
-import { useOverviewLayout } from '../../hooks/useOverviewLayout'
-import WidgetWrapper from '../../components/dashboard/WidgetWrapper'
-import ChartBuilder from '../../components/dashboard/ChartBuilder'
-import DynamicChart from '../../components/dashboard/DynamicChart'
-import HiddenWidgetsPanel from '../../components/dashboard/HiddenWidgetsPanel'
+import DashboardOverview from '../../components/dashboard/DashboardOverview';
 import SessionWarning from '../../components/SessionWarning';
+import ProductosSection from '../../components/inventario/ProductosSection';
+import InventarioSection from '../../components/inventario/InventarioSection';
+import ProveedoresSection from '../../components/inventario/ProveedoresSection';
+import EntregasSection from '../../components/inventario/EntregasSection';
+import ComprasSection from '../../components/inventario/ComprasSection';
+import RemuneracionesSection from '../../components/rrhh/RemuneracionesSection';
+import ColaboradoresSection from '../../components/rrhh/ColaboradoresSection';
+import EvaluacionSection from '../../components/rrhh/EvaluacionSection';
+import ReclutamientoSection from '../../components/rrhh/ReclutamientoSection';
+import DistribucionSection from '../../components/rrhh/DistribucionSection';
+import AcademySection from '../../components/formacion/AcademySection';
+import DocumentosSection from '../../components/rrhh/DocumentosSection';
 
 function Dashboard() {
   const [activeSection, setActiveSection] = useState('overview')
   const [loading, setLoading] = useState(true)
-  const { user, logout } = useAuth()
+  const { user, logout, extendSession } = useAuth()
   const navigate = useNavigate()
-  const [overview, setOverview] = useState(null)
-  const [loadingOverview, setLoadingOverview] = useState(true)
-  const { widgets, visibleWidgets, removeWidget, restoreWidget, reorderWidgets, addWidget, deleteWidget } = useOverviewLayout();
-  const [showBuilder, setShowBuilder] = useState(false);
-  const hiddenWidgets = widgets.filter(w => !w.visible);
-
-
-  const loadOverview = useCallback(() => {
-    setLoadingOverview(true)
-    fetchDashboardOverview()
-      .then(data => setOverview(data))
-      .catch(err => console.error('Overview error:', err))
-      .finally(() => setLoadingOverview(false))
-  }, [])
-
-  useEffect(() => { loadOverview() }, [loadOverview])
-
-  useEffect(() => {
-    window.addEventListener('clientes-refresh', loadOverview)
-    window.addEventListener('ventas-refresh',   loadOverview)
-    return () => {
-      window.removeEventListener('clientes-refresh', loadOverview)
-      window.removeEventListener('ventas-refresh',   loadOverview)
-    }
-  }, [loadOverview])
-
-  const fmt$ = (n) => n != null ? '$' + Number(n).toLocaleString('es-CL') : '-'
-  const fmtPct = (n) => n != null ? (Number(n) > 0 ? '+' : '') + n + '%' : null
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 500)
@@ -84,112 +59,107 @@ function Dashboard() {
     )
   }
 
-  const sections = {
-    overview: {
-      title: 'Dashboard',
-      content: () => (
-        <div>
-          <div className="overview-toolbar">
-            <HiddenWidgetsPanel hiddenWidgets={widgets.filter(w => !w.visible)} onRestore={restoreWidget} />
-            <button onClick={() => setShowBuilder(true)} className="btn-create-chart">
-              + Crear nuevo gráfico
-            </button>
-          </div>
-          <div
-            className="overview-grid"
-            onDragOver={(e) => e.preventDefault()}
-          >
-            {widgets
-              .filter(w => w.visible)
-              .sort((a, b) => a.order - b.order)
-              .map((widget) => (
-                <div
-                  key={widget.id}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('widgetId', widget.id)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const draggedId = e.dataTransfer.getData('widgetId');
-                    if (draggedId === widget.id) return;
-                    const ids = widgets
-                      .filter(w => w.visible)
-                      .sort((a, b) => a.order - b.order)
-                      .map(w => w.id);
-                    const fromIdx = ids.indexOf(draggedId);
-                    const toIdx   = ids.indexOf(widget.id);
-                    if (fromIdx === -1 || toIdx === -1) return;
-                    const newIds = [...ids];
-                    newIds.splice(fromIdx, 1);
-                    newIds.splice(toIdx, 0, draggedId);
-                    reorderWidgets(newIds);
-                  }}
-                  style={{ cursor: 'grab' }}
-                >
-                  <WidgetWrapper
-                    id={widget.id}
-                    title={widget.title}
-                    isDefault={widget.isDefault}
-                    onRemove={deleteWidget || removeWidget}
-                  >
-                    {widget.id === 'kpi_block' && (
-                      <div className="overview-cards">
-                        <div className="overview-card">
-                          <span className="overview-card-title">Ventas Este Mes</span>
-                          {loadingOverview
-                            ? <span className="overview-card-value">...</span>
-                            : <span className="overview-card-value">{fmt$(overview?.ventasEsteMes?.monto)}</span>
-                          }
-                        </div>
-                        <div className="overview-card">
-                          <span className="overview-card-title">Clientes Activos</span>
-                          {loadingOverview
-                            ? <span className="overview-card-value">...</span>
-                            : <span className="overview-card-value">{overview?.clientesActivos?.total ?? '-'}</span>
-                          }
-                          {!loadingOverview && overview?.clientesActivos?.nuevosEsteMes != null && (
-                            <span className="overview-card-sub positive">+{overview.clientesActivos.nuevosEsteMes} nuevos</span>
-                          )}
-                        </div>
-                        <div className="overview-card">
-                          <span className="overview-card-title">Tareas Pendientes</span>
-                          {loadingOverview
-                            ? <span className="overview-card-value">...</span>
-                            : <span className="overview-card-value">{overview?.tareasPendientes?.total ?? '-'}</span>
-                          }
-                        </div>
-                        <div className="overview-card">
-                          <span className="overview-card-title">Tasa de Conversión</span>
-                          {loadingOverview
-                            ? <span className="overview-card-value">...</span>
-                            : <span className="overview-card-value">{overview?.tasaConversion?.porcentaje ?? '-'}%</span>
-                          }
-                        </div>
-                      </div>
-                    )}
-                    {widget.type === 'ventas_panel'     && <VentasOverview />}
-                    {widget.type === 'clientes_panel'   && <ClientesOverview />}
-                    {widget.type === 'prospectos_panel' && <ProspectosOverview />}
-                    {!['kpi_block','ventas_panel','clientes_panel','prospectos_panel'].includes(widget.id) &&
-                     !['ventas_panel','clientes_panel','prospectos_panel'].includes(widget.type) && (
-                      <DynamicChart config={widget} />
-                    )}
-                  </WidgetWrapper>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      )
-    },
-    clients:      { title: 'Clientes',           content: () => <Clientes /> },
-    ventas:       { title: 'Ventas',              content: () => <VentasSection /> },
-    alerts:       { title: 'Alertas',             content: () => <AlertasSection /> },
-    importar:     { title: 'Importar Excel',      content: () => <ImportarExcelSection /> },
-    'api-import': { title: 'Importación por API', content: () => <ApiImportSection /> },
-    exportar:     { title: 'Exportar Datos',      content: () => <ExportarDatos /> }
-  }
+  const navItems = [
+    // Grupo Principal
+    { type: 'item', label: 'Overview', icon: 'bi-grid', internalSection: 'overview' },
+    { type: 'item', label: 'Clientes', icon: 'bi-people', internalSection: 'clients' },
+    { type: 'item', label: 'Ventas', icon: 'bi-cart', internalSection: 'ventas' },
+    { type: 'item', label: 'Alertas', icon: 'bi-bell', internalSection: 'alerts' },
+    
+    // Grupo RRHH
+    { type: 'group', label: 'RRHH' },
+    { type: 'item', label: 'Colaboradores', icon: 'bi-person-badge', internalSection: 'colaboradores' },
+    { type: 'item', label: 'Remuneraciones', icon: 'bi-cash-coin', internalSection: 'remuneraciones' },
+    { type: 'item', label: 'Evaluación', icon: 'bi-clipboard-check', internalSection: 'evaluacion' },
+    { type: 'item', label: 'Documentos', icon: 'bi-file-earmark-text', internalSection: 'documentos' },
+    { type: 'item', label: 'Reclutamiento', icon: 'bi-person-plus', internalSection: 'reclutamiento' },
+    { type: 'item', label: 'Distribución', icon: 'bi-diagram-3', internalSection: 'distribucion' },
+    
+    // Grupo Inventario
+    { type: 'group', label: 'INVENTARIO' },
+    { type: 'item', label: 'Productos', icon: 'bi-box', internalSection: 'productos' },
+    { type: 'item', label: 'Stock', icon: 'bi-boxes', internalSection: 'stock' },
+    { type: 'item', label: 'Proveedores', icon: 'bi-truck', internalSection: 'proveedores' },
+    { type: 'item', label: 'Entregas', icon: 'bi-box-seam', internalSection: 'entregas' },
+    { type: 'item', label: 'Compras', icon: 'bi-cart', internalSection: 'compras' },
+    
+    // Grupo Formación
+    { type: 'group', label: 'FORMACIÓN' },
+    { type: 'item', label: 'Shark Academy', icon: 'bi-mortarboard', internalSection: 'academy' },
+    
+    // Grupo Sistema
+    { type: 'group', label: 'SISTEMA' },
+    { type: 'item', label: 'Automatizaciones', icon: 'bi-gear-wide-connected', internalSection: 'automatizaciones' },
+    { type: 'item', label: 'Importar Excel', icon: 'bi-file-earmark-excel', internalSection: 'importar' },
+    { type: 'item', label: 'Importación API', icon: 'bi-cloud-download', internalSection: 'api-import' },
+    { type: 'item', label: 'Exportar datos', icon: 'bi-download', internalSection: 'exportar' },
+  ]
 
-  const currentSection = sections[activeSection]
+  // Función para renderizar el contenido según la sección activa
+  const renderContent = () => {
+    switch (activeSection) {
+      // Principal
+      case 'overview':
+        return <DashboardOverview user={user} />;
+      case 'clients':
+        return <Clientes />;
+      case 'ventas':
+        return <VentasSection />;
+      case 'alerts':
+        return <AlertasSection />;
+      
+      // Inventario
+      case 'productos':
+        return <ProductosSection />;
+      case 'stock':
+        return <InventarioSection />;
+      case 'proveedores':
+        return <ProveedoresSection />;
+      case 'entregas':
+        return <EntregasSection />;
+      case 'compras':
+        return <ComprasSection />;
+      
+      // RRHH
+      case 'colaboradores':
+        return <ColaboradoresSection />;
+      case 'remuneraciones':
+        return <RemuneracionesSection />;
+      case 'evaluacion':
+        return <EvaluacionSection />;
+      case 'reclutamiento':
+        return <ReclutamientoSection />;
+      
+      // Sistema
+      case 'importar':
+        return <ImportarExcelSection />;
+      case 'api-import':
+        return <ApiImportSection />;
+      case 'exportar':
+        return <ExportarDatos />;
+      case 'distribucion':
+        return <DistribucionSection />;
+      case 'academy':
+        return <AcademySection />;
+      
+      case 'documentos':
+          return <DocumentosSection />;
+      // Secciones pendientes (placeholder)
+      case 'automatizaciones':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+            <i className="bi bi-gear" style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}></i>
+            <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>
+              {navItems.find(item => item.internalSection === activeSection)?.label || 'Sección'}
+            </h2>
+            <p>Esta sección estará disponible próximamente.</p>
+          </div>
+        );
+      
+      default:
+        return <DashboardOverview user={user} />;
+    }
+  };
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}><p>Cargando...</p></div>
@@ -198,18 +168,7 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <SessionWarning
-        onExtend={async () => {
-          try {
-            const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-            const data = await res.json();
-            if (data.accessToken) {
-              const { setAccessToken } = await import('../../config/authStorage');
-              const { setAccessToken: setApiToken } = await import('../../api/axios');
-              setAccessToken(data.accessToken);
-              setApiToken(data.accessToken);
-            }
-          } catch {}
-        }}
+        onExtend={extendSession}
         onLogout={logout}
       />
       <header className="dashboard-header">
@@ -233,16 +192,28 @@ function Dashboard() {
         </div>
       </header>
       <div className="dashboard-main">
-        <aside className="dashboard-sidebar">
+        <aside className="dashboard-sidebar sidebar">
           <nav className="sidebar-nav">
-            <button className={'nav-item ' + (activeSection === 'overview'    ? 'active' : '')} onClick={() => setActiveSection('overview')}><i className="bi bi-speedometer2"></i><span>Overview</span></button>
-            <button className={'nav-item ' + (activeSection === 'clients'     ? 'active' : '')} onClick={() => setActiveSection('clients')}><i className="bi bi-people"></i><span>Clientes</span></button>
-            <button className={'nav-item ' + (activeSection === 'ventas'      ? 'active' : '')} onClick={() => setActiveSection('ventas')}><i className="bi bi-cash-coin"></i><span>Ventas</span></button>
-            <button className={'nav-item ' + (activeSection === 'alerts'      ? 'active' : '')} onClick={() => setActiveSection('alerts')}><i className="bi bi-bell"></i><span>Alertas</span></button>
-            <button className={'nav-item ' + (activeSection === 'importar'    ? 'active' : '')} onClick={() => setActiveSection('importar')}><i className="bi bi-file-earmark-arrow-up"></i><span>Importar Excel</span></button>
-            <button className={'nav-item ' + (activeSection === 'api-import'  ? 'active' : '')} onClick={() => setActiveSection('api-import')}><i className="bi bi-plug"></i><span>Importación por API</span></button>
+            {navItems.map((item, idx) => {
+              if (item.type === 'group') {
+                return <div key={`group-${idx}`} className="nav-group-title">{item.label}</div>
+              }
+              
+              const isActive = item.internalSection && activeSection === item.internalSection
+              
+              return (
+                <button
+                  key={`nav-${idx}`}
+                  className={`nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveSection(item.internalSection)}
+                  title={item.label}
+                >
+                  <i className={`bi ${item.icon}`}></i>
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
             <div className="sidebar-separator"></div>
-            <button className={'nav-item ' + (activeSection === 'exportar'    ? 'active' : '')} onClick={() => setActiveSection('exportar')}><i className="bi bi-download"></i><span>Exportar datos</span></button>
             <ImportToggle />
           </nav>
           <div className="sidebar-footer">
@@ -261,14 +232,16 @@ function Dashboard() {
           </div>
         </aside>
         <main className="dashboard-content">
-          <h2>{currentSection.title}</h2>
-          <div className="content-body">{currentSection.content()}</div>
+          <div className="content-body">
+            {renderContent()}
+          </div>
         </main>
-        <ChartBuilder isOpen={showBuilder} onClose={() => setShowBuilder(false)} onAdd={addWidget} />
       </div>
     </div>
   )
 }
 
 export default Dashboard
+
+
 

@@ -18,6 +18,13 @@ import Dashboard from './pages/dashboard/Dashboard'
 import DashboardEVO from './components/DashboardEVO'
 import Toaster from './components/ui/toaster'
 import ExportHistory from './pages/dashboard/ExportHistory'
+import AutomatizacionesSection from './components/configuracion/AutomatizacionesSection'
+import ConfiguracionAlertas from './components/configuracion/ConfiguracionAlertas'
+import ProductosSection from './components/inventario/ProductosSection'
+import InventarioSection from './components/inventario/InventarioSection'
+import ProveedoresSection from './components/inventario/ProveedoresSection'
+import EntregasSection from './components/inventario/EntregasSection'
+import ComprasSection from './components/inventario/ComprasSection'
 
 function App() {
   return (
@@ -76,6 +83,62 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ExportHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/configuracion/automatizaciones"
+              element={
+                <ProtectedRoute>
+                  <AutomatizacionesSection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/configuracion/alertas"
+              element={
+                <ProtectedRoute>
+                  <ConfiguracionAlertas />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventario/productos"
+              element={
+                <ProtectedRoute>
+                  <ProductosSection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventario/stock"
+              element={
+                <ProtectedRoute>
+                  <InventarioSection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventario/proveedores"
+              element={
+                <ProtectedRoute>
+                  <ProveedoresSection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventario/entregas"
+              element={
+                <ProtectedRoute>
+                  <EntregasSection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventario/compras"
+              element={
+                <ProtectedRoute>
+                  <ComprasSection />
                 </ProtectedRoute>
               }
             />

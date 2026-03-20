@@ -356,6 +356,13 @@ export default function ImportarExcelSection() {
                 <option value="clientes">👥  Clientes</option>
                 <option value="ventas">💰  Ventas</option>
                 <option value="leads">🎯  Leads</option>
+                <option value="colaboradores">👔  Colaboradores</option>
+                <option value="productos">📦  Productos</option>
+                <option value="proveedores">🏭  Proveedores</option>
+                <option value="stock">📊  Stock/Inventario</option>
+                <option value="compras">🛒  Compras</option>
+                <option value="entregas">🚚  Entregas</option>
+                <option value="candidatos">📋  Candidatos</option>
               </select>
             </div>
             <div style={S.fieldGroup}>
@@ -715,4 +722,7 @@ const S = {
                 background:'rgba(139,148,158,0.08)', color:'var(--color-text-secondary)', cursor:'pointer',
                 fontSize:'0.85rem', transition:'opacity 0.15s' },
 };
+
+
+
 

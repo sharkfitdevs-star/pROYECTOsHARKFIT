@@ -37,7 +37,7 @@
 //
 // Genera el código completo con React 18 (importando desde 'react'), sin TypeScript, usando funciones y hooks.
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { setAccessToken as setApiToken, clearAccessToken as clearApiToken, setAuthHooks } from "../api/axios";
 import { getAccessToken, setAccessToken, clearAccessToken, TOKEN_KEY } from "../config/authStorage";
@@ -287,6 +287,22 @@ export function AuthProvider({ children }) {
     navigate('/login');
   };
 
+  // refresh explícito para mantener sesión activa desde el modal de inactividad
+  const extendSession = useCallback(async () => {
+    const res = await api.post('/auth/refresh');
+    const refreshedToken = res?.data?.accessToken || null;
+
+    if (!refreshedToken) {
+      throw new Error('No se recibió accessToken al refrescar sesión');
+    }
+
+    setToken(refreshedToken);
+    setApiToken(refreshedToken);
+    setAccessToken(refreshedToken);
+    window.dispatchEvent(new Event('session:extended'));
+    return refreshedToken;
+  }, []);
+
   const isAuthenticated = !!token;
 
   // helper used internally to sync state without talking to backend
@@ -380,6 +396,7 @@ export function AuthProvider({ children }) {
     error,
     login,
     logout,
+    extendSession,
     // import control
     importsConnected,
     importsConnectionError,

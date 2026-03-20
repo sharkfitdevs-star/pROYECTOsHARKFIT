@@ -1,74 +1,68 @@
-import client from '../client';
-import { API_ENDPOINTS } from '../endpoints';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005/api';
 
-class ExtractorService {
-
+const ExtractorService = {
   async getConfigs() {
-    const res = await client.get(API_ENDPOINTS.EXTRACTOR.CONFIG);
-    return res.data;
-  }
-
-  async saveConfig(data) {
-    const res = await client.post(API_ENDPOINTS.EXTRACTOR.CONFIG, data);
-    return res.data;
-  }
-
-  async run({ configId, dataset, dateRange }) {
-    try {
-      const res = await client.post(API_ENDPOINTS.EXTRACTOR.RUN, { configId, dataset, dateRange });
-      return res.data;
-    } catch (err) {
-      if (err.response?.status === 409) {
-        return err.response.data;
-      }
-      throw err;
-    }
-  }
-
-  // Flujo nuevo: estimar requests y validar límites antes de confirmar
-  async previewImport(configId, selections, dateRange) {
-    const res = await client.post(API_ENDPOINTS.EXTRACTOR.PREVIEW, { configId, selections, dateRange });
-    return res.data;
-  }
-
-  async resolve({ jobId, strategy, configId, dataset, dateRange }) {
-    const res = await client.post(API_ENDPOINTS.EXTRACTOR.RESOLVE, {
-      jobId, strategy, configId, dataset, dateRange,
+    const response = await fetch(`${API_URL}/extractor/configuraciones`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
     });
-    return res.data;
-  }
+    if (!response.ok) throw new Error('Error al obtener configuraciones');
+    return response.json();
+  },
 
-  async getStatus(jobId) {
-    const res = await client.get(API_ENDPOINTS.EXTRACTOR.STATUS(jobId));
-    return res.data;
-  }
+  async getConfiguraciones() {
+    return this.getConfigs();
+  },
 
-  async getLogs({ source, status, limit = 20 } = {}) {
-    const res = await client.get(API_ENDPOINTS.EXTRACTOR.LOGS, {
-      params: { source, status, limit },
+  async getLogs(filtros = {}) {
+    const params = new URLSearchParams(filtros).toString();
+    const response = await fetch(`${API_URL}/extractor/historial?${params}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
     });
-    return res.data;
-  }
+    if (!response.ok) throw new Error('Error al obtener logs');
+    return response.json();
+  },
 
-  async discoverData(configId) {
-    const res = await client.post(API_ENDPOINTS.EXTRACTOR.DISCOVER, { configId });
-    return res.data;
-  }
+  async importarDatos(archivo, opciones = {}) {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    Object.keys(opciones).forEach(key => formData.append(key, opciones[key]));
+    const response = await fetch(`${API_URL}/extractor/importar`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      body: formData
+    });
+    if (!response.ok) throw new Error('Error al importar datos');
+    return response.json();
+  },
 
-  async runSelective(configId, selections = []) {
-    try {
-      const res = await client.post(API_ENDPOINTS.EXTRACTOR.RUN_SELECTIVE, {
-        configId,
-        selections,
-      });
-      return res.data;
-    } catch (err) {
-      if (err.response?.status === 409) {
-        return err.response.data;
-      }
-      throw err;
-    }
-  }
-}
+  async getHistorialImportaciones(filtros = {}) {
+    const params = new URLSearchParams(filtros).toString();
+    const response = await fetch(`${API_URL}/extractor/historial?${params}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener historial');
+    return response.json();
+  },
 
-export default new ExtractorService();
+  async getPlantillas() {
+    const response = await fetch(`${API_URL}/extractor/plantillas`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener plantillas');
+    return response.json();
+  },
+
+  async validarArchivo(archivo) {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    const response = await fetch(`${API_URL}/extractor/validar`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      body: formData
+    });
+    if (!response.ok) throw new Error('Error al validar archivo');
+    return response.json();
+  }
+};
+
+export default ExtractorService;

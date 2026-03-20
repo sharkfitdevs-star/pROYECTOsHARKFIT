@@ -132,6 +132,7 @@ const alertasRoutes = require('./routes/alertasRouter');
 const reportesRoutes = require('./routes/reportesNew');
 const importRoutes = require('./routes/import');
 const exportRoutes = require('./routes/export');  // nuevo
+const inventarioRouter = require('./routes/inventario');
 const webhooksRoutes = require('./routes/webhooks');
 const evoRoutes = require('./routes/evo');
 const syncRoutes = require('./routes/syncNew');
@@ -148,6 +149,7 @@ app.use('/api/alertas', alertasRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/export', exportRoutes);  // rutas de exportación/importación de datos
+app.use('/api/inventario', inventarioRouter);
 app.use('/api/extractor', require('./routes/extractorRouter'));
 
 app.use('/api/webhooks', webhooksRoutes);

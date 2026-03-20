@@ -1,23 +1,25 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const widgetSchema = new mongoose.Schema({
-  id:         { type: String, required: true },
-  type:       { type: String, required: true },
-  title:      { type: String, default: '' },
-  dataSource: { type: String, default: '' },
-  dataKey:    { type: String, default: '' },
-  visible:    { type: Boolean, default: true },
-  order:      { type: Number, default: 0 },
-  size:       { type: String, default: 'medium' },
-  color:      { type: String, default: '#a78bfa' },
-  isDefault:  { type: Boolean, default: false },
-  createdAt:  { type: String, default: '' },
-}, { _id: false });
+const WidgetSchema = new Schema({
+  tipo: { type: String, required: true },
+  titulo: { type: String },
+  posicion: { x: Number, y: Number },
+  tamaño: { w: Number, h: Number },
+  configuracion: { type: Schema.Types.Mixed },
+  visible: { type: Boolean, default: true }
+}, { _id: true });
 
-const overviewLayoutSchema = new mongoose.Schema({
-  userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true, unique: true },
-  widgets:   { type: [widgetSchema], default: [] },
-  updatedAt: { type: Date, default: Date.now },
-}, { timestamps: false, collection: 'overview_layouts' });
+const OverviewLayoutSchema = new Schema({
+  usuario: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  rol: { type: String, required: true },
+  sede: { type: String },
+  widgets: [WidgetSchema],
+  layout_guardado: { type: Schema.Types.Mixed },
+  es_default: { type: Boolean, default: false },
+  activo: { type: Boolean, default: true }
+}, { timestamps: true });
 
-module.exports = mongoose.model('OverviewLayout', overviewLayoutSchema);
+OverviewLayoutSchema.index({ usuario: 1, rol: 1 }, { unique: true });
+
+module.exports = mongoose.model('OverviewLayout', OverviewLayoutSchema);

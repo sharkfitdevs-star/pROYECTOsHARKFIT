@@ -185,7 +185,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/importados', requireAuth, async (req, res) => {
   try {
-    const result = await Venta.deleteMany({ source: 'import_excel' });
+    const result = await Venta.deleteMany({ source: { $in: ['import_excel', 'import', 'excel', 'api'] } });
     res.json({ ok: true, deleted: result.deletedCount });
   } catch (error) {
     res.status(500).json({ ok: false, error: 'Error al eliminar ventas importadas' });
@@ -256,3 +256,4 @@ router.delete('/:id', async (req, res) => {
 
 
 module.exports = router;
+

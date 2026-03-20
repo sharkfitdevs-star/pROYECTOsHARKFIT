@@ -445,3 +445,4 @@ const paginaBtnStyle = {
   fontSize: '0.83rem',
   color: 'var(--color-text-secondary)',
 };
+

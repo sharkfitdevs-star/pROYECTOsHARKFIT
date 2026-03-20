@@ -16,6 +16,7 @@ function getTokenExpiry(token) {
 export default function SessionWarning({ onExtend, onLogout }) {
   const [visible, setVisible]       = useState(false);
   const [countdown, setCountdown]   = useState(120);
+  const [isExtending, setIsExtending] = useState(false);
   const countdownRef                = useRef(null);
   const checkRef                    = useRef(null);
 
@@ -59,9 +60,18 @@ export default function SessionWarning({ onExtend, onLogout }) {
   }, [visible, startCountdown]);
 
   const handleExtend = async () => {
+    if (isExtending) return;
+    setIsExtending(true);
     setVisible(false);
     clearInterval(countdownRef.current);
-    if (onExtend) await onExtend();
+    setCountdown(120);
+    try {
+      if (onExtend) await onExtend();
+    } catch {
+      // si falla, el interceptor de auth gestiona expiracion y redireccion
+    } finally {
+      setIsExtending(false);
+    }
   };
 
   const handleLogout = () => {
@@ -112,10 +122,12 @@ export default function SessionWarning({ onExtend, onLogout }) {
             </button>
             <button
               onClick={handleExtend}
+              disabled={isExtending}
               style={{
                 padding: '9px 20px', borderRadius: '8px', border: 'none',
                 background: '#fbbf24', color: '#000', cursor: 'pointer',
                 fontSize: '0.875rem', fontWeight: 700,
+                opacity: isExtending ? 0.7 : 1,
               }}
             >
               Sí, continuar

@@ -202,6 +202,38 @@ export default function Dashboard() {
             >
               ⚙️ Admin
             </button>
+            <div style={{ height: '1px', background: 'rgba(59,130,246,0.3)', margin: '15px 0' }}></div>
+            <div className="nav-group-title">📦 Inventario</div>
+            <button
+              className="nav-item nav-subitem"
+              onClick={() => navigate('/inventario/productos')}
+            >
+              📋 Productos
+            </button>
+            <button
+              className="nav-item nav-subitem"
+              onClick={() => navigate('/inventario/stock')}
+            >
+              📦 Stock
+            </button>
+            <button
+              className="nav-item nav-subitem"
+              onClick={() => navigate('/inventario/proveedores')}
+            >
+              🏭 Proveedores
+            </button>
+            <button
+              className="nav-item nav-subitem"
+              onClick={() => navigate('/inventario/entregas')}
+            >
+              🚚 Entregas
+            </button>
+            <button
+              className="nav-item nav-subitem"
+              onClick={() => navigate('/inventario/compras')}
+            >
+              🛒 Compras
+            </button>
           </nav>
 
           <div className="sidebar-footer">

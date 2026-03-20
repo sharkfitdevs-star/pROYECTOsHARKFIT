@@ -18,6 +18,7 @@ const { errorHandler } = require("./middleware/errorHandler");
 const { seedOwner } = require("./utils/seedOwner");
 const { connectToDB } = require('./db/db');
 const { createApp, notFoundHandler } = require('./app.IMPROVED');
+const EventBus = require('./events/EventBus');
 const importRoutes = require("./routes/import");
 const sourcesRoutes = require("./routes/sources");
 const statsRoutes = require("./routes/stats");
@@ -28,7 +29,24 @@ const apiSetupRoutes = require("./routes/apiSetup");
 const healthRoutes = require("./routes/health");
 const clientesRoutes = require("./routes/clientesRoutes");
 const alertasRoutes = require("./routes/alertasRouter");
+const alertasRouter = require('./routes/alertas');
+const dashboardLayoutRouter = require('./routes/dashboardLayout');
+const dashboardWidgetsRouter = require('./routes/dashboardWidgets');
+const automatizacionesRoutes = require('./routes/automatizaciones');
+const reglasAlertasRoutes = require('./routes/reglasAlertas');
 const settingsRoutes = require("./routes/settings");
+const remuneracionesRouter = require('./routes/remuneraciones');
+const inventarioRouter = require('./routes/inventario');
+const colaboradoresRouter = require('./routes/colaboradores');
+const evaluacionesRouter = require('./routes/evaluaciones');
+const documentosRouter = require('./routes/documentos');
+const reclutamientoRouter = require('./routes/reclutamiento');
+const distribucionRouter = require('./routes/distribucion');
+const academyRouter = require('./routes/academy');
+const {
+  inicializarMotorAutomatizaciones,
+  registrarEventosSistema,
+} = require('./config/automatizaciones.integration');
 const { extractAllApis } = require("./index");
 const { getHealthCheckService } = require("./services/HealthCheckService");
 const EvoSession = require('./models/EvoSession');
@@ -140,6 +158,18 @@ const startServer = async () => {
     try {
       const ok = await connectToDB();
       logger.info(ok ? 'MongoDB conectado' : 'MongoDB no disponible');
+
+      if (ok) {
+        try {
+          await inicializarMotorAutomatizaciones(EventBus);
+          registrarEventosSistema(EventBus);
+          logger.info('Motor de automatizaciones inicializado');
+        } catch (automationError) {
+          logger.warn('No se pudo inicializar el motor de automatizaciones', {
+            message: automationError.message,
+          });
+        }
+      }
     } catch (err) {
       logger.error('Error conectando MongoDB:', { message: err.message });
     }
@@ -215,6 +245,8 @@ const startServer = async () => {
     app.use("/api/health", healthRoutes);
     app.use("/api/clientes", clientesRoutes);
     app.use("/api/alertas", alertasRoutes);
+    app.use('/api/automatizaciones', automatizacionesRoutes);
+    app.use('/api/reglas-alertas', reglasAlertasRoutes);
     const ventasRoutes = require("./routes/ventasNew");
     app.use("/api/ventas", ventasRoutes);
     app.use("/api/extractor", require("./routes/extractorRouter"));
@@ -226,10 +258,21 @@ const startServer = async () => {
     app.use("/api/evo", evoRoutes);
     app.use("/api/setup", apiSetupRoutes);
     app.use("/api/dashboard", require("./routes/dashboard"));
+    app.use('/api/dashboard/widgets', dashboardWidgetsRouter);
+    app.use('/api/remuneraciones', remuneracionesRouter);
+    app.use('/api/inventario', inventarioRouter);
+    app.use('/api/colaboradores', colaboradoresRouter);
+    app.use('/api/evaluaciones', evaluacionesRouter);
+    app.use('/api/documentos', documentosRouter);
+    app.use('/api/reclutamiento', reclutamientoRouter);
+    app.use('/api/distribucion', distribucionRouter);
+    app.use('/api/academy', academyRouter);
     app.use("/api/export", require("./routes/export"));
     app.use("/api/prospectos", require("./routes/prospectos"));
     app.use("/api/pagos", require("./routes/pagos"));
     app.use("/api/clases", require("./routes/clases"));
+    app.use('/api/alertas', alertasRouter);
+    app.use('/api/dashboard/layout', dashboardLayoutRouter);
     app.use(notFoundHandler);
 
     // Socket.io handlers

@@ -986,6 +986,13 @@ export default function ApiImportSection() {
                     { value: 'ambos',    label: 'Ventas y Clientes', color: '#7B9CFF', dot: '#7B9CFF' },
                     { value: 'ventas',   label: 'Solo Ventas',       color: '#1D9E75', dot: '#1D9E75' },
                     { value: 'clientes', label: 'Solo Clientes',     color: '#E89B2F', dot: '#E89B2F' },
+                    { value: 'colaboradores',label: 'Colaboradores',     color: '#9B59B6', dot: '#9B59B6' },
+                    { value: 'productos',    label: 'Productos',         color: '#3498DB', dot: '#3498DB' },
+                    { value: 'proveedores',  label: 'Proveedores',       color: '#E74C3C', dot: '#E74C3C' },
+                    { value: 'stock',        label: 'Stock/Inventario',  color: '#F39C12', dot: '#F39C12' },
+                    { value: 'compras',      label: 'Compras',           color: '#1ABC9C', dot: '#1ABC9C' },
+                    { value: 'entregas',     label: 'Entregas',          color: '#34495E', dot: '#34495E' },
+                    { value: 'candidatos',   label: 'Candidatos',        color: '#E91E63', dot: '#E91E63' },
                   ];
 
                   // Agregar datasets adicionales para EVO
@@ -1320,3 +1327,4 @@ export default function ApiImportSection() {
     </>
   );
 }
+

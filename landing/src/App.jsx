@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import "./App.css";
 
 // Contexto de autenticación
@@ -25,6 +26,19 @@ import DashboardEVO from "./components/DashboardEVO";
 import ExportHistory from "./pages/dashboard/ExportHistory";
 
 function App() {
+  // Listener global para auth:expired - redirige a login inmediatamente
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      console.log('[App] auth:expired - redirecting to login');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('authUser');
+      window.location.href = '/login';
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
@@ -81,3 +95,4 @@ function App() {
 }
 
 export default App;
+

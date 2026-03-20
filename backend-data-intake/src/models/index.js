@@ -26,6 +26,7 @@ const AccessRequest = require('./AccessRequest');
 const ExportRun = require('./ExportRun');
 const Membership = require('./Membership');
 const Payable = require('./Payable');
+const OverviewLayout = require('./OverviewLayout');
 
 module.exports = {
   Cliente,
@@ -44,6 +45,7 @@ module.exports = {
   Payable,
   SyncLog,
   ExtractorConfig,
+  OverviewLayout,
 
   // Mongo utility models/queries
   Webhook: MongoModels.Webhook,

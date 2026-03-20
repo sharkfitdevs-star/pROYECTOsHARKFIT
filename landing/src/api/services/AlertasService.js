@@ -1,71 +1,61 @@
-/**
- * Service: Gestión de Alertas
- * Usa el cliente axios central de landing/src/api/axios.js
- */
-import api from '../axios'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const AlertasService = {
-  async getPendientes(params = {}) {
-    const response = await api.get('/alertas/pendientes', { params })
-    return response.data
+  async getAlertas(filtros = {}) {
+    const params = new URLSearchParams(filtros).toString();
+    const response = await fetch(`${API_URL}/alertas?${params}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener alertas');
+    return response.json();
   },
 
-  async getAll(params = {}) {
-    const response = await api.get('/alertas', { params })
-    return response.data
+  async getAll(filtros = {}) {
+    const params = new URLSearchParams(filtros).toString();
+    const response = await fetch(`${API_URL}/alertas?${params}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener alertas');
+    return response.json();
   },
 
-  async getStats() {
-    const response = await api.get('/alertas/stats')
-    return response.data
+  async getPendientes() {
+    const response = await fetch(`${API_URL}/alertas/no-leidas`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener alertas pendientes');
+    return response.json();
   },
 
-  async getById(id) {
-    const response = await api.get(`/alertas/${id}`)
-    return response.data
+  async getAlertasNoLeidas() {
+    return this.getPendientes();
   },
 
-  async create(data) {
-    const response = await api.post('/alertas', data)
-    return response.data
+  async marcarLeida(alertaId) {
+    const response = await fetch(`${API_URL}/alertas/${alertaId}/leer`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al marcar alerta como leída');
+    return response.json();
   },
 
-  async cambiarEstado(id, nuevoEstado) {
-    const response = await api.put(`/alertas/${id}/estado`, { status: nuevoEstado })
-    return response.data
+  async marcarTodasLeidas() {
+    const response = await fetch(`${API_URL}/alertas/leer-todas`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al marcar alertas como leídas');
+    return response.json();
   },
 
-  async resolverAlerta(id, notas = '') {
-    const response = await api.post(`/alertas/${id}/resolver`, { resolutionNotes: notas })
-    return response.data
-  },
+  async getContadorNoLeidas() {
+    const response = await fetch(`${API_URL}/alertas/contador`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+    });
+    if (!response.ok) throw new Error('Error al obtener contador');
+    return response.json();
+  }
+};
 
-  async asignar(id, userId, userName) {
-    const response = await api.post(`/alertas/${id}/asignar`, { userId, userName })
-    return response.data
-  },
-
-  async descartar(id, motivo = '') {
-    const response = await api.post(`/alertas/${id}/descartar`, { motivo })
-    return response.data
-  },
-
-  async delete(id) {
-    const response = await api.delete(`/alertas/${id}`)
-    return response.data
-  },
-
-  async limpiarObsoletas(onlyActive = true) {
-    const response = await api.delete('/alertas/obsoletas', {
-      params: { onlyActive: onlyActive ? 'true' : 'false' }
-    })
-    return response.data
-  },
-
-  async limpiarTodas() {
-    const response = await api.delete('/alertas/all')
-    return response.data
-  },
-}
-
-export default AlertasService
+export default AlertasService;
