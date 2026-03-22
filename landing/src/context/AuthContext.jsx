@@ -259,23 +259,24 @@ export function AuthProvider({ children }) {
         console.debug('Saved token key:', TOKEN_KEY, 'len:', newToken?.length, 'head:', newToken?.slice(0,12));
       }
       return loggedUser;
-    } catch (err) {
-      const status = err?.response?.status;
-      // guard-log for server errors
-      if (status >= 500) {
-        const cfg = err.config || {};
-        const resolved = (cfg.baseURL || '') + (cfg.url || '');
-        const safeKeys = Object.keys(payload).filter(k => k !== 'password');
-        console.error('[LOGIN SERVER ERROR]', { status, resolvedUrl: resolved, payloadKeys: safeKeys });
+      } catch (error) {
+        const status = error?.response?.status;
+        // guard-log for server errors
+        if (status >= 500) {
+          const cfg = error.config || {};
+          const resolved = (cfg.baseURL || '') + (cfg.url || '');
+          const safeKeys = Object.keys(payload).filter(k => k !== 'password');
+          console.error('[LOGIN SERVER ERROR]', { status, resolvedUrl: resolved, payloadKeys: safeKeys });
+        }
+        const data = error?.response?.data || {};
+        const errorCode = data.error || 'ERROR';
+        const errorMessage2 = data.message || '';
+        const errorMessage = status 
+          ? `${status}_${errorCode}${errorMessage2 ? '|' + errorMessage2 : ''}`
+          : errorCode;
+        setError(errorMessage);
+        throw error;
       }
-      const msg =
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err.message ||
-        'Error al iniciar sesión';
-      setError(msg);
-      throw err;
-    }
   };
 
   const logout = () => {

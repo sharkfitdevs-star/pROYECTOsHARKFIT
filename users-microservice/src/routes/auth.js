@@ -7,11 +7,12 @@ const router = express.Router();
 
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 5 : 100,
+  max: process.env.NODE_ENV === 'production' ? 5 : 1000,
   message: { ok: false, error: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
+    if (process.env.NODE_ENV !== 'production') return req.ip;
     const body = req.body || {};
     const identifier = body.identifier || body.email || body.username || '';
     return identifier.toLowerCase() + '_' + req.ip;

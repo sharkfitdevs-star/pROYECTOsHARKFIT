@@ -89,13 +89,24 @@ function Login() {
               <span className="alert-icon">⚠️</span>
               <span>{
                 (() => {
-                  const err = authError || localError;
-                  if (!err) return '';
-                  if (err.includes('RATE_LIMIT') || err.includes('429')) return 'Demasiados intentos. Espera 15 minutos.';
-                  if (err.includes('ACCOUNT_LOCKED') || err.includes('423')) return 'Cuenta bloqueada temporalmente. Intenta más tarde.';
-                  if (err.includes('INVALID_CREDENTIALS') || err.includes('401')) return 'Email o contraseña incorrectos.';
-                  if (err.includes('VALIDATION_ERROR')) return 'Completa todos los campos.';
-                  if (err.includes('DB_NOT_READY') || err.includes('503')) return 'Servicio no disponible. Intenta más tarde.';
+                  const rawErr = authError || localError;
+                  if (!rawErr) return '';
+                  const err = typeof rawErr === 'string' 
+                    ? rawErr 
+                    : rawErr?.message || rawErr?.error || JSON.stringify(rawErr);
+                  if (!err) return 'Error al iniciar sesión.';
+                  const e = err.toUpperCase();
+                  if (e.includes('RATE_LIMIT') || e.includes('429')) return 'Demasiados intentos. Espera 15 minutos.';
+                  if (e.includes('ACCOUNT_LOCKED') || e.includes('423')) {
+                    const parts = err.split('|');
+                    const msg = parts[1] || '';
+                    const match = msg.match(/(\d+)\s*minuto/i);
+                    if (match) return `Cuenta bloqueada. Intenta en ${match[1]} minuto(s).`;
+                    return 'Cuenta bloqueada temporalmente. Intenta en 15 minutos.';
+                  }
+                  if (e.includes('INVALID_CREDENTIALS') || e.includes('401')) return 'Email o contraseña incorrectos.';
+                  if (e.includes('VALIDATION_ERROR')) return 'Completa todos los campos.';
+                  if (e.includes('503') || e.includes('DB_NOT')) return 'Servicio no disponible.';
                   return 'Error al iniciar sesión. Intenta nuevamente.';
                 })()
               }</span>
