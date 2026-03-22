@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTheme } from '../../hooks/useTheme';
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ExportarDatos from './ExportarDatos'
@@ -27,6 +28,7 @@ import AcademySection from '../../components/formacion/AcademySection';
 import DocumentosSection from '../../components/rrhh/DocumentosSection';
 
 function Dashboard() {
+  const { theme, toggleTheme } = useTheme();
   const [activeSection, setActiveSection] = useState('overview')
   const [loading, setLoading] = useState(true)
   const { user, logout, extendSession } = useAuth()
@@ -180,6 +182,14 @@ function Dashboard() {
           <NotificationsDropdown
             onNavigateToAlertas={() => { setActiveSection('alerts') }}
           />
+          <button
+            className="btn-icon"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            style={{ fontSize: '1.1rem' }}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <button className="btn-icon" onClick={() => { logout(); navigate('/login') }} title="Salir">
             <i className="bi bi-box-arrow-right"></i>
           </button>

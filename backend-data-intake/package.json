@@ -14,6 +14,8 @@
     "test:one": "cross-env NODE_ENV=test jest tests/settings.routes.test.js --runInBand --detectOpenHandles",
     "migrate:sqlite-to-mongo": "echo \"DEPRECATED: sqlite migration removed; use web/API ingestion\"",
     "seed": "node src/scripts/seedData.js",
+    "seed:demo": "node scripts/seedDemo.js",
+    "seed:demo:force": "node scripts/seedDemo.js --force",
     "evo-proxy": "node src/evo-w12-proxy.js",
     "evo-add-credentials": "node scripts/add-evo-credentials.js",
     "evo-encrypt-token": "node scripts/encrypt-token.js",
