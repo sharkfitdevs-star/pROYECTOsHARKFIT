@@ -37,7 +37,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     expose:
-      - "5173"
+      - "80"
     environment:
       - VITE_API_URL=${VITE_API_URL}
       - VITE_APP_NAME=${VITE_APP_NAME}
@@ -46,7 +46,7 @@ services:
       - users-microservice
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -56,12 +56,12 @@ services:
       context: ./landing
       dockerfile: Dockerfile
     expose:
-      - "3000"
+      - "80"
     environment:
       - NODE_ENV=${NODE_ENV}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
       interval: 30s
       timeout: 10s
       retries: 3

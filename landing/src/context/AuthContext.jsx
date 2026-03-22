@@ -284,7 +284,13 @@ export function AuthProvider({ children }) {
     setUser(null);
     clearApiToken();
     clearAccessToken();
-    localStorage.removeItem('authUser');
+    try {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
+      sessionStorage.clear();
+    } catch(e) {}
     navigate('/login');
   };
 
