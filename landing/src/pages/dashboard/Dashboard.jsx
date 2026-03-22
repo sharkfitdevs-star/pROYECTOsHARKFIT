@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import ExportarDatos from './ExportarDatos'
 import { createToast } from '@/components/ui/use-toast'
 import ImportarExcelSection from './ImportarExcelSection'
+import MigracionBDSection from './MigracionBDSection';
 import Clientes from './Clientes'
 import VentasSection from './VentasSection'
 import AlertasSection from './AlertasSection'
@@ -93,6 +94,7 @@ function Dashboard() {
     { type: 'group', label: 'SISTEMA' },
     { type: 'item', label: 'Automatizaciones', icon: 'bi-gear-wide-connected', internalSection: 'automatizaciones' },
     { type: 'item', label: 'Importar Excel', icon: 'bi-file-earmark-excel', internalSection: 'importar' },
+    { type: 'item', label: 'Migración BD', icon: 'bi-database-up', internalSection: 'migracion-bd' },
     { type: 'item', label: 'Importación API', icon: 'bi-cloud-download', internalSection: 'api-import' },
     { type: 'item', label: 'Exportar datos', icon: 'bi-download', internalSection: 'exportar' },
   ]
@@ -135,6 +137,8 @@ function Dashboard() {
       // Sistema
       case 'importar':
         return <ImportarExcelSection />;
+      case 'migracion-bd':
+        return <MigracionBDSection />;
       case 'api-import':
         return <ApiImportSection />;
       case 'exportar':
