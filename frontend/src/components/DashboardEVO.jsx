@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -5,17 +6,25 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import './DashboardEVO.css';
-import api from '../api/axios';
+import api, { setAccessToken } from '../api/axios';
 
 const TENANT_ID = import.meta.env.VITE_TENANT_ID || 'gym-vendify-001';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
-export default function DashboardEVO() {
+const DashboardEVO = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [sourceMode, setSourceMode] = useState('auto'); // auto | extractor | db | demo
+
+  // Restaurar token desde localStorage si la memoria está vacía
+  useEffect(() => {
+    const savedToken = localStorage.getItem('accessToken');
+    if (savedToken) {
+      setAccessToken(savedToken);
+    }
+  }, []);
 
   // fetch con soporte AbortController y memoización
   const fetchDashboardData = useCallback(async ({ signal, mode } = {}) => {

@@ -1,0 +1,53 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:security/recommended"
+  ],
+  "plugins": ["react", "react-hooks", "security", "import"],
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "rules": {
+    "no-console": ["error", { "allow": ["warn", "error", "info"] }],
+    "no-eval": "error",
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "security/detect-object-injection": "off",
+    "import/order": ["error", {
+      "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+      "newlines-between": "always"
+    }],
+    "sort-imports": ["error", {
+      "ignoreCase": true,
+      "ignoreDeclarationSort": true,
+      "ignoreMemberSort": false
+    }],
+    "semi": ["error", "always"],
+    "quotes": ["error", "single"],
+    "max-len": ["warn", { "code": 100 }],
+    "no-unused-vars": ["warn", { "args": "none" }],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-async-promise-executor": "error",
+    "require-await": "error"
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  }
+}

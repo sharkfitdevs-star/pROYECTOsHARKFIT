@@ -28,6 +28,10 @@ if (process.env.NODE_ENV === 'production' && ACCESS_TOKEN_SECRET === 'change-me'
 }
 
 const requireAuth = async (req, res, next) => {
+  console.log('[DEBUG-AUTH] Headers recibidos:', {
+    authorization: req.headers.authorization,
+    'x-session-token': req.headers['x-session-token']
+  });
   // if database isn't ready, avoid crashing deeper layers
   if (!mongoose.connection || mongoose.connection.readyState !== 1) {
     logger.warn('[auth] requireAuth failed', { reason: 'db_unavailable', readyState: mongoose.connection ? mongoose.connection.readyState : null });

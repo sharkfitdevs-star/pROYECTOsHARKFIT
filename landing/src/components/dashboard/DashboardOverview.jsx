@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { WidgetGrid } from './widgets';
+import { WidgetGrid } from './widgets'; // La ruta se actualiza en el index.js
 import DashboardWidgetsService from '../../api/services/DashboardWidgetsService';
 import './DashboardOverview.css';
 
@@ -192,6 +192,7 @@ const DashboardOverview = ({ user }) => {
           <WidgetGrid 
             config={config}
             onConfigChange={setConfig}
+            token={user?.accessToken || user?.token || localStorage.getItem('accessToken') || localStorage.getItem('token') || ''}
           />
         ) : (
           <div className="no-widgets-message">

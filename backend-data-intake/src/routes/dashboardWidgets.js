@@ -325,6 +325,32 @@ router.post('/data/batch', requireAuth, async (req, res) => {
   }
 });
 
+// ==================== RUTA BATCH AGREGADA ====================
+router.post('/batch', requireAuth, async (req, res) => {
+  try {
+    const { widgets, sede, fechaInicio, fechaFin } = req.body;
+    const results = await Promise.all(
+      widgets.map(async (codigo) => {
+        const data = await DashboardService.getWidgetData(
+          codigo,
+          { sede, fechaInicio, fechaFin },
+          req.user
+        );
+        return { codigo, data };
+      })
+    );
+    const dataMap = {};
+    results.forEach(r => { dataMap[r.codigo] = r.data; });
+    res.json({
+      success: true,
+      data: dataMap,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 // SEED WIDGETS INICIALES
 // ============================================================================

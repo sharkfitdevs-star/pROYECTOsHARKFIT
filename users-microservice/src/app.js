@@ -1,3 +1,4 @@
+const cors = require('cors');
 const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
@@ -31,8 +32,22 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+
 const app = express();
 app.use(express.json());
+
+// CORS explícito para desarrollo y frontend local
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5174',
+    process.env.CORS_ORIGIN
+  ].filter(Boolean),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-internal-api-key']
+}));
 
 // dev‑only request logger with uuid and 401 header
 if (process.env.NODE_ENV !== 'production') {

@@ -3,7 +3,11 @@
   "private": true,
   "scripts": {
     "dev:all": "concurrently -n USERS,INTAKE,FRONT \"npm --prefix users-microservice run dev\" \"npm --prefix backend-data-intake run dev\" \"npm --prefix landing run dev\"",
-    "dev:stable": "powershell -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1"
+    "dev:stable": "powershell -NoProfile -ExecutionPolicy Bypass -File ./dev.ps1",
+    "lint": "eslint . --ext .js,.jsx --max-warnings 0",
+    "lint:fix": "eslint . --ext .js,.jsx --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,md}\""
   },
   "dependencies": {
     "concurrently": "^8.0.1",

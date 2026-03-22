@@ -12,62 +12,19 @@ const baseURL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL,
-  timeout: 15000,
-  withCredentials: true,  // ✅ CRÍTICO: Envía cookies automáticamente
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// Cliente separado para refresh (evita interceptor infinito)
-const refreshClient = axios.create({
-  baseURL,
-  timeout: 15000,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// ✅ Access token en memoria (NO en localStorage para protección XSS)
-let accessToken = null;
-let isRefreshing = false;
-let pendingQueue = [];
-
-export const setAccessToken = (token) => {
-  accessToken = token || null;
-};
-
-export const clearAccessToken = () => {
-  accessToken = null;
-};
-
-export const getAccessToken = () => accessToken;
-
-/**
- * ✅ Renovar access token usando refresh token de la cookie httpOnly
- * La cookie se envía automáticamente porque withCredentials=true
- * NO necesitamos extraer el refresh token del localStorage
- */
-export const refreshAccessToken = async () => {
-  if (isRefreshing) {
-    return new Promise((resolve) => {
-      pendingQueue.push(resolve);
-    });
-  }
-
-  isRefreshing = true;
-
-  try {
-    const response = await refreshClient.post('/auth/refresh');
-    const newToken = response.data?.accessToken || null;
-    
-    if (newToken) {
-      setAccessToken(newToken);
-      pendingQueue.forEach((resolve) => resolve(newToken));
-      pendingQueue = [];
-      return newToken;
-    } else {
+  // Interceptor para agregar el access token a cada request
+  api.interceptors.request.use(
+    (config) => {
+      const tokenToUse = accessToken 
+        || localStorage.getItem('authToken') || localStorage.getItem('accessToken')
+        || sessionStorage.getItem('authToken') || sessionStorage.getItem('accessToken');
+      if (tokenToUse) {
+        config.headers.Authorization = `Bearer ${tokenToUse}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
       throw new Error('No access token en refresh response');
     }
   } catch (error) {
@@ -89,8 +46,14 @@ export const refreshAccessToken = async () => {
 // ✅ Interceptor REQUEST: Agregar access token al header Authorization
 api.interceptors.request.use(
   (config) => {
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    const tokenToUse = accessToken 
+      || localStorage.getItem('authToken') || localStorage.getItem('accessToken')
+      || sessionStorage.getItem('authToken') || sessionStorage.getItem('accessToken');
+    console.log('[DEBUG-AXIOS] Token en interceptor:', tokenToUse ? tokenToUse.substring(0,20)+'...' : 'VACÍO');
+    console.log('[DEBUG-AXIOS] accessToken en memoria:', accessToken ? 'TIENE VALOR' : 'NULL');
+    console.log('[DEBUG-AXIOS] localStorage accessToken:', localStorage.getItem('accessToken') ? 'TIENE VALOR' : 'NULL');
+    if (tokenToUse) {
+      config.headers.Authorization = `Bearer ${tokenToUse}`;
     }
     return config;
   },

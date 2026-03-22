@@ -2,7 +2,9 @@
 // en principio sólo se usa desde AuthContext.jsx, pero tenerlo
 // separado permite reutilizarlo en el futuro.
 
+
 import axios from "axios";
+import { TOKEN_KEY, getAccessToken as getStoredToken } from '../config/authStorage';
 
 const baseURL = import.meta.env.VITE_API_URL || "/api";
 
@@ -94,36 +96,34 @@ export function setAuthHooks({ markImportsForbidden }) {
 }
 
 // request interceptor: attach token from memory or storage, log in dev
-api.interceptors.request.use((config) => {
-  // ensure auth header present if we have a token stored or persisted
-  const POSSIBLE_KEYS = ['authToken', 'accessToken', 'token', 'jwt'];
-  const storedToken = POSSIBLE_KEYS.reduce(
-    (found, key) => found || localStorage.getItem(key), null
-  );
-  const token = accessToken || storedToken;
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-    // keep in-memory ref in sync so subsequent calls don't re-read storage
-    if (!accessToken && token) accessToken = token;
-  }
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[AXIOS REQ]', config.method, config.url, 'headers', {
-      authorization: config.headers?.Authorization
-    });
-  }
-
-  // guard: block any attempt to hit the imports connection endpoint if we
-  // already know it's forbidden for this session.
-  const url = config.url || '';
-  if (url.includes('/api/settings/imports-connection') &&
-      sessionStorage.getItem('importsToggleForbidden') === '1') {
-    const err = new Error('imports-connection forbidden (guard)');
-    err.code = 'IMPORTS_FORBIDDEN_GUARD';
-    return Promise.reject(err);
-  }
-  return config;
-});
+api.interceptors.request.use(
+  (config) => {
+    const tokenToUse = accessToken
+      || getStoredToken()
+      || localStorage.getItem(TOKEN_KEY);
+    if (tokenToUse) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${tokenToUse}`;
+      if (!accessToken && tokenToUse) accessToken = tokenToUse;
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[AXIOS REQ]', config.method, config.url, 'headers', {
+        authorization: config.headers?.Authorization
+      });
+    }
+    // guard: block any attempt to hit the imports connection endpoint if we
+    // already know it's forbidden for this session.
+    const url = config.url || '';
+    if (url.includes('/api/settings/imports-connection') &&
+        sessionStorage.getItem('importsToggleForbidden') === '1') {
+      const err = new Error('imports-connection forbidden (guard)');
+      err.code = 'IMPORTS_FORBIDDEN_GUARD';
+      return Promise.reject(err);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // response interceptor: catch 403 from the same endpoint and mark forbidden.
 api.interceptors.response.use(

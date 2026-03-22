@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - landing
+      - users-microservice
+      - backend-data-intake
+    restart: unless-stopped
+    java-backend:
+      build:
+        context: ./java-backend
+        dockerfile: Dockerfile
+      expose:
+        - "8080"
+      environment:
+        - MONGODB_URI=${MONGODB_URI}
+        - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+        - SPRING_PROFILES_ACTIVE=production
+      depends_on:
+        - redis
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    expose:
+      - "5173"
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_APP_NAME=${VITE_APP_NAME}
+    depends_on:
+      - backend-data-intake
+      - users-microservice
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  landing:
+    build:
+      context: ./landing
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  users-microservice:
+    build:
+      context: ./users-microservice
+      dockerfile: Dockerfile
+    expose:
+      - "4001"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=4001
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - BCRYPT_COST=${BCRYPT_COST}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4001/api/auth/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend-data-intake:
+    build:
+      context: ./backend-data-intake
+      dockerfile: Dockerfile
+    expose:
+      - "3005"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=3005
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EVO_BASE_URL=${EVO_BASE_URL}
+      - EVO_TOKEN=${EVO_TOKEN}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - redis
+    volumes:
+      - intake_logs:/app/logs
+      - intake_uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3005/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis_data:
+  intake_logs:
+  intake_uploads:

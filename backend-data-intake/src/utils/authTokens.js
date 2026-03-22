@@ -1,7 +1,11 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'change-me';
+
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+if (!ACCESS_TOKEN_SECRET) {
+  throw new Error('FATAL: JWT_ACCESS_SECRET no configurado. Revisar .env');
+}
 const ACCESS_TOKEN_TTL = process.env.JWT_ACCESS_TTL || '15m';
 
 const REFRESH_TOKEN_TTL_DAYS = parseInt(process.env.JWT_REFRESH_DAYS || '7', 10);

@@ -36,8 +36,15 @@ class UsuariosService {
 
       const response = await client.post(API_ENDPOINTS.AUTH.LOGIN, payload)
 
+      // DEBUG: Mostrar el response completo y los campos de token
+      console.log('[LOGIN DEBUG] response completo:', response.data);
+      console.log('[LOGIN DEBUG] accessToken field:', response.data.accessToken);
+      console.log('[LOGIN DEBUG] token field:', response.data.token);
+
       if (response.data.accessToken) {
         setAccessToken(response.data.accessToken)
+        localStorage.setItem('accessToken', response.data.accessToken)
+        sessionStorage.setItem('accessToken', response.data.accessToken)
       }
 
       return response.data
@@ -54,6 +61,8 @@ class UsuariosService {
     try {
       await client.post(API_ENDPOINTS.AUTH.LOGOUT)
       clearAccessToken()
+      localStorage.removeItem('accessToken')
+      sessionStorage.removeItem('accessToken')
     } catch (error) {
       console.error('Error en logout:', error)
       // Limpiar aunque falle la petición

@@ -6,9 +6,11 @@
  * - Auto-refresh mediante interceptor de axios
  */
 
+
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UsuariosService from '../api/services/usuariosService';
+import { setAccessToken } from '../api/axios';
 
 const AuthContext = createContext(null);
 
@@ -20,13 +22,23 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     let cancelled = false;
+    const savedToken = localStorage.getItem('authToken')
+      || localStorage.getItem('accessToken')
+      || sessionStorage.getItem('accessToken');
+    if (savedToken) {
+      setAccessToken(savedToken);
+    }
     const fetchUser = async () => {
       setLoading(true);
       try {
         const userData = await UsuariosService.getCurrentUser();
         if (!cancelled) setUser(userData.user || userData);
       } catch {
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          localStorage.removeItem('accessToken');
+          sessionStorage.removeItem('accessToken');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

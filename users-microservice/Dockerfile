@@ -10,5 +10,5 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 RUN chown -R appuser:appgroup /app
 USER appuser
-EXPOSE 3005
-CMD ["node", "src/index.js"]
+EXPOSE 4001
+CMD ["node", "src/app.js"]

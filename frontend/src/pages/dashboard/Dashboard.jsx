@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import ExportarDatos from './ExportarDatos'
-import '../../styles/Dashboard.css'
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import ExportarDatos from './ExportarDatos';
+import '../../styles/Dashboard.css';
 import { fetchDashboardOverview } from '../../services/dashboardApi';
+import { setAccessToken } from '../../api/axios';
+
 
 export default function Dashboard() {
-  const [activeSection, setActiveSection] = useState('overview')
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  // Restaurar token desde localStorage si la memoria está vacía
+  useEffect(() => {
+    const savedToken = localStorage.getItem('accessToken');
+    if (savedToken) {
+      setAccessToken(savedToken);
+    }
+  }, []);
+
+  const [activeSection, setActiveSection] = useState('overview');
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [overview, setOverview] = useState(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
 
