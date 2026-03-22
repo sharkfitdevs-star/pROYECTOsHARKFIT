@@ -24,6 +24,17 @@ function Login() {
     localStorage.removeItem('authMessage');
     setLocalError(null)
     setSubmitting(true)
+    // Validación básica antes de enviar
+    if (!identifier.trim() || !password.trim()) {
+      setLocalError('VALIDATION_ERROR');
+      setSubmitting(false);
+      return;
+    }
+    if (password.length < 6) {
+      setLocalError('La contraseña debe tener al menos 6 caracteres');
+      setSubmitting(false);
+      return;
+    }
     try {
       await login({ identifier, password })
       navigate('/dashboard', { replace: true })
@@ -76,7 +87,18 @@ function Login() {
           { (authError || localError) && (
             <div className="alert alert-error">
               <span className="alert-icon">⚠️</span>
-              <span>{authError || localError}</span>
+              <span>{
+                (() => {
+                  const err = authError || localError;
+                  if (!err) return '';
+                  if (err.includes('RATE_LIMIT') || err.includes('429')) return 'Demasiados intentos. Espera 15 minutos.';
+                  if (err.includes('ACCOUNT_LOCKED') || err.includes('423')) return 'Cuenta bloqueada temporalmente. Intenta más tarde.';
+                  if (err.includes('INVALID_CREDENTIALS') || err.includes('401')) return 'Email o contraseña incorrectos.';
+                  if (err.includes('VALIDATION_ERROR')) return 'Completa todos los campos.';
+                  if (err.includes('DB_NOT_READY') || err.includes('503')) return 'Servicio no disponible. Intenta más tarde.';
+                  return 'Error al iniciar sesión. Intenta nuevamente.';
+                })()
+              }</span>
             </div>
           )}
 

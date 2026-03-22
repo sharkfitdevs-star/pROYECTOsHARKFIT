@@ -1,100 +1,116 @@
 const express = require('express');
 const fetch = global.fetch || require('node-fetch');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const router = express.Router();
 
-// función reutilizable para validar contraseña según reglas compartidas
-const isPasswordValid = (password) => {
-  const hasMinLength = password.length >= 6;
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasLowercase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  return hasMinLength && hasUppercase && hasLowercase && hasNumber;
-};
-
-// Registro de usuario
-router.post('/register', async (req, res) => {
-  try {
-    const { username, email, password, fullName } = req.body;
-
-    // validación de contraseña antes de cualquier otra cosa
-    if (!isPasswordValid(password)) {
-      console.warn('REGISTER 400 – password does not meet complexity requirements');
-      return res.status(400).json({
-        error: true,
-        message: 'Validación fallida',
-        fields: {
-          password: 'Contraseña debe incluir mayúsculas, minúsculas y números'
-        }
-      });
-    }
-
-    const user = new User({ username, email, password, fullName });
-    await user.save();
-    res.status(201).json({ message: 'Usuario registrado correctamente' });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 5 : 100,
+  message: { ok: false, error: 'RATE_LIMIT_EXCEEDED' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const body = req.body || {};
+    const identifier = body.identifier || body.email || body.username || '';
+    return identifier.toLowerCase() + '_' + req.ip;
   }
 });
 
-// Login de usuario (acepta email o username en identifier/email/username)
-router.post('/login', async (req, res) => {
-  const requestId = req.headers['x-request-id'] || '<none>';
+const isPasswordValid = (password) => {
+  return (
+    password.length >= 6 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password)
+  );
+};
+
+router.post('/register', async (req, res) => {
+  try {
+    const { username, email, password, fullName } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ ok: false, error: 'MISSING_FIELDS' });
+    }
+    if (!isPasswordValid(password)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'WEAK_PASSWORD',
+        message: 'La contraseña debe tener mínimo 6 caracteres, mayúsculas, minúsculas y números'
+      });
+    }
+    const user = new User({ username, email, password, fullName });
+    await user.save();
+    return res.status(201).json({ ok: true, message: 'Usuario registrado' });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ ok: false, error: 'USER_ALREADY_EXISTS' });
+    }
+    return res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' });
+  }
+});
+
+router.post('/login', loginRateLimiter, async (req, res) => {
+  const requestId = req.headers['x-request-id'] || require('crypto').randomUUID();
   try {
     const { identifier, email, username, password } = req.body || {};
-    const loginIdentifier = identifier || email || username;
+    const loginIdentifier = (identifier || email || username || '').trim();
 
-    // basic validation
     if (!loginIdentifier || !password) {
-      console.warn('[LOGIN] missing fields', { requestId, loginIdentifier });
       return res.status(400).json({ ok: false, error: 'VALIDATION_ERROR' });
     }
-
-    console.log('[LOGIN] attempt', { requestId, identifier: loginIdentifier });
 
     let user;
     try {
       user = await User.findOne({
         $or: [
-          { username: loginIdentifier },
-          { email: loginIdentifier },
-        ],
+          { username: loginIdentifier.toLowerCase() },
+          { email: loginIdentifier.toLowerCase() }
+        ]
       });
     } catch (dbErr) {
-      console.error('[LOGIN] DB error', { requestId, err: dbErr.message });
       return res.status(503).json({ ok: false, error: 'DB_NOT_READY' });
     }
 
-    if (!user) {
-      console.warn('[LOGIN] invalid creds', { requestId, identifier: loginIdentifier });
+    if (!user || !user.active) {
+      await new Promise(r => setTimeout(r, 200 + Math.random() * 100));
       return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
+    }
+
+    if (user.isLocked()) {
+      const minutesLeft = Math.ceil((user.accountLockedUntil - Date.now()) / 60000);
+      return res.status(423).json({
+        ok: false,
+        error: 'ACCOUNT_LOCKED',
+        message: `Cuenta bloqueada. Intenta en ${minutesLeft} minuto(s).`
+      });
     }
 
     let isMatch;
     try {
-      isMatch = await (user.comparePassword
-        ? user.comparePassword(password)
-        : require('bcryptjs').compare(password, user.password));
+      isMatch = await user.comparePassword(password);
     } catch (bcryptErr) {
-      console.error('[LOGIN] bcrypt error', { requestId, err: bcryptErr.message });
       return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
     }
 
     if (!isMatch) {
-      console.warn('[LOGIN] invalid creds - wrong password', { requestId, identifier: loginIdentifier });
+      await user.registerFailedLogin();
+      await new Promise(r => setTimeout(r, 200 + Math.random() * 100));
       return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
     }
 
-    // derive secret from env (single source of truth)
+    await user.resetFailedLogin();
+    user.lastLoginAt = new Date();
+    user.lastLoginIp = req.ip;
+    await user.save();
+
     const secret = process.env.JWT_ACCESS_SECRET || process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET;
     if (!secret) {
-      console.error('[LOGIN] server misconfig: missing JWT secret', { requestId });
       return res.status(500).json({ ok: false, error: 'SERVER_MISCONFIG' });
     }
 
-    // include both `id` and `userId` claims so downstream services can
-    // use whichever they expect (intake checks both).
+    const ttl = process.env.JWT_ACCESS_TTL || '15m';
     const payload = {
       id: user._id,
       userId: user._id,
@@ -102,18 +118,7 @@ router.post('/login', async (req, res) => {
       role: user.role || 'user'
     };
 
-    let token;
-    try {
-      token = jwt.sign(payload, secret, { expiresIn: '1d' });
-    } catch (jwtErr) {
-      console.error('[LOGIN] jwt sign error', { requestId, err: jwtErr.message });
-      return res.status(500).json({ ok: false, error: 'SERVER_MISCONFIG' });
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      // help developers see what's being embedded
-      console.debug('[LOGIN] jwt payload:', payload);
-    }
+    const token = jwt.sign(payload, secret, { expiresIn: ttl });
 
     res.json({
       success: true,
@@ -126,10 +131,9 @@ router.post('/login', async (req, res) => {
       },
     });
 
-    // fire-and-forget sync to intake service so it has a local copy of user
     (async () => {
       try {
-        const intakeUrl = 'http://localhost:3005/api/internal/users/upsert';
+        const intakeUrl = process.env.INTAKE_URL || 'http://localhost:3005/api/internal/users/upsert';
         await fetch(intakeUrl, {
           method: 'POST',
           headers: {
@@ -143,16 +147,14 @@ router.post('/login', async (req, res) => {
             role: user.role
           })
         });
-      } catch (e) {
-        console.warn('[AUTH] failed to notify intake:', e.message || e);
-      }
+      } catch (e) {}
     })();
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' });
   }
 });
 
-// simple health check for proxy verification
 router.get('/health', (req, res) => {
   res.json({ ok: true, service: 'users-microservice' });
 });
