@@ -31,6 +31,20 @@ const MAPPING_PRESETS = {
     'Plan': 'planName', 'Monto': 'amount', 'Descuento': 'discount',
     'Inscripción': 'tax', 'Sede': 'branchName',
   },
+  colaboradores: {
+    'Nombre': 'nombre', 'Apellido': 'apellido', 'RUT': 'rut',
+    'Cargo': 'cargo', 'Departamento': 'departamento',
+    'Sueldo Base': 'sueldo_base', 'Fecha Ingreso': 'fecha_ingreso'
+  },
+  productos: {
+    'Nombre': 'nombre', 'SKU': 'sku', 'Código': 'codigo',
+    'Categoría': 'categoria', 'Precio': 'precio',
+    'Stock': 'stock', 'Descripción': 'descripcion'
+  },
+  prospectos: {
+    'Nombre': 'nombre', 'Email': 'email', 'Teléfono': 'telefono',
+    'Origen': 'origen', 'Estado': 'estado', 'Fecha Contacto': 'fecha_contacto'
+  },
 };
 
 const ENTITY_FIELDS = {
@@ -46,6 +60,31 @@ const ENTITY_FIELDS = {
     { key: 'name', label: 'Nombre' }, { key: 'lastName', label: 'Apellido' },
     { key: 'email', label: 'Email' }, { key: 'cellPhone', label: 'Teléfono' },
     { key: 'idMember', label: 'ID Miembro' },
+  ],
+  colaboradores: [
+    { key: 'nombre', label: 'Nombre' },
+    { key: 'apellido', label: 'Apellido' },
+    { key: 'rut', label: 'RUT' },
+    { key: 'cargo', label: 'Cargo' },
+    { key: 'departamento', label: 'Departamento' },
+    { key: 'sueldo_base', label: 'Sueldo Base' },
+    { key: 'fecha_ingreso', label: 'Fecha Ingreso' },
+  ],
+  productos: [
+    { key: 'nombre', label: 'Nombre' },
+    { key: 'sku', label: 'SKU' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'precio', label: 'Precio' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'descripcion', label: 'Descripción' },
+  ],
+  prospectos: [
+    { key: 'nombre', label: 'Nombre' },
+    { key: 'email', label: 'Email' },
+    { key: 'telefono', label: 'Teléfono' },
+    { key: 'origen', label: 'Origen' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'fecha_contacto', label: 'Fecha Contacto' },
   ],
 };
 
@@ -72,6 +111,8 @@ export default function ImportarExcelSection() {
   const [duplicados, setDuplicados] = useState(null);
   const [decisiones, setDecisiones] = useState({});
   const [resultado, setResultado] = useState(null);
+  const [multiSheetData, setMultiSheetData] = useState(null);
+  const [selectedSheets, setSelectedSheets] = useState({});
   const fileInputRef = useRef(null);
 
   const { importsConnected, syncImportsConnected, importsReloadKey } = useAuth();
@@ -118,14 +159,25 @@ export default function ImportarExcelSection() {
     setResultado(null);
     setError(null); setIsPreviewing(true);
     try {
-      const resp = await previewImport(selectedFile, { entity, mapping: {} });
-      if (!resp.ok) throw new Error(resp.error || "Vista previa fallida");
-      setImportId(resp.importId || resp.syncId || null);
+      const result = await previewImport(selectedFile, { entity, mapping: {} });
+      if (!result.ok) throw new Error(result.error || "Vista previa fallida");
+      // --- CAMBIO B: Soporte multiSheet ---
+      if (result?.multiSheet) {
+        setMultiSheetData(result);
+        const sel = {};
+        result.sheets.forEach(s => {
+          sel[s.index] = { active: true, entity: s.detectedEntity };
+        });
+        setSelectedSheets(sel);
+        setPaso(0);
+        return;
+      }
+      setImportId(result.importId || result.syncId || null);
       setPreviewData({
-        columnas: resp.columnas || resp.headers || [],
-        primerosRegistros: resp.previewRows || resp.sampleRows || [],
+        columnas: result.columnas || result.headers || [],
+        primerosRegistros: result.previewRows || result.sampleRows || [],
       });
-      const headers = resp.headers || [];
+      const headers = result.headers || [];
       setPreviewHeaders(headers);
       if (headers.length > 0) {
         const preset = MAPPING_PRESETS[entity] || {};
@@ -136,9 +188,9 @@ export default function ImportarExcelSection() {
         });
         if (Object.keys(autoMap).length > 0) {
           setMappingObj(autoMap);
-        } else if (resp.suggestedMapping) {
+        } else if (result.suggestedMapping) {
           const filtered = Object.fromEntries(
-            Object.entries(resp.suggestedMapping)
+            Object.entries(result.suggestedMapping)
               .filter(([, v]) => v !== null && v !== undefined)
               .map(([field, col]) => [col, field])
           );
@@ -294,8 +346,88 @@ export default function ImportarExcelSection() {
   };
   const getStatus = (s) => statusStyles[s] || { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8', dot: '#94a3b8' };
 
+  // --- CAMBIO C: Renderizador de selección de hojas multiSheet ---
+  const renderMultiSheetSelector = () => {
+    if (!multiSheetData) return null;
+    return (
+      <div style={{ padding: '1rem' }}>
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>
+          Hojas detectadas — {multiSheetData.sheets.length} hojas, {multiSheetData.totalRows?.toLocaleString()} filas
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {multiSheetData.sheets.map(sheet => (
+            <div key={sheet.index} style={{
+              border: '1px solid #ddd', borderRadius: '8px', padding: '1rem',
+              background: selectedSheets[sheet.index]?.active ? '#f0fdf4' : '#fafafa'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input type="checkbox"
+                    checked={selectedSheets[sheet.index]?.active ?? true}
+                    onChange={e => setSelectedSheets(prev => ({
+                      ...prev, [sheet.index]: { ...prev[sheet.index], active: e.target.checked }
+                    }))} />
+                  <div>
+                    <strong>{sheet.name}</strong>
+                    <span style={{ marginLeft: '0.5rem', color: '#888', fontSize: '0.8rem' }}>
+                      {sheet.rowCount?.toLocaleString()} filas
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{
+                    background: sheet.confidence >= 70 ? '#d1fae5' : '#fef3c7',
+                    color: sheet.confidence >= 70 ? '#065f46' : '#92400e',
+                    padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem'
+                  }}>{sheet.confidence}% match</span>
+                  <select
+                    value={selectedSheets[sheet.index]?.entity || sheet.detectedEntity || 'clientes'}
+                    onChange={e => setSelectedSheets(prev => ({
+                      ...prev, [sheet.index]: { ...prev[sheet.index], entity: e.target.value }
+                    }))}
+                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.85rem' }}>
+                    <option value="clientes">Clientes</option>
+                    <option value="ventas">Ventas</option>
+                    <option value="colaboradores">Colaboradores</option>
+                    <option value="productos">Productos</option>
+                    <option value="prospectos">Prospectos</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#888' }}>
+                {sheet.headers?.slice(0, 5).join(' · ')}{sheet.headers?.length > 5 ? ` +${sheet.headers.length - 5} más` : ''}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+          <button onClick={() => { setMultiSheetData(null); setPaso(1); }}
+            style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>
+            Cancelar
+          </button>
+          <button onClick={() => {
+            const activas = multiSheetData.sheets.filter(s => selectedSheets[s.index]?.active);
+            if (!activas.length) { alert('Selecciona al menos una hoja'); return; }
+            const primera = activas[0];
+            setEntity(selectedSheets[primera.index]?.entity || primera.detectedEntity);
+            setMappingObj(primera.mappingSuggestion || {});
+            setPreviewData({ rows: [], headers: primera.headers });
+            setPaso(1);
+          }}
+            style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+            Continuar →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- FIN CAMBIO C ---
+
   return (
     <div style={S.page}>
+      {/* CAMBIO D: Renderizado paso 0 multiSheet */}
+      {paso === 0 && multiSheetData && renderMultiSheetSelector()}
       <style>{`
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
@@ -358,6 +490,7 @@ export default function ImportarExcelSection() {
                 <option value="leads">🎯  Leads</option>
                 <option value="colaboradores">👔  Colaboradores</option>
                 <option value="productos">📦  Productos</option>
+                <option value="prospectos">🧑‍💼  Prospectos</option>
                 <option value="proveedores">🏭  Proveedores</option>
                 <option value="stock">📊  Stock/Inventario</option>
                 <option value="compras">🛒  Compras</option>

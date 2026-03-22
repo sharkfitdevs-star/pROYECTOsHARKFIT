@@ -64,51 +64,77 @@ class ImportService {
     });
 
     try {
+
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(file.path);
-      const worksheet = workbook.getWorksheet(1);
 
-      // detect headers
-      const headerRow = worksheet.getRow(1);
-      const headers = [];
-      headerRow.eachCell((cell) => headers.push(cell.value));
-
-      // normalize headers (trim + lowercase)
-      const headersNorm = headers.map(h => normalizeHeader(h || ''));
-      console.debug('Headers normalizados:', headersNorm);
-
-      // El frontend envía { "ColExcel": "campoInterno" }
-      // Pasamos tal cual a detectMapping que ya normaliza internamente los values
-      const mappingNormalized = {};
-      if (mapeo && typeof mapeo === 'object') {
-        Object.entries(mapeo).forEach(([k, v]) => {
-          if (v) mappingNormalized[k] = v;
+      // Analizar TODAS las hojas y detectar entidad de cada una
+      const allSheets = [];
+      let totalRowsAll = 0;
+      
+      workbook.worksheets.forEach((ws, idx) => {
+        const headerRow = ws.getRow(1);
+        const headers = [];
+        headerRow.eachCell({ includeEmpty: false }, (cell) => {
+          if (cell.value) headers.push(String(cell.value));
         });
-      }
-      console.debug('Mapping recibido del frontend:', JSON.stringify(mappingNormalized));
-      // temporary debug: show headers and mapping after normalization is ready
-      console.log('=== DEBUG IMPORT ===');
-      console.log('Headers raw:', JSON.stringify(headers));
-      console.log('Headers norm:', JSON.stringify(headersNorm));
-      console.log('Mapping recibido:', JSON.stringify(mappingNormalized));
-      console.log('===================\n');
-
-      const { mapping: mappingUsed, detectedHeaders, warnings: mappingWarnings } = detectMapping(headers, mappingNormalized, entidad);
-      // compute normalized version of mappingUsed so row processing can use it
-      const mappingUsedNormalized = {};
-      Object.entries(mappingUsed).forEach(([rawHeader, field]) => {
-        const norm = normalizeHeader(rawHeader || '');
-        mappingUsedNormalized[norm] = field;
+        
+        if (headers.length === 0) return;
+        
+        const headersNorm = headers.map(h => importedNormalizeHeader(h || ''));
+        const rowCount = Math.max(0, ws.rowCount - 1);
+        
+        // Detectar mejor entidad usando SYNONYMS
+        const entidades = ['clientes', 'ventas', 'colaboradores', 'productos', 'prospectos'];
+        let bestEntity = entidad;
+        let bestScore = 0;
+        let bestMapping = {};
+        
+        entidades.forEach(ent => {
+          try {
+            const result = detectMapping(headers, {}, ent);
+            const score = Object.keys(result.mapping || {}).length / Math.max(headers.length, 1);
+            if (score > bestScore) {
+              bestScore = score;
+              bestEntity = ent;
+              bestMapping = result.mapping || {};
+            }
+          } catch(e) {}
+        });
+        
+        allSheets.push({
+          index: idx,
+          name: ws.name,
+          rowCount,
+          headers,
+          detectedEntity: bestEntity,
+          confidence: Math.round(bestScore * 100),
+          mappingSuggestion: bestMapping
+        });
+        
+        totalRowsAll += rowCount;
       });
-      // add warning if required field missing (name for clientes)
-      if (entidad === 'clientes') {
-        const mappedFields = Object.values(mappingUsed).map(f => normalizeHeader(f));
-        if (!mappedFields.includes('name')) {
-          mappingWarnings.push('missingFields:name');
-        }
+      
+      logger.info('Hojas detectadas:', { count: allSheets.length, totalRows: totalRowsAll });
+      
+      // Si hay múltiples hojas, retornar análisis para que el frontend decida
+      if (allSheets.length > 1) {
+        await updateSyncLog(baseLog._id, {
+          estatus: 'Analizando',
+          sheetsAnalysis: allSheets,
+          totalRows: totalRowsAll
+        });
+        return {
+          multiSheet: true,
+          sheets: allSheets,
+          totalRows: totalRowsAll,
+          fileName: file.originalname,
+          syncId
+        };
       }
-      // store sheet name
-      const sheetName = worksheet.name || null;
+      
+      // Si hay una sola hoja, continuar con flujo normal
+      const worksheet = workbook.getWorksheet(1);
 
       const registros = [];
       const errores = [];

@@ -161,6 +161,23 @@ const SYNONYMS = {
   notes:        ['notas', 'nota', 'notes', 'observaciones', 'comentarios'],
   paymentMethod:['metodo_pago', 'metodo_de_pago', 'forma_pago', 'paymentmethod'],
   installments: ['cuotas', 'installments', 'pagos'],
+
+  // === NUEVOS CAMPOS Y ENTIDADES ===
+  nombre:         ['nombre', 'nombres', 'firstname', 'name'],
+  apellido:       ['apellido', 'apellidos', 'lastname', 'surname'],
+  rut:            ['rut', 'dni', 'documento', 'id_miembro', 'idmember'],
+  cargo:          ['cargo', 'puesto', 'position', 'rol', 'role'],
+  departamento:   ['departamento', 'area', 'department', 'seccion'],
+  sueldo_base:    ['sueldo_base', 'sueldo', 'salario', 'salary', 'remuneracion'],
+  fecha_ingreso:  ['fecha_ingreso', 'ingreso', 'fecha_contrato', 'hire_date'],
+  sku:            ['sku', 'codigo', 'code', 'referencia', 'ref', 'barcode'],
+  categoria:      ['categoria', 'category', 'tipo', 'type', 'grupo'],
+  precio:         ['precio', 'price', 'valor', 'monto', 'costo'],
+  stock:          ['stock', 'cantidad', 'inventory', 'existencias', 'qty'],
+  descripcion:    ['descripcion', 'description', 'detalle', 'detail'],
+  origen:         ['origen', 'fuente', 'source', 'canal', 'channel'],
+  estado_prospecto: ['estado', 'status', 'etapa', 'stage'],
+  fecha_contacto: ['fecha_contacto', 'fecha_seguimiento', 'contact_date'],
 };
 
 /**
