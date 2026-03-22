@@ -34,3 +34,5 @@ htmlcov/
 # Temp
 .tmp/
 tmp/
+tree-depth3.txt
+tree-dirs-depth3.txt
