@@ -1,0 +1,230 @@
+/* =============================================
+   SharkFit — Estilos de tabla globales
+   Aplica a todas las secciones del dashboard
+   ============================================= */
+
+.sf-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+}
+
+.sf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.sf-table thead {
+  background: var(--color-bg-secondary);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.sf-table thead th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.sf-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.15s ease;
+}
+
+.sf-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.sf-table tbody tr:hover {
+  background: var(--color-nav-active, rgba(99,102,241,0.05));
+}
+
+.sf-table tbody td {
+  padding: 0.85rem 1rem;
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.sf-table tbody td.muted {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+/* Badges de estado */
+.sf-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.sf-badge.activo    { background: rgba(16,185,129,0.15); color: #10b981; }
+.sf-badge.inactivo  { background: rgba(100,116,139,0.15); color: #64748b; }
+.sf-badge.suspendido{ background: rgba(239,68,68,0.15); color: #ef4444; }
+.sf-badge.pendiente { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.sf-badge.pagado    { background: rgba(16,185,129,0.15); color: #10b981; }
+.sf-badge.completado{ background: rgba(16,185,129,0.15); color: #10b981; }
+.sf-badge.vacaciones{ background: rgba(59,130,246,0.15); color: #3b82f6; }
+.sf-badge.licencia  { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+
+/* Acciones de fila */
+.sf-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.sf-btn-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  font-size: 0.85rem;
+}
+
+.sf-btn-action:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+}
+
+.sf-btn-action.danger:hover {
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+}
+
+/* Paginación */
+.sf-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.sf-pagination-btns {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.sf-pagination-btns button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sf-pagination-btns button.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.sf-pagination-btns button:hover:not(.active) {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+/* Filtros y búsqueda */
+.sf-filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.sf-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}
+
+.sf-search:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.sf-search::placeholder {
+  color: var(--color-text-muted);
+}
+
+.sf-filter-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.sf-filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Estado vacío */
+.sf-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-muted);
+}
+
+.sf-empty i {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  display: block;
+  opacity: 0.4;
+}
+
+.sf-empty p {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+/* Loading skeleton */
+.sf-skeleton {
+  background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-card) 50%, var(--color-bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: sf-shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 16px;
+}
+
+@keyframes sf-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

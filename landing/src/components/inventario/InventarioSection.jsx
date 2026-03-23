@@ -105,14 +105,14 @@ const InventarioSection = () => {
           <button onClick={cargarInventario}>Reintentar</button>
         </div>
       ) : inventario.length === 0 ? (
-        <div className="empty-state">
+        <div className="sf-empty">
           <i className="bi bi-boxes"></i>
           <h3>Sin registros de inventario</h3>
           <p>Agrega productos y registra su stock</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
+        <div className="sf-table-wrapper">
+          <table className="sf-table">
             <thead>
               <tr>
                 <th>Producto</th>
@@ -137,15 +137,13 @@ const InventarioSection = () => {
                     <td className="text-center">{item.stock_minimo}</td>
                     <td className="text-center">{item.stock_maximo}</td>
                     <td>
-                      <span className={`status-badge ${status.class}`}>
-                        {status.label}
-                      </span>
+                      <span className={`sf-badge ${status.label?.toLowerCase()}`}>{status.label}</span>
                     </td>
                     <td>
-                      <button className="btn-icon" title="Ajustar">
+                      <button className="sf-btn-action" title="Ajustar">
                         <i className="bi bi-pencil"></i>
                       </button>
-                      <button className="btn-icon" title="Historial">
+                      <button className="sf-btn-action" title="Historial">
                         <i className="bi bi-clock-history"></i>
                       </button>
                     </td>

@@ -160,11 +160,11 @@ const RemuneracionesSection = () => {
   const renderLiquidaciones = () => (
     <div className="liquidaciones-container">
       <div className="liquidaciones-header">
-        <div className="filtros-grupo">
+        <div className="sf-filters">
           <select 
             value={mesSeleccionado} 
             onChange={(e) => setMesSeleccionado(parseInt(e.target.value))}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             {RemuneracionesService.getMeses().map(mes => (
               <option key={mes.value} value={mes.value}>{mes.label}</option>
@@ -174,7 +174,7 @@ const RemuneracionesSection = () => {
           <select 
             value={anioSeleccionado} 
             onChange={(e) => setAnioSeleccionado(parseInt(e.target.value))}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             {[2024, 2025, 2026].map(anio => (
               <option key={anio} value={anio}>{anio}</option>
@@ -184,7 +184,7 @@ const RemuneracionesSection = () => {
           <select 
             value={estadoFiltro} 
             onChange={(e) => setEstadoFiltro(e.target.value)}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             <option value="">Todos los estados</option>
             <option value="borrador">Borrador</option>
@@ -215,8 +215,8 @@ const RemuneracionesSection = () => {
           <p>Genera las liquidaciones del período actual</p>
         </div>
       ) : (
-        <div className="liquidaciones-table-container">
-          <table className="liquidaciones-table">
+        <div className="sf-table-wrapper">
+          <table className="sf-table">
             <thead>
               <tr>
                 <th>Colaborador</th>
@@ -246,38 +246,28 @@ const RemuneracionesSection = () => {
                     <td className="col-monto descuento">{RemuneracionesService.formatMonto(liq.total_descuentos)}</td>
                     <td className="col-monto liquido">{RemuneracionesService.formatMonto(liq.sueldo_liquido)}</td>
                     <td>
-                      <span 
-                        className="estado-badge"
-                        style={{ 
-                          backgroundColor: estadoInfo.bgColor,
-                          color: estadoInfo.color
-                        }}
-                      >
-                        {estadoInfo.label}
-                      </span>
+                      <span className={`sf-badge ${liq.estado?.toLowerCase()}`}>{estadoInfo.label}</span>
                     </td>
                     <td className="col-acciones">
                       <button 
-                        className="btn-accion ver"
+                        className="sf-btn-action"
                         onClick={() => handleVerDetalle(liq._id)}
                         title="Ver detalle"
                       >
                         <i className="bi bi-eye"></i>
                       </button>
-                      
                       {liq.estado === 'calculada' && (
                         <button 
-                          className="btn-accion aprobar"
+                          className="sf-btn-action"
                           onClick={() => handleAprobar(liq._id)}
                           title="Aprobar"
                         >
                           <i className="bi bi-check-circle"></i>
                         </button>
                       )}
-                      
                       {liq.estado === 'aprobada' && (
                         <button 
-                          className="btn-accion pagar"
+                          className="sf-btn-action"
                           onClick={() => handlePagar(liq._id)}
                           title="Marcar como pagada"
                         >

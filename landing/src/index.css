@@ -1,4 +1,6 @@
 
+@import './styles/tables.css';
+
 [data-theme="light"] .dashboard-content,
 [data-theme="light"] .content-body,
 [data-theme="light"] .dashboard-content h2,

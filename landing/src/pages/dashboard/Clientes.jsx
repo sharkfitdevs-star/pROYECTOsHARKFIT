@@ -173,57 +173,55 @@ export default function Clientes() {
   }
 
   // ── Render ───────────────────────────────────────────────
+
   return (
     <div className="ventas-section">
       <h2>Clientes</h2>
       <p className="info-text">Los datos se obtienen de las importaciones realizadas en Excel/CSV.</p>
 
-      {/* Toolbar — idéntico al de VentasSection */}
-      <div className="ventas-toolbar">
-        <div>
-          <label htmlFor="busqueda-cliente">Buscar: </label>
-          <input
-            id="busqueda-cliente"
-            type="text"
-            placeholder="Cliente, plan, sede..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
-        <div className="ventas-filters">
-          <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)}>
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="por vencer">Por vencer</option>
-            <option value="inactivo">Inactivo</option>
-          </select>
-          <select value={sedeFilter} onChange={(e) => setSedeFilter(e.target.value)}>
-            <option value="">Todas las sedes</option>
-            {sedeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
-            <option value="">Todos los planes</option>
-            {planOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <button onClick={() => { setEstadoFilter(""); setSedeFilter(""); setPlanFilter(""); setBusqueda("") }}>
-            Limpiar filtros
-          </button>
-        </div>
-        <div className="ventas-actions">
-          <span className="info-text">Total clientes: {totalCount} | Mostrando: {filtrados.length}</span>
-          <button className="btn-secondary" onClick={() => openEdit(null)}>+ Nuevo Cliente</button>
-          <button className="btn-danger" disabled={cargando} onClick={limpiarImportados}>
-            Limpiar datos importados
-          </button>
-        </div>
+      {/* Toolbar — global SharkFit */}
+      <div className="sf-filters" style={{ marginBottom: 16 }}>
+        <label htmlFor="busqueda-cliente">Buscar: </label>
+        <input
+          id="busqueda-cliente"
+          type="text"
+          placeholder="Cliente, plan, sede..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          className="sf-search"
+        />
+        <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} className="sf-filter-select">
+          <option value="">Todos los estados</option>
+          <option value="activo">Activo</option>
+          <option value="por vencer">Por vencer</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+        <select value={sedeFilter} onChange={(e) => setSedeFilter(e.target.value)} className="sf-filter-select">
+          <option value="">Todas las sedes</option>
+          {sedeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)} className="sf-filter-select">
+          <option value="">Todos los planes</option>
+          {planOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <button onClick={() => { setEstadoFilter(""); setSedeFilter(""); setPlanFilter(""); setBusqueda("") }}>
+          Limpiar filtros
+        </button>
+        <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: ".95em" }}>
+          Total clientes: {totalCount} | Mostrando: {filtrados.length}
+        </span>
+        <button className="btn-secondary" onClick={() => openEdit(null)}>+ Nuevo Cliente</button>
+        <button className="btn-danger" disabled={cargando} onClick={limpiarImportados}>
+          Limpiar datos importados
+        </button>
       </div>
 
       {cargando && <p className="info-text">Cargando clientes...</p>}
       {error    && <div className="error-text">{error}</div>}
 
-      {/* Tabla — misma clase que VentasSection */}
-      <div className="ventas-table-container">
-        <table className="ventas-table">
+      {/* Tabla global SharkFit */}
+      <div className="sf-table-wrapper">
+        <table className="sf-table">
           <thead>
             <tr>
               <th>Fecha ingreso</th><th>Nombre</th><th>Email</th>
@@ -233,7 +231,7 @@ export default function Clientes() {
           </thead>
           <tbody>
             {!cargando && filtrados.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign:"center", padding:"1rem", color:"var(--color-text-secondary)" }}>Sin clientes registrados</td></tr>
+              <tr><td colSpan={9} className="sf-empty">Sin clientes registrados</td></tr>
             )}
             {filtrados.map((c, idx) => {
               const estado = c.estado || c.status || "inactivo"
@@ -246,30 +244,23 @@ export default function Clientes() {
                   <td>{c.planName  || "-"}</td>
                   <td>{c.branchName || "-"}</td>
                   <td>
-                    <span className={
-                      estado === "activo"     ? "badge badge-success" :
-                      estado === "por vencer" ? "badge badge-warning" :
-                                                "badge badge-danger"
-                    }>{estado}</span>
+                    <span className={`sf-badge ${estado}`}>{estado}</span>
                   </td>
                   <td>{(c.vencimiento || c.membershipEndDate) ? new Date(c.vencimiento || c.membershipEndDate).toLocaleDateString("es-CL") : "-"}</td>
                   <td>
-                    <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
-                      <button onClick={() => openProfile(c._id)} title="Ver perfil"
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"var(--color-text-secondary)" }}>
+                    <div className="sf-actions">
+                      <button className="sf-btn-action" onClick={() => openProfile(c._id)} title="Ver perfil">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                         </svg>
                       </button>
-                      <button onClick={() => openEdit(c)} title="Editar"
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color:"var(--color-text-secondary)" }}>
+                      <button className="sf-btn-action" onClick={() => openEdit(c)} title="Editar">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                       </button>
-                      <button onClick={() => toggleEstado(c._id, estado)} title={estado === "activo" ? "Desactivar" : "Activar"}
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, color: estado === "activo" ? "#22c55e" : "#ef4444" }}>
+                      <button className="sf-btn-action" onClick={() => toggleEstado(c._id, estado)} title={estado === "activo" ? "Desactivar" : "Activar"} style={{ color: estado === "activo" ? "#22c55e" : "#ef4444" }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                           <circle cx="12" cy="12" r="10"/>
                         </svg>

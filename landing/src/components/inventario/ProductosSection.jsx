@@ -79,7 +79,7 @@ const ProductosSection = () => {
         </button>
         <button className="btn-danger" style={{marginLeft:'10px'}} onClick={async()=>{if(!window.confirm('¿Eliminar TODOS los productos importados?'))return;try{const token=localStorage.getItem('authToken');const res=await fetch((import.meta.env.VITE_API_URL||'http://localhost:3005/api')+'/inventario/productos/importados',{method:'DELETE',headers:{Authorization:'Bearer '+token}});const json=await res.json();if(json.ok){alert(json.deleted+' productos eliminados');window.location.reload();}else{alert('Error: '+(json.error||'No se pudo limpiar'));}}catch(e){alert('Error: '+e.message);}}}>🗑️ Limpiar importados</button>
       </div>
-      <div className="filtros-bar">
+      <div className="sf-filters">
         <div className="search-input">
           <i className="bi bi-search"></i>
           <input
@@ -87,13 +87,13 @@ const ProductosSection = () => {
             placeholder="Buscar por nombre o SKU..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
+            className="sf-search"
           />
         </div>
-        
         <select 
           value={categoriaFiltro} 
           onChange={(e) => setCategoriaFiltro(e.target.value)}
-          className="filtro-select"
+          className="sf-filter-select"
         >
           <option value="">Todas las categorías</option>
           {categorias.map(cat => (
@@ -109,7 +109,7 @@ const ProductosSection = () => {
           <button onClick={cargarProductos}>Reintentar</button>
         </div>
       ) : productosFiltrados.length === 0 ? (
-        <div className="empty-state">
+        <div className="sf-empty">
           <i className="bi bi-box"></i>
           <h3>No hay productos</h3>
           <p>Agrega productos al catálogo para comenzar</p>

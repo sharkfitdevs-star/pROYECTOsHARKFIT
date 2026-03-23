@@ -261,7 +261,7 @@ const ColaboradoresSection = () => {
       )}
 
       {/* Filtros */}
-      <div className="filtros-section">
+      <div className="sf-filters">
         <form onSubmit={buscarColaboradores} className="search-form">
           <div className="search-input">
             <i className="bi bi-search"></i>
@@ -270,16 +270,17 @@ const ColaboradoresSection = () => {
               placeholder="Buscar por nombre, RUT, cargo..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
+              className="sf-search"
             />
           </div>
           <button type="submit" className="btn-search">Buscar</button>
         </form>
         
-        <div className="filtros-grupo">
+        <div className="sf-filters">
           <select 
             value={filtroDepartamento} 
             onChange={(e) => { setFiltroDepartamento(e.target.value); setPagina(1); }}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             <option value="">Todos los departamentos</option>
             <option value="administracion">Administración</option>
@@ -295,7 +296,7 @@ const ColaboradoresSection = () => {
           <select 
             value={filtroContrato} 
             onChange={(e) => { setFiltroContrato(e.target.value); setPagina(1); }}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             <option value="">Todos los contratos</option>
             <option value="indefinido">Indefinido</option>
@@ -307,7 +308,7 @@ const ColaboradoresSection = () => {
           <select 
             value={filtroEstado} 
             onChange={(e) => { setFiltroEstado(e.target.value); setPagina(1); }}
-            className="filtro-select"
+            className="sf-filter-select"
           >
             <option value="activo">Activos</option>
             <option value="todos">Todos</option>
@@ -337,8 +338,8 @@ const ColaboradoresSection = () => {
         </div>
       ) : (
         <>
-          <div className="tabla-container">
-            <table className="tabla-colaboradores">
+          <div className="sf-table-wrapper">
+            <table className="sf-table">
               <thead>
                 <tr>
                   <th>Colaborador</th>
@@ -375,18 +376,16 @@ const ColaboradoresSection = () => {
                     <td>{formatearFecha(col.fecha_ingreso)}</td>
                     <td className="col-sueldo">{formatearSueldo(col.sueldo_base)}</td>
                     <td>
-                      <span className={`estado-badge ${getEstadoBadge(col.estado)}`}>
-                        {col.estado}
-                      </span>
+                      <span className={`sf-badge ${col.estado?.toLowerCase()}`}>{col.estado}</span>
                     </td>
                     <td className="col-acciones">
-                      <button className="btn-icon" title="Ver detalle" onClick={() => abrirModalVer(col)}>
+                      <button className="sf-btn-action" title="Ver detalle" onClick={() => abrirModalVer(col)}>
                         <i className="bi bi-eye"></i>
                       </button>
-                      <button className="btn-icon" title="Editar" onClick={() => abrirModalEditar(col)}>
+                      <button className="sf-btn-action" title="Editar" onClick={() => abrirModalEditar(col)}>
                         <i className="bi bi-pencil"></i>
                       </button>
-                      <button className="btn-icon" title="Más opciones">
+                      <button className="sf-btn-action" title="Más opciones">
                         <i className="bi bi-three-dots-vertical"></i>
                       </button>
                     </td>
