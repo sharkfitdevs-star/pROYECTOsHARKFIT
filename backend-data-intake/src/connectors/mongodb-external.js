@@ -12,7 +12,13 @@ function flatten(obj, prefix = '', res = {}) {
 }
 
 async function readMongoCollections(uri, { database, collections, limit = 100 }) {
-  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+  const client = new MongoClient(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 10000
+  });
   await client.connect();
   const db = client.db(database);
   const colls = collections && collections.length ? collections : (await db.listCollections().toArray()).map(c => c.name);

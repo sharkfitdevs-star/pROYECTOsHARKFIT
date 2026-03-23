@@ -233,5 +233,3 @@ cursor: pointer; font-size: 0.9rem; color: rgba(255,255,255,0.8);
 .form-grid { grid-template-columns: 1fr; }
 .form-group.col-span-2 { grid-column: span 1; }
 }
-
----

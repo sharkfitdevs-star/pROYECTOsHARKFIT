@@ -88,11 +88,39 @@ const ENTITY_FIELDS = {
   ],
 };
 
+// --- FUNCION AUTOMAPEO Y CONFIANZA ---
+function autoMapColumns(headers, entity) {
+  const preset = MAPPING_PRESETS[entity] || {};
+  const fields = ENTITY_FIELDS[entity] || [];
+  const autoMap = {};
+  let mappedCount = 0;
+  headers.forEach(header => {
+    // Buscar coincidencia exacta en preset
+    const presetKey = Object.keys(preset).find(
+      k => normalizeHeader(k) === normalizeHeader(header)
+    );
+    if (presetKey) {
+      autoMap[header] = preset[presetKey];
+      mappedCount++;
+      return;
+    }
+    // Buscar coincidencia por nombre de campo
+    const field = fields.find(f => normalizeHeader(f.label) === normalizeHeader(header));
+    if (field) {
+      autoMap[header] = field.key;
+      mappedCount++;
+    }
+  });
+  const confidence = headers.length > 0 ? Math.round((mappedCount / headers.length) * 100) : 0;
+  return { autoMap, confidence };
+}
+
 export default function ImportarExcelSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [importId, setImportId] = useState(null);
   const [mappingObj, setMappingObj] = useState({});
+  const [mappingConfidence, setMappingConfidence] = useState(0);
   const [previewHeaders, setPreviewHeaders] = useState([]);
   const [entity, setEntity] = useState('clientes');
   const [delimiter, setDelimiter] = useState(',');
@@ -180,22 +208,18 @@ export default function ImportarExcelSection() {
       const headers = result.headers || [];
       setPreviewHeaders(headers);
       if (headers.length > 0) {
-        const preset = MAPPING_PRESETS[entity] || {};
-        const autoMap = {};
-        Object.entries(preset).forEach(([excelCol, internalField]) => {
-          const matched = headers.find(h => normalizeHeader(h) === normalizeHeader(excelCol));
-          if (matched) autoMap[matched] = internalField;
-        });
-        if (Object.keys(autoMap).length > 0) {
+          const { autoMap, confidence } = autoMapColumns(headers, entity);
           setMappingObj(autoMap);
-        } else if (result.suggestedMapping) {
-          const filtered = Object.fromEntries(
-            Object.entries(result.suggestedMapping)
-              .filter(([, v]) => v !== null && v !== undefined)
-              .map(([field, col]) => [col, field])
-          );
-          setMappingObj(filtered);
-        }
+          setMappingConfidence(confidence);
+          if (Object.keys(autoMap).length === 0 && result.suggestedMapping) {
+            const filtered = Object.fromEntries(
+              Object.entries(result.suggestedMapping)
+                .filter(([, v]) => v !== null && v !== undefined)
+                .map(([field, col]) => [col, field])
+            );
+            setMappingObj(filtered);
+            setMappingConfidence(0);
+          }
       }
     } catch (err) {
       setError(err.message || "Error inesperado");
@@ -483,7 +507,17 @@ export default function ImportarExcelSection() {
             <div style={S.row}>
             <div style={S.fieldGroup}>
               <label style={S.label}>Entidad destino</label>
-              <select value={entity} onChange={e=>{setEntity(e.target.value);setMappingObj({});}}
+              <select value={entity} onChange={e => {
+                const newEntity = e.target.value;
+                setEntity(newEntity);
+                setMappingObj({});
+                setMappingConfidence(0);
+                if (previewHeaders.length > 0) {
+                  const { autoMap, confidence } = autoMapColumns(previewHeaders, newEntity);
+                  setMappingObj(autoMap);
+                  setMappingConfidence(confidence);
+                }
+              }}
                 style={S.select} className="imp-sel">
                 <option value="clientes">👥  Clientes</option>
                 <option value="ventas">💰  Ventas</option>
@@ -497,6 +531,32 @@ export default function ImportarExcelSection() {
                 <option value="entregas">🚚  Entregas</option>
                 <option value="candidatos">📋  Candidatos</option>
               </select>
+              <button
+                onClick={() => {
+                  if (previewHeaders.length === 0) {
+                    alert('Primero sube un archivo para ver las columnas');
+                    return;
+                  }
+                  const autoResult = autoMapColumns(previewHeaders, entity);
+                  setMappingObj(autoResult.mapping);
+                  setMappingConfidence(autoResult.confidence);
+                  alert('✅ Mapeo automático aplicado a ' + Object.values(autoResult.mapping).filter(Boolean).length + ' columnas');
+                }}
+                style={{
+                  marginTop: '0.5rem',
+                  width: '100%',
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid #10b981',
+                  background: 'rgba(16,185,129,0.1)',
+                  color: '#10b981',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem'
+                }}
+              >
+                ✨ Mapeo automático
+              </button>
             </div>
             <div style={S.fieldGroup}>
               <label style={S.label}>Delimitador CSV</label>

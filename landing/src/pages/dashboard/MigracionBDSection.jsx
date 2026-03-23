@@ -1,45 +1,133 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getAccessToken } from '../../config/authStorage';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3005/api';
 
-const DB_TYPES = [
-  { key: 'mongodb', label: 'MongoDB', icon: '🍃', hasFile: false },
-  { key: 'postgres', label: 'PostgreSQL', icon: '🐘', hasFile: false },
-  { key: 'sqlite', label: 'SQLite (.db)', icon: '📦', hasFile: true },
-];
+const DB_CONFIGS = {
+  mongodb: {
+    label: 'MongoDB', icon: '🍃', hasFile: false, defaultPort: '27017',
+    guide: {
+      example: 'mongodb+srv://usuario:password@cluster.mongodb.net/mi_bd',
+      tip: 'Si usas MongoDB Atlas, pega la URI completa. Verifica que tu IP esté autorizada en Atlas.',
+    }
+  },
+  postgres: {
+    label: 'PostgreSQL', icon: '🐘', hasFile: false, defaultPort: '5432',
+    guide: {
+      example: 'Host: localhost o db.midominio.com | Puerto: 5432',
+      tip: 'Para Supabase, Neon o AWS activa SSL en modo avanzado.',
+    }
+  },
+  sqlite: {
+    label: 'SQLite (.db)', icon: '📦', hasFile: true, defaultPort: '',
+    guide: {
+      example: 'archivo.db, app.sqlite, database.sqlite3',
+      tip: 'Sube el archivo directamente. Extensiones válidas: .db .sqlite .sqlite3',
+    }
+  }
+};
 
 const SHARKFIT_ENTITIES = [
-  { key: 'clientes', label: 'Clientes' },
-  { key: 'ventas', label: 'Ventas' },
-  { key: 'colaboradores', label: 'Colaboradores' },
-  { key: 'productos', label: 'Productos' },
-  { key: 'prospectos', label: 'Prospectos' },
+  { key: 'clientes', label: '👥 Clientes' },
+  { key: 'ventas', label: '💰 Ventas' },
+  { key: 'colaboradores', label: '👔 Colaboradores' },
+  { key: 'productos', label: '📦 Productos' },
+  { key: 'prospectos', label: '🎯 Prospectos' },
   { key: 'ignorar', label: '— Ignorar tabla —' },
 ];
+
+function validateForm(dbType, form, file) {
+  const errors = {};
+  if (dbType === 'sqlite') {
+    if (!file) errors.file = 'Selecciona un archivo .db';
+    return errors;
+  }
+  if (dbType === 'mongodb') {
+    if (!form.uri && !form.database) errors.database = 'Ingresa URI completa o nombre de BD';
+    if (form.uri && !form.uri.startsWith('mongodb')) errors.uri = 'La URI debe empezar con mongodb:// o mongodb+srv://';
+    return errors;
+  }
+  if (dbType === 'postgres') {
+    if (!form.host) errors.host = 'Host requerido';
+    if (!form.database) errors.database = 'Nombre de BD requerido';
+    if (!form.user) errors.user = 'Usuario requerido';
+    if (form.port && isNaN(Number(form.port))) errors.port = 'Puerto debe ser numérico';
+    return errors;
+  }
+  return errors;
+}
 
 export default function MigracionBDSection() {
   const [step, setStep] = useState(1);
   const [dbType, setDbType] = useState('mongodb');
-  const [connForm, setConnForm] = useState({ host: 'localhost', port: '', database: '', user: '', password: '', uri: '' });
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [connForm, setConnForm] = useState({ host: 'localhost', port: '27017', database: '', user: '', password: '', uri: '', ssl: false });
+  const [formErrors, setFormErrors] = useState({});
   const [sqliteFile, setSqliteFile] = useState(null);
   const [tables, setTables] = useState([]);
   const [mappings, setMappings] = useState({});
   const [filePath, setFilePath] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [results, setResults] = useState(null);
+  const [testStatus, setTestStatus] = useState(null);
+  const [testDiag, setTestDiag] = useState(null);
 
-  const selectedType = DB_TYPES.find(d => d.key === dbType);
+  const cfg = DB_CONFIGS[dbType];
   const token = getAccessToken();
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  useEffect(() => {
+    setConnForm(prev => ({ ...prev, port: cfg.defaultPort }));
+    setFormErrors({});
+    setTestStatus(null);
+    setTestDiag(null);
+    setError('');
+  }, [dbType]);
+
+  const handleTest = async () => {
+    const errs = validateForm(dbType, connForm, sqliteFile);
+    if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
+    setTestStatus('testing'); setTestDiag(null); setError('');
+    setProgress('Verificando conexión...');
+    try {
+      const res = await fetch(`${API_BASE}/migration/test-connection`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ type: dbType, ...connForm })
+      });
+      const data = await res.json();
+      setProgress('');
+      if (!data.ok) {
+        setTestStatus('error');
+        setTestDiag({ steps: [{ label: 'Conexión al servidor', ok: false, detail: data.error }] });
+        return;
+      }
+      setTestStatus('ok');
+      setTestDiag({ steps: [
+        { label: 'Host alcanzable', ok: true },
+        { label: 'Autenticación correcta', ok: true },
+        { label: 'Base de datos encontrada', ok: true },
+        { label: `Latencia: ${data.latency}ms`, ok: true },
+      ]});
+    } catch (e) {
+      setProgress('');
+      setTestStatus('error');
+      setTestDiag({ steps: [{ label: 'Conexión al servidor', ok: false, detail: e.message }] });
+    }
+  };
+
   const handleAnalyze = async () => {
+    const errs = validateForm(dbType, connForm, sqliteFile);
+    if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
     setLoading(true); setError('');
+    const steps = ['Conectando al servidor...', 'Validando credenciales...', 'Obteniendo esquema...', 'Analizando tablas...'];
+    let si = 0;
+    const interval = setInterval(() => { if (si < steps.length - 1) setProgress(steps[++si]); }, 1500);
+    setProgress(steps[0]);
     try {
       let res, data;
-      if (selectedType.hasFile) {
-        if (!sqliteFile) { setError('Selecciona un archivo .db'); setLoading(false); return; }
+      if (cfg.hasFile) {
         const form = new FormData();
         form.append('file', sqliteFile);
         res = await fetch(`${API_BASE}/migration/analyze-sqlite`, {
@@ -52,189 +140,258 @@ export default function MigracionBDSection() {
         });
       }
       data = await res.json();
+      clearInterval(interval); setProgress('');
       if (!data.ok) throw new Error(data.error || 'Error al analizar');
       setTables(data.tables);
       setFilePath(data.filePath || '');
-      const initialMappings = {};
-      data.tables.forEach(t => { initialMappings[t.name] = 'ignorar'; });
-      setMappings(initialMappings);
+      const m = {};
+      data.tables.forEach(t => { m[t.name] = 'ignorar'; });
+      setMappings(m);
       setStep(2);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      clearInterval(interval); setProgress('');
+      setError(e.message);
+    } finally { setLoading(false); }
+  };
+
+  const handleExportExcel = async () => {
+    setLoading(true); setError('');
+    setProgress('Preparando exportación...');
+    try {
+      const res = await fetch(`${API_BASE}/migration/export-excel`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          type: dbType, connectionConfig: connForm,
+          collections: tables.map(t => t.name), filePath,
+          title: `Exportación ${dbType.toUpperCase()} — ${connForm.database || ''}`
+        })
+      });
+      setProgress('');
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Error'); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `export_${dbType}_${Date.now()}.xlsx`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { setProgress(''); setError(e.message); }
     finally { setLoading(false); }
   };
 
   const handleImport = async () => {
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setProgress('Importando datos...');
     try {
       const tableMappings = Object.entries(mappings)
         .filter(([, entity]) => entity !== 'ignorar')
         .map(([tableName, entity]) => ({ tableName, entity, columnMappings: {} }));
-      if (!tableMappings.length) { setError('Selecciona al menos una tabla para importar'); setLoading(false); return; }
+      if (!tableMappings.length) { setError('Selecciona al menos una tabla'); setLoading(false); return; }
       const res = await fetch(`${API_BASE}/migration/import`, {
         method: 'POST', headers,
         body: JSON.stringify({ type: dbType, connectionConfig: connForm, tableMappings, filePath })
       });
       const data = await res.json();
+      setProgress('');
       if (!data.ok) throw new Error(data.error || 'Error al importar');
-      setResults(data);
-      setStep(3);
-    } catch (e) { setError(e.message); }
+      setResults(data); setStep(3);
+    } catch (e) { setProgress(''); setError(e.message); }
     finally { setLoading(false); }
   };
 
-  return (
-    <div style={{ padding: '2rem', maxWidth: '900px' }}>
-      <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem', fontWeight: 700 }}>Migración de Base de Datos</h2>
-      <p style={{ color: 'var(--color-text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-        Conecta tu base de datos existente e importa los datos a SharkFit automáticamente.
-      </p>
+  const inputStyle = (key) => ({
+    width: '100%', padding: '0.5rem', borderRadius: '6px',
+    border: `1px solid ${formErrors[key] ? '#ef4444' : 'var(--color-border)'}`,
+    background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)',
+    boxSizing: 'border-box', fontSize: '0.875rem'
+  });
 
-      {/* Indicador de pasos */}
-      <div style={{ display: 'flex', gap: '0', marginBottom: '2rem' }}>
+  const renderField = (key, label, placeholder, type = 'text') => (
+    <div key={key}>
+      <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.3rem' }}>{label}</label>
+      <input type={type} placeholder={placeholder} value={connForm[key] || ''}
+        onChange={e => { setConnForm(p => ({ ...p, [key]: e.target.value })); setFormErrors(p => ({ ...p, [key]: '' })); }}
+        style={inputStyle(key)} />
+      {formErrors[key] && <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: '0.2rem 0 0' }}>{formErrors[key]}</p>}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '2rem', maxWidth: '860px' }}>
+      <div style={{ marginBottom: '2rem' }}>
+        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700 }}>Migración de Base de Datos</h2>
+        <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+          Conecta tu BD existente, analiza su estructura y exporta o importa a SharkFit.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
         {['Conectar', 'Mapear tablas', 'Resultado'].map((label, idx) => (
           <div key={idx} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <div style={{
-              width: '28px', height: '28px', borderRadius: '50%', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700,
-              background: step > idx + 1 ? '#10b981' : step === idx + 1 ? '#3b82f6' : 'var(--color-border)',
-              color: step >= idx + 1 ? '#fff' : 'var(--color-text-muted)',
-              flexShrink: 0
-            }}>{step > idx + 1 ? '✓' : idx + 1}</div>
-            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: step === idx + 1 ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontWeight: step === idx + 1 ? 600 : 400 }}>{label}</span>
-            {idx < 2 && <div style={{ flex: 1, height: '2px', background: step > idx + 1 ? '#10b981' : 'var(--color-border)', margin: '0 0.75rem' }} />}
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0, background: step > idx + 1 ? '#10b981' : step === idx + 1 ? '#3b82f6' : 'var(--color-border)', color: step >= idx + 1 ? '#fff' : 'var(--color-text-muted)' }}>
+              {step > idx + 1 ? '✓' : idx + 1}
+            </div>
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', fontWeight: step === idx + 1 ? 600 : 400, color: step === idx + 1 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{label}</span>
+            {idx < 2 && <div style={{ flex: 1, height: '2px', margin: '0 0.75rem', background: step > idx + 1 ? '#10b981' : 'var(--color-border)' }} />}
           </div>
         ))}
       </div>
 
-      {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#dc2626', fontSize: '0.875rem' }}>{error}</div>}
+      {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#ef4444', fontSize: '0.875rem' }}>❌ {error}</div>}
+      {progress && <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#3b82f6', fontSize: '0.875rem' }}>⏳ {progress}</div>}
 
-      {/* PASO 1 — Conectar */}
       {step === 1 && (
         <div style={{ background: 'var(--color-bg-card)', borderRadius: '12px', padding: '1.5rem', border: '1px solid var(--color-border)' }}>
-          <h3 style={{ marginBottom: '1.25rem', fontSize: '1rem', fontWeight: 600 }}>Tipo de base de datos</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Selecciona el motor de base de datos</h3>
+            <button onClick={() => setAdvancedMode(p => !p)} style={{ padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>
+              {advancedMode ? '📋 Modo básico' : '⚙️ Modo avanzado'}
+            </button>
+          </div>
+
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            {DB_TYPES.map(db => (
-              <button key={db.key} onClick={() => setDbType(db.key)} style={{
-                padding: '0.6rem 1.2rem', borderRadius: '8px', border: '2px solid',
-                borderColor: dbType === db.key ? '#3b82f6' : 'var(--color-border)',
-                background: dbType === db.key ? 'rgba(59,130,246,0.1)' : 'transparent',
-                color: dbType === db.key ? '#3b82f6' : 'var(--color-text-secondary)',
-                cursor: 'pointer', fontWeight: dbType === db.key ? 600 : 400, fontSize: '0.9rem'
-              }}>
-                {db.icon} {db.label}
+            {Object.entries(DB_CONFIGS).map(([key, c]) => (
+              <button key={key} onClick={() => setDbType(key)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: '2px solid', borderColor: dbType === key ? '#3b82f6' : 'var(--color-border)', background: dbType === key ? 'rgba(59,130,246,0.1)' : 'transparent', color: dbType === key ? '#3b82f6' : 'var(--color-text-secondary)', cursor: 'pointer', fontWeight: dbType === key ? 600 : 400, fontSize: '0.9rem' }}>
+                {c.icon} {c.label}
               </button>
             ))}
           </div>
 
-          {selectedType.hasFile ? (
+          <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.8rem' }}>
+            <div style={{ fontWeight: 600, color: '#3b82f6', marginBottom: '0.25rem' }}>💡 Guía de conexión</div>
+            <code style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>{cfg.guide.example}</code>
+            <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)' }}>{cfg.guide.tip}</div>
+          </div>
+
+          {cfg.hasFile ? (
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
-                Archivo SQLite (.db)
-              </label>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>Archivo SQLite</label>
               <input type="file" accept=".db,.sqlite,.sqlite3"
-                onChange={e => setSqliteFile(e.target.files[0])}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
-              {sqliteFile && <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#10b981' }}>✓ {sqliteFile.name}</p>}
+                onChange={e => { setSqliteFile(e.target.files[0]); setFormErrors({}); }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: `1px solid ${formErrors.file ? '#ef4444' : 'var(--color-border)'}`, background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+              {formErrors.file && <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: '0.2rem 0 0' }}>{formErrors.file}</p>}
+              {sqliteFile && <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#10b981' }}>✓ {sqliteFile.name} ({(sqliteFile.size / 1024).toFixed(1)} KB)</p>}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               {dbType === 'mongodb' && (
-                <div style={{ gridColumn: '1/-1' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>URI de conexión (opcional)</label>
-                  <input type="text" placeholder="mongodb+srv://usuario:pass@cluster.mongodb.net/" value={connForm.uri}
-                    onChange={e => setConnForm(p => ({ ...p, uri: e.target.value }))}
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }} />
+                <div style={{ gridColumn: '1/-1' }}>{renderField('uri', 'URI de conexión (opcional)', 'mongodb+srv://usuario:pass@cluster.mongodb.net/')}</div>
+              )}
+              {renderField('host', 'Host', 'localhost')}
+              {renderField('port', 'Puerto', cfg.defaultPort)}
+              {renderField('database', 'Base de datos', 'nombre_bd')}
+              {renderField('user', 'Usuario', 'usuario')}
+              {renderField('password', 'Contraseña', '••••••••', 'password')}
+              {advancedMode && dbType === 'postgres' && (
+                <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input type="checkbox" checked={connForm.ssl || false} onChange={e => setConnForm(p => ({ ...p, ssl: e.target.checked }))} />
+                  <label style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>Usar SSL (requerido para Supabase, Neon, AWS)</label>
                 </div>
               )}
-              {[
-                { key: 'host', label: 'Host', placeholder: 'localhost' },
-                { key: 'port', label: 'Puerto', placeholder: dbType === 'postgres' ? '5432' : '27017' },
-                { key: 'database', label: 'Base de datos', placeholder: 'nombre_bd' },
-                { key: 'user', label: 'Usuario', placeholder: 'usuario' },
-              ].map(f => (
-                <div key={f.key}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>{f.label}</label>
-                  <input type="text" placeholder={f.placeholder} value={connForm[f.key]}
-                    onChange={e => setConnForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }} />
-                </div>
-              ))}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>Contraseña</label>
-                <input type="password" value={connForm.password}
-                  onChange={e => setConnForm(p => ({ ...p, password: e.target.value }))}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }} />
-              </div>
             </div>
           )}
 
-          <button onClick={handleAnalyze} disabled={loading}
-            style={{ marginTop: '1.5rem', padding: '0.7rem 2rem', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}>
-            {loading ? 'Analizando...' : '🔍 Analizar base de datos'}
-          </button>
+          {testDiag && (
+            <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: testStatus === 'ok' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${testStatus === 'ok' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', color: testStatus === 'ok' ? '#10b981' : '#ef4444' }}>
+                {testStatus === 'ok' ? '✅ Conexión exitosa' : '❌ Conexión fallida'}
+              </div>
+              {testDiag.steps.map((s, i) => (
+                <div key={i} style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                  <span>{s.ok ? '✅' : '❌'}</span>
+                  <span>{s.label}</span>
+                  {s.detail && <span style={{ color: '#ef4444' }}>— {s.detail}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+            <button onClick={handleTest} disabled={loading || testStatus === 'testing'}
+              style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid #3b82f6', background: 'transparent', color: '#3b82f6', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>
+              {testStatus === 'testing' ? '⏳ Probando...' : '🔌 Probar conexión'}
+            </button>
+            <button onClick={handleAnalyze} disabled={loading}
+              style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>
+              {loading ? '⏳ Analizando...' : '🔍 Analizar base de datos'}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* PASO 2 — Mapear tablas */}
       {step === 2 && (
         <div style={{ background: 'var(--color-bg-card)', borderRadius: '12px', padding: '1.5rem', border: '1px solid var(--color-border)' }}>
-          <h3 style={{ marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 600 }}>
-            {tables.length} tabla(s) detectadas — Asigna cada una a una sección de SharkFit
-          </h3>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            Selecciona "Ignorar" para las tablas que no quieres importar.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{tables.length} tabla(s) detectadas</h3>
+            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              {Object.values(mappings).filter(v => v !== 'ignorar').length} seleccionadas para importar
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
             {tables.map(table => (
-              <div key={table.name} style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div key={table.name} style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: mappings[table.name] !== 'ignorar' ? 'rgba(16,185,129,0.05)' : 'var(--color-bg-card)' }}>
                   <div>
-                    <strong style={{ fontSize: '0.95rem' }}>{table.name}</strong>
-                    <span style={{ marginLeft: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                      ~{table.rowCount} filas · {table.columns.length} columnas
+                    <strong style={{ fontSize: '0.9rem' }}>{table.name}</strong>
+                    <span style={{ marginLeft: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      ~{table.rowCount?.toLocaleString()} filas · {table.columns?.length} columnas
                     </span>
                   </div>
                   <select value={mappings[table.name] || 'ignorar'}
                     onChange={e => setMappings(p => ({ ...p, [table.name]: e.target.value }))}
-                    style={{ padding: '0.4rem 0.75rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontSize: '0.875rem' }}>
+                    style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontSize: '0.85rem' }}>
                     {SHARKFIT_ENTITIES.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
                   </select>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Columnas: {table.columns.slice(0, 6).join(' · ')}{table.columns.length > 6 ? ` +${table.columns.length - 6} más` : ''}
+                <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-muted)', background: 'var(--color-bg-primary)' }}>
+                  <strong>Columnas:</strong> {table.columns?.slice(0, 8).join(' · ')}{table.columns?.length > 8 ? ` +${table.columns.length - 8} más` : ''}
                 </div>
+                {table.preview?.length > 0 && (
+                  <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--color-border)', overflowX: 'auto' }}>
+                    <table style={{ fontSize: '0.72rem', borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr>{table.columns?.slice(0, 5).map(c => <th key={c} style={{ padding: '0.2rem 0.5rem', textAlign: 'left', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)' }}>{c}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {table.preview.map((row, i) => (
+                          <tr key={i}>{table.columns?.slice(0, 5).map(c => <td key={c} style={{ padding: '0.2rem 0.5rem', color: 'var(--color-text-secondary)' }}>{String(row[c] ?? '').slice(0, 30)}</td>)}</tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-            <button onClick={() => setStep(1)} style={{ padding: '0.7rem 1.5rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-primary)', cursor: 'pointer' }}>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button onClick={() => setStep(1)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-primary)', cursor: 'pointer' }}>
               ← Volver
             </button>
+            <button onClick={handleExportExcel} disabled={loading}
+              style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid #3b82f6', background: 'transparent', color: '#3b82f6', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
+              {loading ? '⏳...' : '📊 Exportar a Excel'}
+            </button>
             <button onClick={handleImport} disabled={loading}
-              style={{ padding: '0.7rem 2rem', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}>
-              {loading ? 'Importando...' : '⬆️ Importar tablas seleccionadas'}
+              style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
+              {loading ? '⏳ Importando...' : '⬆️ Importar a SharkFit'}
             </button>
           </div>
         </div>
       )}
 
-      {/* PASO 3 — Resultado */}
       {step === 3 && results && (
-        <div style={{ background: 'var(--color-bg-card)', borderRadius: '12px', padding: '1.5rem', border: '1px solid var(--color-border)' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10b981' }}>Migración completada</h3>
-            <p style={{ color: 'var(--color-text-secondary)' }}>{results.totalRows?.toLocaleString()} filas procesadas</p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ background: 'var(--color-bg-card)', borderRadius: '12px', padding: '2rem', border: '1px solid var(--color-border)', textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
+          <h3 style={{ color: '#10b981', marginBottom: '0.5rem' }}>Migración completada</h3>
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>{results.totalRows?.toLocaleString()} filas procesadas</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', textAlign: 'left' }}>
             {results.results?.map((r, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'var(--color-bg-primary)', borderRadius: '8px' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 1rem', background: 'var(--color-bg-primary)', borderRadius: '8px' }}>
                 <span style={{ fontWeight: 500 }}>{r.tableName} → {r.entity}</span>
                 <span style={{ color: '#10b981', fontWeight: 600 }}>{r.rowCount?.toLocaleString()} filas</span>
               </div>
             ))}
           </div>
-          <button onClick={() => { setStep(1); setResults(null); setTables([]); setSqliteFile(null); }}
+          <button onClick={() => { setStep(1); setResults(null); setTables([]); setSqliteFile(null); setTestStatus(null); setTestDiag(null); }}
             style={{ padding: '0.7rem 2rem', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
             Nueva migración
           </button>
@@ -243,3 +400,4 @@ export default function MigracionBDSection() {
     </div>
   );
 }
+

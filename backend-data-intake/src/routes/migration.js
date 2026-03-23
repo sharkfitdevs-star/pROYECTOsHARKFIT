@@ -16,6 +16,24 @@ const upload = multer({
   }
 });
 
+// Función de mensajes amigables
+function friendlyError(err, dbType) {
+  const msg = (err.message || '').toLowerCase();
+  if (msg.includes('authentication') || msg.includes('auth') || msg.includes('credentials') || msg.includes('password'))
+    return 'Credenciales incorrectas. Verifica usuario y contraseña.';
+  if (msg.includes('econnrefused') || msg.includes('connect') || msg.includes('refused'))
+    return `No se pudo conectar al servidor ${dbType.toUpperCase()}. Verifica host y puerto.`;
+  if (msg.includes('timeout') || msg.includes('timed out'))
+    return 'Tiempo de conexión agotado. El servidor no respondió en 10 segundos.';
+  if (msg.includes('not found') || msg.includes('unknown database') || msg.includes('does not exist'))
+    return 'Base de datos no encontrada. Verifica el nombre de la BD.';
+  if (msg.includes('ssl') || msg.includes('tls'))
+    return 'Error de SSL/TLS. Intenta con ssl: false o verifica el certificado.';
+  if (msg.includes('permission') || msg.includes('access denied') || msg.includes('not authorized'))
+    return 'Sin permisos. El usuario no tiene acceso a esta base de datos.';
+  return `Error de conexión: ${err.message}`;
+}
+
 // POST /api/migration/analyze
 // Analiza la BD externa y retorna lista de tablas/colecciones con preview
 router.post('/analyze', requireAuth, async (req, res) => {
@@ -37,7 +55,7 @@ router.post('/analyze', requireAuth, async (req, res) => {
     res.json({ ok: true, tables: analysis, totalTables: analysis.length });
   } catch (err) {
     logger.error('[migration/analyze]', err.message);
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: friendlyError(err, type || 'bd') });
   }
 });
 
@@ -57,7 +75,7 @@ router.post('/analyze-sqlite', requireAuth, upload.single('file'), async (req, r
     res.json({ ok: true, tables: analysis, totalTables: analysis.length, filePath: req.file.path });
   } catch (err) {
     logger.error('[migration/analyze-sqlite]', err.message);
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: friendlyError(err, 'sqlite') });
   }
 });
 
@@ -93,6 +111,51 @@ router.post('/import', requireAuth, async (req, res) => {
   } catch (err) {
     logger.error('[migration/import]', err.message);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
+// POST /api/migration/test-connection
+router.post('/test-connection', requireAuth, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { type, host, port, database, user, password, uri } = req.body;
+    if (!type) return res.status(400).json({ ok: false, error: 'Falta el tipo de BD' });
+    const connector = getConnector(type);
+    const cfg = { host, port, database, user, password, uri, limit: 1 };
+    await connector.read('', cfg);
+    const ms = Date.now() - startTime;
+    res.json({ ok: true, message: `Conexión exitosa en ${ms}ms`, latency: ms });
+  } catch (err) {
+    const { type } = req.body;
+    res.status(400).json({ ok: false, error: friendlyError(err, type || 'bd') });
+  }
+});
+
+// POST /api/migration/export-excel
+router.post('/export-excel', requireAuth, async (req, res) => {
+  try {
+    const { type, connectionConfig, collections, filePath, title } = req.body;
+    const connector = getConnector(type);
+    const cfg = { ...connectionConfig, limit: 50000, collections };
+    const frames = await connector.read(filePath || '', cfg);
+    const { generateExcel } = require('../excel/generator');
+    const os = require('os');
+    const path = require('path');
+    const outputPath = path.join(os.tmpdir(), `sharkfit_export_${Date.now()}.xlsx`);
+    await generateExcel(frames, outputPath, {
+      title: title || 'Exportación SharkFit',
+      generatedAt: new Date().toLocaleString('es-CL'),
+      sourceLabel: connectionConfig?.database || type,
+      dbType: type,
+    });
+    res.download(outputPath, `export_${Date.now()}.xlsx`, (err) => {
+      if (err) logger.error('[migration/export-excel] download error', err.message);
+      require('fs').unlink(outputPath, () => {});
+    });
+  } catch (err) {
+    logger.error('[migration/export-excel]', err.message);
+    res.status(500).json({ ok: false, error: friendlyError(err, req.body?.type || 'bd') });
   }
 });
 
