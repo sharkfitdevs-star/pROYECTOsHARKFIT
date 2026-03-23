@@ -16,7 +16,7 @@
 .header-info h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: white;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -93,7 +93,7 @@
 .configurador-header h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: white;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -156,7 +156,7 @@
 
 .widget-nombre {
   font-size: 0.8rem;
-  color: white;
+  color: var(--color-text-primary);
 }
 
 .widget-categoria {
@@ -283,7 +283,7 @@
 }
 
 .no-widgets-message h3 {
-  color: white;
+  color: var(--color-text-primary);
   margin: 0 0 0.5rem 0;
 }
 
@@ -296,7 +296,7 @@
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   border: none;
   border-radius: 8px;
-  color: white;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;

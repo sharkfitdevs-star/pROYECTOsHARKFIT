@@ -1,3 +1,21 @@
+
+[data-theme="light"] .dashboard-content,
+[data-theme="light"] .content-body,
+[data-theme="light"] .dashboard-content h2,
+[data-theme="light"] .dashboard-content p,
+[data-theme="light"] .dashboard-content span,
+[data-theme="light"] .dashboard-content label,
+[data-theme="light"] .dashboard-content td,
+[data-theme="light"] .dashboard-content th,
+[data-theme="light"] .overview-card-title,
+[data-theme="light"] .overview-card-value,
+[data-theme="light"] .overview-card-sub {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .dashboard-content {
+  background: #f1f5f9 !important;
+}
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @import "./styles/theme.css";
