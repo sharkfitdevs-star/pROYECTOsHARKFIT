@@ -59,25 +59,6 @@ export default defineConfig({
         }
       }
     } : undefined
-          proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('[VITE PROXY REQ]', req.method, req.url);
-            if (req.url && req.url.startsWith('/api/auth')) {
-              // this should never fire because /api/auth is handled above
-              console.warn('[VITE PROXY WARNING] auth path reached /api rule', req.url);
-            }
-            if (req.url && req.url.startsWith('/api/clientes')) {
-              console.log('[VITE PROXY CLIENTES ->]', proxyReq.getHeader('host'));
-            }
-          });
-          proxy.on('proxyRes', (proxyRes, req) => {
-            console.log('[VITE PROXY RES]', proxyRes.statusCode, req.method, req.url);
-            if (req.url && req.url.startsWith('/api/clientes')) {
-              console.log('[VITE PROXY CLIENTES RES]', proxyRes.statusCode);
-            }
-          });
-        }
-      }
-    },
   },
 });
 
