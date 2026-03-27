@@ -13,7 +13,7 @@ const Clientes = lazy(() => import('./Clientes'));
 const VentasSection = lazy(() => import('./VentasSection'));
 const AlertasSection = lazy(() => import('./AlertasSection'));
 const AprobacionesSection = lazy(() => import('./AprobacionesSection'));
-const ExportarDatos = lazy(() => import('./ExportarDatos'));
+// const ExportarDatos = lazy(() => import('./ExportarDatos'));
 const ImportarExcelSection = lazy(() => import('./ImportarExcelSection'));
 const MigracionBDSection = lazy(() => import('./MigracionBDSection'));
 const ApiImportSection = lazy(() => import('./ApiImportSection'));
@@ -27,7 +27,7 @@ const ColaboradoresSection = lazy(() => import('../../components/rrhh/Colaborado
 const EvaluacionSection = lazy(() => import('../../components/rrhh/EvaluacionSection'));
 const ReclutamientoSection = lazy(() => import('../../components/rrhh/ReclutamientoSection'));
 const DistribucionSection = lazy(() => import('../../components/rrhh/DistribucionSection'));
-const AcademySection = lazy(() => import('../../components/formacion/AcademySection'));
+// const AcademySection = lazy(() => import('../../components/formacion/AcademySection'));
 const DocumentosSection = lazy(() => import('../../components/rrhh/DocumentosSection'));
 
 
@@ -107,15 +107,15 @@ function Dashboard() {
     
     // Formación — todos
     { type: 'group', label: 'FORMACIÓN', roles: ['owner', 'staff', 'viewer'] },
-    { type: 'item', label: 'Shark Academy', icon: 'bi-mortarboard', internalSection: 'academy', roles: ['owner', 'staff', 'viewer'] },
+    // { type: 'item', label: 'Shark Academy', icon: 'bi-mortarboard', internalSection: 'academy', roles: ['owner', 'staff', 'viewer'] },
     
     // Sistema — solo owner
     { type: 'group', label: 'SISTEMA', roles: ['owner'] },
-    { type: 'item', label: 'Automatizaciones', icon: 'bi-gear-wide-connected', internalSection: 'automatizaciones', roles: ['owner'] },
+    // { type: 'item', label: 'Automatizaciones', icon: 'bi-gear-wide-connected', internalSection: 'automatizaciones', roles: ['owner'] },
     { type: 'item', label: 'Importar Excel', icon: 'bi-file-earmark-excel', internalSection: 'importar', roles: ['owner'] },
     { type: 'item', label: 'Migración BD', icon: 'bi-database-up', internalSection: 'migracion-bd', roles: ['owner'] },
     { type: 'item', label: 'Importación API', icon: 'bi-cloud-download', internalSection: 'api-import', roles: ['owner'] },
-    { type: 'item', label: 'Exportar datos', icon: 'bi-download', internalSection: 'exportar', roles: ['owner', 'staff'] },
+    // { type: 'item', label: 'Exportar datos', icon: 'bi-download', internalSection: 'exportar', roles: ['owner', 'staff'] },
   ]
 
   // Función para renderizar el contenido según la sección activa
@@ -164,25 +164,25 @@ function Dashboard() {
         return <MigracionBDSection />;
       case 'api-import':
         return <ApiImportSection />;
-      case 'exportar':
-        return <ExportarDatos />;
+      // case 'exportar':
+      //   return <ExportarDatos />;
       case 'distribucion':
         return <DistribucionSection />;
-      case 'academy':
-        return <AcademySection />;
+      // case 'academy':
+      //   return <AcademySection />;
       case 'documentos':
         return <DocumentosSection />;
       // Secciones pendientes (placeholder)
-      case 'automatizaciones':
-        return (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-            <i className="bi bi-gear" style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}></i>
-            <h2 style={{ color: 'var(--color-text)', marginBottom: '0.5rem' }}>
-              {navItems.find(item => item.internalSection === activeSection)?.label || 'Sección'}
-            </h2>
-            <p>Esta sección estará disponible próximamente.</p>
-          </div>
-        );
+      // case 'automatizaciones':
+      //   return (
+      //     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+      //       <i className="bi bi-gear" style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}></i>
+      //       <h2 style={{ color: 'var(--color-text)', marginBottom: '0.5rem' }}>
+      //         {navItems.find(item => item.internalSection === activeSection)?.label || 'Sección'}
+      //       </h2>
+      //       <p>Esta sección estará disponible próximamente.</p>
+      //     </div>
+      //   );
       default:
         return (
           <OverviewBI
