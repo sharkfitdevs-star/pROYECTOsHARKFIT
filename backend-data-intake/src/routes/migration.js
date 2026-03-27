@@ -1,3 +1,4 @@
+// ───────────────────────────────────────────────────────────────
 'use strict';
 const express = require('express');
 const router = express.Router();
@@ -5,14 +6,167 @@ const multer = require('multer');
 const { getConnector } = require('../connectors');
 const { requireAuth } = require('../middleware/auth');
 const { logger } = require('../utils/logger');
+const csv = require('csv-parser');
+const ExcelJS = require('exceljs');
+const { detectType } = require('../utils/dataTypeDetector');
+const fs = require('fs');
+const path = require('path');
+const { parseSQLInserts } = require('../utils/sqlParser');
 
 const upload = multer({
   dest: './uploads/',
   limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = file.originalname.split('.').pop().toLowerCase();
-    if (['db', 'sqlite', 'sqlite3'].includes(ext)) cb(null, true);
-    else cb(new Error('Solo archivos .db/.sqlite'));
+    if (['db', 'sqlite', 'sqlite3', 'sql', 'txt', 'csv', 'tsv', 'xlsx', 'xls'].includes(ext)) cb(null, true);
+    else cb(new Error('Solo archivos .db/.sqlite/.sql/.txt/.csv/.tsv/.xlsx/.xls'));
+  }
+});
+// POST /api/migration/analyze-csv
+// Analiza archivo CSV/TSV subido
+router.post('/analyze-csv', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo' });
+    const ext = (req.file.originalname.split('.').pop() || '').toLowerCase();
+    if (!['csv', 'tsv'].includes(ext)) {
+      return res.status(400).json({ ok: false, error: 'Solo se permiten archivos .csv o .tsv' });
+    }
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = req.file.path;
+    const fileName = path.basename(req.file.originalname, path.extname(req.file.originalname));
+    const sample = fs.readFileSync(filePath, 'utf8').split('\n').slice(0, 5).join('\n');
+    let delimiter = ',';
+    if (sample.includes('\t')) delimiter = '\t';
+    else if (sample.includes(';')) delimiter = ';';
+    // Parse CSV
+    const rows = [];
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(csv({ separator: delimiter, skipEmptyLines: true }))
+        .on('data', (data) => rows.push(data))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+    if (!rows.length) {
+      return res.status(400).json({ ok: false, error: 'El archivo no contiene datos' });
+    }
+    const columns = Object.keys(rows[0]);
+    // Detectar tipos por columna
+    const columnTypes = {};
+    for (const col of columns) {
+      const firstVal = rows.find(r => r[col] !== undefined && r[col] !== null && r[col] !== '')?.[col];
+      columnTypes[col] = detectType(firstVal);
+    }
+    res.json({
+      ok: true,
+      tables: [{
+        name: fileName,
+        columns,
+        columnTypes,
+        rowCount: rows.length,
+        preview: rows.slice(0, 5)
+      }],
+      filePath
+    });
+  } catch (err) {
+    logger.error('[migration/analyze-csv]', err.message);
+    res.status(500).json({ ok: false, error: 'Error interno: ' + err.message });
+  }
+});
+// POST /api/migration/analyze-excel
+// Analiza archivo Excel subido
+router.post('/analyze-excel', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo' });
+    const ext = (req.file.originalname.split('.').pop() || '').toLowerCase();
+    if (!['xlsx', 'xls'].includes(ext)) {
+      return res.status(400).json({ ok: false, error: 'Solo se permiten archivos .xlsx o .xls' });
+    }
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = req.file.path;
+    const fileName = path.basename(req.file.originalname, path.extname(req.file.originalname));
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const tables = [];
+    workbook.worksheets.forEach(sheet => {
+      if (!sheet.rowCount || !sheet.getRow(1).cellCount) return;
+      const columns = sheet.getRow(1).values.slice(1); // values[0] is null
+      const rows = [];
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // skip header
+        const obj = {};
+        columns.forEach((col, idx) => {
+          obj[col] = row.getCell(idx + 1).value;
+        });
+        rows.push(obj);
+      });
+      // Detectar tipos por columna
+      const columnTypes = {};
+      for (const col of columns) {
+        const firstVal = rows.find(r => r[col] !== undefined && r[col] !== null && r[col] !== '')?.[col];
+        columnTypes[col] = detectType(firstVal);
+      }
+      tables.push({
+        name: sheet.name,
+        columns,
+        columnTypes,
+        rowCount: rows.length,
+        preview: rows.slice(0, 5)
+      });
+    });
+    if (!tables.length) {
+      return res.status(400).json({ ok: false, error: 'El archivo no contiene hojas válidas' });
+    }
+    res.json({
+      ok: true,
+      tables,
+      filePath
+    });
+  } catch (err) {
+    logger.error('[migration/analyze-excel]', err.message);
+    res.status(500).json({ ok: false, error: 'Error interno: ' + err.message });
+  }
+});
+// POST /api/migration/analyze-sql
+// Analiza archivo SQL subido con sentencias INSERT INTO
+router.post('/analyze-sql', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo' });
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (!['.sql', '.txt'].includes(ext)) {
+      return res.status(400).json({ ok: false, error: 'Solo se permiten archivos .sql o .txt' });
+    }
+    const content = fs.readFileSync(req.file.path, 'utf8');
+    if (!content || !content.trim()) {
+      return res.status(400).json({ ok: false, error: 'El archivo está vacío' });
+    }
+    let parsed;
+    try {
+      parsed = parseSQLInserts(content);
+    } catch (err) {
+      logger.error('[migration/analyze-sql] parse error', err.message);
+      return res.status(400).json({ ok: false, error: 'Error al parsear el archivo SQL: ' + err.message });
+    }
+    if (!parsed.tables.length) {
+      return res.status(400).json({ ok: false, error: 'No se encontraron sentencias INSERT INTO válidas' });
+    }
+    res.json({
+      ok: true,
+      tables: parsed.tables.map(t => ({
+        name: t.name,
+        columns: t.columns,
+        columnTypes: t.columnTypes,
+        rowCount: t.rowCount,
+        preview: t.preview
+      })),
+      totalTables: parsed.totalTables,
+      filePath: req.file.path
+    });
+  } catch (err) {
+    logger.error('[migration/analyze-sql]', err.message);
+    res.status(500).json({ ok: false, error: 'Error interno: ' + err.message });
   }
 });
 
@@ -89,10 +243,32 @@ router.post('/import', requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Faltan parámetros' });
     }
 
-    const connector = getConnector(type);
-    const source = filePath || '';
-    const cfg = { ...connectionConfig, limit: 50000 };
-    const frames = await connector.read(source, cfg);
+    let frames;
+    if (type === 'sql') {
+      if (!filePath) return res.status(400).json({ ok: false, error: 'Falta filePath para SQL' });
+      let content;
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch (err) {
+        return res.status(400).json({ ok: false, error: 'No se pudo leer el archivo SQL: ' + err.message });
+      }
+      let parsed;
+      try {
+        parsed = parseSQLInserts(content);
+      } catch (err) {
+        return res.status(400).json({ ok: false, error: 'Error al parsear el archivo SQL: ' + err.message });
+      }
+      // frames: { [tableName]: [row, ...] }
+      frames = {};
+      for (const t of parsed.tables) {
+        frames[t.name] = t.rows;
+      }
+    } else {
+      const connector = getConnector(type);
+      const source = filePath || '';
+      const cfg = { ...connectionConfig, limit: 50000 };
+      frames = await connector.read(source, cfg);
+    }
 
     const results = [];
     for (const mapping of tableMappings) {

@@ -24,6 +24,54 @@ const ReclutamientoSection = () => {
   const [candidatoSeleccionado, setCandidatoSeleccionado] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
 
+    // Embudo visual de reclutamiento
+    const ETAPAS = [
+      { key: 'postulacion', label: 'Postulación', color: '#94a3b8' },
+      { key: 'screening', label: 'Screening', color: '#60a5fa' },
+      { key: 'entrevista', label: 'Entrevista', color: '#fbbf24' },
+      { key: 'prueba', label: 'Prueba', color: '#f97316' },
+      { key: 'contratado', label: 'Contratado', color: '#22c55e' },
+    ];
+
+    // Mapeo de ids de pipeline a etapas del embudo
+    const etapaMap = {
+      nuevo: 'postulacion',
+      revision_cv: 'screening',
+      entrevista_telefonica: 'entrevista',
+      entrevista_presencial: 'entrevista',
+      prueba_tecnica: 'prueba',
+      entrevista_final: 'entrevista',
+      oferta: 'prueba', // o 'entrevista' según flujo real
+      contratado: 'contratado',
+    };
+
+    // Agrupar candidatos por etapa del embudo
+    const candidatosPorEtapa = ETAPAS.reduce((acc, etapa) => {
+      acc[etapa.key] = 0;
+      return acc;
+    }, {});
+    let totalCandidatos = 0;
+    Object.entries(pipeline).forEach(([key, arr]) => {
+      const etapa = etapaMap[key];
+      if (etapa && Array.isArray(arr)) {
+        candidatosPorEtapa[etapa] += arr.length;
+        totalCandidatos += arr.length;
+      }
+    });
+
+    // Calcular porcentajes de conversión
+    let prev = totalCandidatos;
+    const embudoData = ETAPAS.map((etapa, idx) => {
+      const cantidad = candidatosPorEtapa[etapa.key];
+      const porcentaje = totalCandidatos > 0 ? Math.round((cantidad / totalCandidatos) * 100) : 0;
+      const conversion = prev > 0 ? Math.round((cantidad / prev) * 100) : 0;
+      prev = cantidad;
+      return { ...etapa, cantidad, porcentaje, conversion };
+    });
+
+    // Filtro por etapa del embudo
+    const [etapaFiltro, setEtapaFiltro] = useState(null);
+
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
     'Content-Type': 'application/json'
@@ -190,6 +238,71 @@ const ReclutamientoSection = () => {
 
   return (
     <div className="reclutamiento-section">
+      {/* Embudo visual de reclutamiento */}
+      <div style={{ marginBottom: 24 }}>
+        <h3 style={{ margin: '0 0 10px 0', fontWeight: 700, fontSize: '1.1rem', color: '#64748b' }}>Embudo de Reclutamiento</h3>
+        {totalCandidatos === 0 ? (
+          <div style={{ opacity: 0.7, fontStyle: 'italic', color: '#64748b', padding: '12px 0' }}>
+            No hay candidatos en el embudo.
+            {ETAPAS.map((etapa, idx) => (
+              <div key={etapa.key} style={{
+                width: Math.max(40, 220 - idx * 32),
+                background: etapa.color,
+                color: '#fff',
+                borderRadius: 8,
+                padding: '10px 16px',
+                marginBottom: 4,
+                transition: 'width 0.3s',
+                display: 'flex',
+                alignItems: 'center',
+                fontWeight: 600,
+                fontSize: '1rem',
+                opacity: 0.5
+              }}>
+                <span style={{ flex: 1 }}>{etapa.label}</span>
+                <span style={{ marginLeft: 12 }}>0</span>
+                <span style={{ marginLeft: 16, fontSize: '0.95em', fontWeight: 400 }}>0%</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          embudoData.map((etapa, idx) => {
+            // Ancho proporcional al porcentaje, mínimo 40px
+            const width = Math.max(40, Math.round(220 * (etapa.porcentaje / 100)));
+            return (
+              <div
+                key={etapa.key}
+                onClick={() => setEtapaFiltro(etapaFiltro === etapa.key ? null : etapa.key)}
+                style={{
+                  width,
+                  background: etapa.color,
+                  color: '#fff',
+                  borderRadius: 8,
+                  padding: '10px 16px',
+                  marginBottom: 4,
+                  transition: 'width 0.3s',
+                  cursor: 'pointer',
+                  boxShadow: etapaFiltro === etapa.key ? '0 0 0 3px #c7d2fe' : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  border: etapaFiltro === etapa.key ? '2px solid #6366f1' : 'none',
+                  outline: 'none',
+                  opacity: etapa.cantidad === 0 ? 0.5 : 1
+                }}
+                tabIndex={0}
+                title={`Filtrar por ${etapa.label}`}
+              >
+                <span style={{ flex: 1 }}>{etapa.label}</span>
+                <span style={{ marginLeft: 12 }}>{etapa.cantidad}</span>
+                <span style={{ marginLeft: 16, fontSize: '0.95em', fontWeight: 400 }}>{etapa.conversion}%</span>
+                {etapaFiltro === etapa.key && <span style={{ marginLeft: 10, fontSize: '0.9em', fontWeight: 400 }}>(Filtro)</span>}
+              </div>
+            );
+          })
+        )}
+      </div>
       {/* Header */}
       <div className="section-header">
         <div>
@@ -246,7 +359,7 @@ const ReclutamientoSection = () => {
 
       {/* Pipeline Kanban */}
       {error ? (
-        <div className="error-state">
+        <div>
           <i className="bi bi-exclamation-triangle"></i>
           <p>{error}</p>
           <button onClick={cargarPipeline} className="btn-retry">Reintentar</button>

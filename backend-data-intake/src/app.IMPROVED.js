@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 8000;
 
 function createApp() {
   const app = express();
+    app.set('trust proxy', 1);
 
   // if we're running under the test harness we must avoid
   // starting any background tasks/cron/intervals that would keep the

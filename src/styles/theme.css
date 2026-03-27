@@ -2,7 +2,186 @@
   --color-primary: #764ba2;
   --color-primary-dark: #5b2f80;
   --color-primary-light: #9b6fc4;
-  --color-surface: #1e1e2e;
+  /* ============================================
+     SharkFit Design Tokens — Sistema Dual
+     ============================================ */
+
+  /* Default: modo oscuro (arranca así) */
+  --color-bg: #0a1628;
+  --color-bg-primary: #0a1628;
+  --color-bg-secondary: #0f2044;
+  --color-bg-card: #1a2f55;
+
+  /* Textos */
+  --color-text: #f1f5f9;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* Sidebar (siempre oscuro) */
+  --color-sidebar-bg: #0a1628;
+  --color-sidebar-text: #f1f5f9;
+  --color-sidebar-text-muted: #64748b;
+
+  /* Bordes */
+  --color-border: rgba(255, 255, 255, 0.08);
+
+  /* Primario */
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-rgb: 99, 102, 241;
+  --color-primary-light: #818cf8;
+
+  /* Semánticos */
+  --color-success: #10b981;
+  --color-success-rgb: 16, 185, 129;
+  --color-warning: #f59e0b;
+  --color-warning-rgb: 245, 158, 11;
+  --color-danger: #ef4444;
+  --color-danger-rgb: 239, 68, 68;
+  --color-info: #3b82f6;
+  --color-info-rgb: 59, 130, 246;
+
+  /* Superficies */
+  --color-surface: #1a2f55;
+  --color-surface-card: #0f2044;
+  --color-glow: rgba(99, 102, 241, 0.15);
+  --color-nav-active: rgba(99, 102, 241, 0.2);
+  --color-nav-active-border: #6366f1;
+  --color-card-shadow: rgba(0, 0, 0, 0.3);
+  --color-header-bg: #0f2044;
+  --color-sidebar-bg-alt: #0f2044;
+
+  /* Componentes genéricos (para Academy, RRHH, etc.) */
+  --color-component-bg: rgba(255, 255, 255, 0.03);
+  --color-component-border: rgba(255, 255, 255, 0.08);
+  --color-component-hover: rgba(255, 255, 255, 0.06);
+  --color-modal-bg: #1f2937;
+  --color-modal-border: rgba(255, 255, 255, 0.1);
+  --color-input-bg: rgba(255, 255, 255, 0.05);
+  --color-input-border: rgba(255, 255, 255, 0.1);
+  --color-input-focus: rgba(99, 102, 241, 0.5);
+  --color-overlay: rgba(0, 0, 0, 0.75);
+  --color-footer-bg: rgba(0, 0, 0, 0.2);
+
+  /* Badges semánticos */
+  --badge-success-bg: rgba(16, 185, 129, 0.15);
+  --badge-success-text: #10b981;
+  --badge-danger-bg: rgba(239, 68, 68, 0.15);
+  --badge-danger-text: #ef4444;
+  --badge-warning-bg: rgba(245, 158, 11, 0.15);
+  --badge-warning-text: #f59e0b;
+  --badge-info-bg: rgba(59, 130, 246, 0.15);
+  --badge-info-text: #3b82f6;
+  --badge-purple-bg: rgba(139, 92, 246, 0.15);
+  --badge-purple-text: #8b5cf6;
+  --badge-muted-bg: rgba(100, 116, 139, 0.15);
+  --badge-muted-text: #64748b;
+
+  /* Prioridades (alertas) */
+  --priority-urgente-bg: rgba(248, 113, 113, 0.2);
+  --priority-urgente-text: #fca5a5;
+  --priority-alta-bg: rgba(248, 113, 113, 0.15);
+  --priority-alta-text: #fca5a5;
+  --priority-media-bg: rgba(251, 191, 36, 0.15);
+  --priority-media-text: #fde68a;
+  --priority-baja-bg: rgba(96, 165, 250, 0.15);
+  --priority-baja-text: #93c5fd;
+
+  /* Vencimiento */
+  --color-vencida: #dc2626;
+  --color-vence-hoy: #d97706;
+  --color-dias-restantes: #059669;
+}
+
+[data-theme="light"] {
+  /* Fondos */
+  --color-bg: #f8fafc;
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-card: #ffffff;
+
+  /* Textos — CRÍTICO: negro sobre blanco */
+  --color-text: #111827;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+
+  /* Sidebar (se mantiene oscuro en light mode) */
+  --color-sidebar-bg: #1e293b;
+  --color-sidebar-text: #f1f5f9;
+  --color-sidebar-text-muted: #94a3b8;
+
+  /* Bordes */
+  --color-border: rgba(0, 0, 0, 0.1);
+
+  /* Primario */
+  --color-primary: #4f46e5;
+  --color-primary-hover: #6366f1;
+  --color-primary-rgb: 79, 70, 229;
+  --color-primary-light: #6366f1;
+
+  /* Semánticos */
+  --color-success: #059669;
+  --color-success-rgb: 5, 150, 105;
+  --color-warning: #d97706;
+  --color-warning-rgb: 217, 119, 6;
+  --color-danger: #dc2626;
+  --color-danger-rgb: 220, 38, 38;
+  --color-info: #2563eb;
+  --color-info-rgb: 37, 99, 235;
+
+  /* Superficies */
+  --color-surface: #ffffff;
+  --color-surface-card: #f1f5f9;
+  --color-glow: rgba(79, 70, 229, 0.12);
+  --color-nav-active: rgba(79, 70, 229, 0.1);
+  --color-nav-active-border: #4f46e5;
+  --color-card-shadow: rgba(0, 0, 0, 0.06);
+  --color-header-bg: #ffffff;
+  --color-sidebar-bg-alt: #1e293b;
+
+  /* Componentes genéricos */
+  --color-component-bg: #ffffff;
+  --color-component-border: rgba(0, 0, 0, 0.08);
+  --color-component-hover: #f8fafc;
+  --color-modal-bg: #ffffff;
+  --color-modal-border: rgba(0, 0, 0, 0.1);
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-input-focus: rgba(79, 70, 229, 0.5);
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-footer-bg: #f1f5f9;
+
+  /* Badges semánticos */
+  --badge-success-bg: rgba(5, 150, 105, 0.1);
+  --badge-success-text: #059669;
+  --badge-danger-bg: rgba(220, 38, 38, 0.1);
+  --badge-danger-text: #dc2626;
+  --badge-warning-bg: rgba(217, 119, 6, 0.1);
+  --badge-warning-text: #d97706;
+  --badge-info-bg: rgba(37, 99, 235, 0.1);
+  --badge-info-text: #2563eb;
+  --badge-purple-bg: rgba(124, 58, 237, 0.1);
+  --badge-purple-text: #7c3aed;
+  --badge-muted-bg: rgba(107, 114, 128, 0.1);
+  --badge-muted-text: #6b7280;
+
+  /* Prioridades (alertas) */
+  --priority-urgente-bg: rgba(220, 38, 38, 0.1);
+  --priority-urgente-text: #dc2626;
+  --priority-alta-bg: rgba(220, 38, 38, 0.08);
+  --priority-alta-text: #dc2626;
+  --priority-media-bg: rgba(217, 119, 6, 0.1);
+  --priority-media-text: #d97706;
+  --priority-baja-bg: rgba(37, 99, 235, 0.1);
+  --priority-baja-text: #2563eb;
+
+  /* Vencimiento */
+  --color-vencida: #dc2626;
+  --color-vence-hoy: #d97706;
+  --color-dias-restantes: #059669;
+}
   --color-surface-card: #2a2d43;
   --color-sidebar: #764ba2;
   --color-bg: #eef1f6;

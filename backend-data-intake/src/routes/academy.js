@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middleware/auth');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 const Curso = require('../models/formacion/Curso');
 
 const ROLES_ADMIN = ['owner', 'admin', 'manager'];

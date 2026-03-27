@@ -57,6 +57,7 @@
   font-size: 0.8rem;
 }
 
+
 /* Badges de estado */
 .sf-badge {
   display: inline-flex;
@@ -68,14 +69,14 @@
   text-transform: capitalize;
 }
 
-.sf-badge.activo    { background: rgba(16,185,129,0.15); color: #10b981; }
-.sf-badge.inactivo  { background: rgba(100,116,139,0.15); color: #64748b; }
-.sf-badge.suspendido{ background: rgba(239,68,68,0.15); color: #ef4444; }
-.sf-badge.pendiente { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.sf-badge.pagado    { background: rgba(16,185,129,0.15); color: #10b981; }
-.sf-badge.completado{ background: rgba(16,185,129,0.15); color: #10b981; }
-.sf-badge.vacaciones{ background: rgba(59,130,246,0.15); color: #3b82f6; }
-.sf-badge.licencia  { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+.sf-badge.activo    { background: var(--badge-success-bg); color: var(--badge-success-text); }
+.sf-badge.inactivo  { background: var(--badge-muted-bg); color: var(--badge-muted-text); }
+.sf-badge.suspendido{ background: var(--badge-danger-bg); color: var(--badge-danger-text); }
+.sf-badge.pendiente { background: var(--badge-warning-bg); color: var(--badge-warning-text); }
+.sf-badge.pagado    { background: var(--badge-success-bg); color: var(--badge-success-text); }
+.sf-badge.completado{ background: var(--badge-success-bg); color: var(--badge-success-text); }
+.sf-badge.vacaciones{ background: var(--badge-info-bg); color: var(--badge-info-text); }
+.sf-badge.licencia  { background: var(--badge-purple-bg); color: var(--badge-purple-text); }
 
 /* Acciones de fila */
 .sf-actions {
@@ -106,9 +107,9 @@
 }
 
 .sf-btn-action.danger:hover {
-  background: rgba(239,68,68,0.1);
-  color: #ef4444;
-  border-color: rgba(239,68,68,0.3);
+  background: var(--color-btn-danger-bg, rgba(239,68,68,0.1));
+  color: var(--color-btn-danger, #ef4444);
+  border-color: var(--color-btn-danger-border, rgba(239,68,68,0.3));
 }
 
 /* Paginación */
@@ -142,9 +143,9 @@
 }
 
 .sf-pagination-btns button.active {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
+  background: var(--color-pagination-active-bg, var(--color-primary));
+  color: var(--color-pagination-active, #fff);
+  border-color: var(--color-pagination-active-border, var(--color-primary));
 }
 
 .sf-pagination-btns button:hover:not(.active) {

@@ -13,7 +13,7 @@
   justify-content: center;
   padding: 2rem 1.25rem;
   overflow: hidden;
-  background: #0a0a0f;
+  background: var(--color-bg-main, #0a0a0f);
   color: var(--color-text, #f0f0f5);
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -23,9 +23,9 @@
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(circle at 20% 18%, rgba(99, 102, 241, 0.05) 0, transparent 32%),
-    radial-gradient(circle at 80% 75%, rgba(99, 102, 241, 0.04) 0, transparent 30%),
-    linear-gradient(180deg, #0b0b11 0%, #09090d 58%, #07070b 100%);
+    radial-gradient(circle at 20% 18%, var(--color-primary-accent-a05, rgba(99, 102, 241, 0.05)) 0, transparent 32%),
+    radial-gradient(circle at 80% 75%, var(--color-primary-accent-a04, rgba(99, 102, 241, 0.04)) 0, transparent 30%),
+    linear-gradient(180deg, var(--color-bg-main-dark, #0b0b11) 0%, var(--color-bg-secondary, #09090d) 58%, var(--color-bg-tertiary, #07070b) 100%);
 }
 
 .auth-background::before,
@@ -38,8 +38,8 @@
 
 .auth-background::before {
   background:
-    radial-gradient(circle at 24% 30%, rgba(99, 102, 241, 0.13) 0, rgba(99, 102, 241, 0.04) 18%, transparent 38%),
-    radial-gradient(circle at 74% 22%, rgba(99, 102, 241, 0.08) 0, transparent 28%);
+    radial-gradient(circle at 24% 30%, var(--color-primary-accent-a13, rgba(99, 102, 241, 0.13)) 0, var(--color-primary-accent-a04, rgba(99, 102, 241, 0.04)) 18%, transparent 38%),
+    radial-gradient(circle at 74% 22%, var(--color-primary-accent-a08, rgba(99, 102, 241, 0.08)) 0, transparent 28%);
   filter: blur(34px);
   opacity: 0.78;
   animation: auth-orbs 16s ease-in-out infinite alternate;
@@ -54,7 +54,7 @@
 .auth-background-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(10, 10, 15, 0.2) 0%, rgba(10, 10, 15, 0.58) 100%);
+  background: linear-gradient(180deg, var(--color-bg-main-a20, rgba(10, 10, 15, 0.2)) 0%, var(--color-bg-main-a58, rgba(10, 10, 15, 0.58)) 100%);
 }
 
 @keyframes auth-orbs {
@@ -127,7 +127,7 @@
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: #f8f8ff;
+  color: var(--color-text-title, #f8f8ff);
   text-shadow: 0 0 24px rgba(99, 102, 241, 0.16);
 }
 
@@ -146,7 +146,7 @@
   padding: 2rem;
   border: 1px solid var(--color-border, #252533);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(28, 28, 39, 0.95) 0%, rgba(19, 19, 26, 0.98) 100%);
+  background: linear-gradient(180deg, var(--color-bg-card-a95, rgba(28, 28, 39, 0.95)) 0%, var(--color-bg-card-a98, rgba(19, 19, 26, 0.98)) 100%);
   box-shadow: 0 0 40px rgba(99, 102, 241, 0.05), 0 8px 32px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(18px);
   animation: slideUp 0.45s ease-out;
@@ -158,18 +158,19 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 26%);
+  background: linear-gradient(180deg, var(--color-bg-card-white-a04, rgba(255, 255, 255, 0.04)) 0%, transparent 26%);
 }
 
 .auth-card-inner {
   position: relative;
   margin-bottom: 1.8rem;
   text-align: center;
+  /* color heredado de h2 */
 }
 
 .auth-card-inner h2 {
   margin: 0 0 0.6rem;
-  color: #f0f0f5;
+  color: var(--color-text, #f0f0f5);
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 1.8rem;
   font-weight: 700;
@@ -178,7 +179,7 @@
 
 .auth-subtitle {
   margin: 0;
-  color: #8b8b9e;
+  color: var(--color-text-secondary, #8b8b9e);
   font-size: 0.97rem;
   line-height: 1.55;
 }
@@ -188,10 +189,10 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.6rem 0.95rem;
-  border: 1px solid #252533;
+  border: 1px solid var(--color-border, #252533);
   border-radius: 10px;
-  background: rgba(10, 10, 15, 0.82);
-  color: #8b8b9e;
+  background: var(--color-bg-main-a82, rgba(10, 10, 15, 0.82));
+  color: var(--color-text-secondary, #8b8b9e);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -199,9 +200,9 @@
 }
 
 .btn-back:hover {
-  background: #1c1c27;
-  color: #f0f0f5;
-  border-color: #35354a;
+  background: var(--color-bg-card-hover, #1c1c27);
+  color: var(--color-text, #f0f0f5);
+  border-color: var(--color-border-hover, #35354a);
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.12);
   opacity: 1;
 }

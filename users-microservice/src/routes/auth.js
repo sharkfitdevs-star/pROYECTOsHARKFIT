@@ -111,7 +111,7 @@ router.post('/login', loginRateLimiter, async (req, res) => {
       return res.status(500).json({ ok: false, error: 'SERVER_MISCONFIG' });
     }
 
-    const ttl = process.env.JWT_ACCESS_TTL || '15m';
+    const ttl = process.env.JWT_ACCESS_TTL || '24h';
     const payload = {
       id: user._id,
       userId: user._id,
@@ -153,6 +153,62 @@ router.post('/login', loginRateLimiter, async (req, res) => {
 
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' });
+  }
+});
+
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const User = require('../models/User');
+    
+    // Obtener token del header Authorization o del body
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    }
+    if (!token && req.body && req.body.refreshToken) {
+      token = req.body.refreshToken;
+    }
+    
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'No se proporcionó token' });
+    }
+    
+    // Decodificar SIN verificar expiración (el token puede estar expirado)
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ success: false, error: 'Token malformado' });
+    }
+    
+    // Verificar que el usuario existe y está activo
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Usuario no encontrado' });
+    }
+    if (!user.active) {
+      return res.status(401).json({ success: false, error: 'Usuario desactivado' });
+    }
+    
+    // Generar nuevo access token
+    const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+    const newAccessToken = jwt.sign(
+      { id: user._id, role: user.role, username: user.username, email: user.email },
+      secret,
+      { expiresIn: '2h' } // refresh token, NO cambiar
+    );
+    
+    // Actualizar último acceso
+    user.lastLoginAt = new Date();
+    await user.save().catch(() => {});
+    
+    console.log('[auth/refresh] Token renovado para usuario:', user.username);
+    
+    res.json({ success: true, accessToken: newAccessToken });
+  } catch (error) {
+    console.error('[auth/refresh] Error:', error.message);
+    res.status(500).json({ success: false, error: 'Error interno al refrescar sesión' });
   }
 });
 

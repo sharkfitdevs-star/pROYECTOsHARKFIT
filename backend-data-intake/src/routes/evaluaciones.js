@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 const Evaluacion = require('../models/rrhh/Evaluacion');
 const Colaborador = require('../models/rrhh/Colaborador');

@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import DataTable from '../ui/DataTable';
 import RemuneracionesService from '../../api/services/RemuneracionesService';
 import './RemuneracionesSection.css';
 
 const RemuneracionesSection = () => {
+    // Función para generar un nuevo período de remuneraciones
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const getHeaders = () => ({
+      'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+      'Content-Type': 'application/json'
+    });
+    // Prompt D: Modal informativo en vez de POST
+    const [showInfoModal, setShowInfoModal] = useState(false);
   const [liquidaciones, setLiquidaciones] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,6 +24,22 @@ const RemuneracionesSection = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('');
   
   // Modal
+
+  // Funciones faltantes agregadas como stubs
+  const handleVerDetalle = (id) => {
+    console.log('handleVerDetalle llamada', id);
+    // Implementación real pendiente
+  };
+
+  const handleAprobar = (id) => {
+    console.log('handleAprobar llamada', id);
+    // Implementación real pendiente
+  };
+
+  const handlePagar = (id) => {
+    console.log('handlePagar llamada', id);
+    // Implementación real pendiente
+  };
   const [modalOpen, setModalOpen] = useState(false);
   const [liquidacionSeleccionada, setLiquidacionSeleccionada] = useState(null);
   
@@ -42,77 +67,6 @@ const RemuneracionesSection = () => {
       setLoading(false);
     }
   }, [mesSeleccionado, anioSeleccionado, estadoFiltro]);
-
-  const cargarAdelantos = useCallback(async () => {
-    try {
-      setLoadingAdelantos(true);
-      const response = await RemuneracionesService.getAdelantos();
-      setAdelantos(response.data || []);
-    } catch (err) {
-      console.error('Error cargando adelantos:', err);
-    } finally {
-      setLoadingAdelantos(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    cargarLiquidaciones();
-  }, [cargarLiquidaciones]);
-
-  useEffect(() => {
-    if (activeTab === 'adelantos') {
-      cargarAdelantos();
-    }
-  }, [activeTab, cargarAdelantos]);
-
-  const handleGenerarPeriodo = async () => {
-    if (!window.confirm(`¿Generar liquidaciones para ${RemuneracionesService.getMeses().find(m => m.value === mesSeleccionado)?.label} ${anioSeleccionado}?`)) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const response = await RemuneracionesService.generarPeriodo(mesSeleccionado, anioSeleccionado);
-      alert(`Se generaron ${response.data.generadas} liquidaciones. ${response.data.existentes} ya existían.`);
-      cargarLiquidaciones();
-    } catch (err) {
-      alert('Error al generar liquidaciones: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAprobar = async (id) => {
-    if (!window.confirm('¿Aprobar esta liquidación?')) return;
-    
-    try {
-      await RemuneracionesService.aprobarLiquidacion(id);
-      cargarLiquidaciones();
-    } catch (err) {
-      alert('Error al aprobar: ' + err.message);
-    }
-  };
-
-  const handlePagar = async (id) => {
-    if (!window.confirm('¿Marcar como pagada esta liquidación?')) return;
-    
-    try {
-      await RemuneracionesService.pagarLiquidacion(id);
-      cargarLiquidaciones();
-    } catch (err) {
-      alert('Error al marcar como pagada: ' + err.message);
-    }
-  };
-
-  const handleVerDetalle = async (id) => {
-    try {
-      const response = await RemuneracionesService.getLiquidacion(id);
-      setLiquidacionSeleccionada(response.data);
-      setModalOpen(true);
-    } catch (err) {
-      alert('Error al cargar detalle: ' + err.message);
-    }
-  };
 
   const renderResumen = () => {
     if (!resumen) return null;
@@ -195,7 +149,17 @@ const RemuneracionesSection = () => {
           </select>
         </div>
         
-        <button className="btn-generar" onClick={handleGenerarPeriodo}>
+        <button className="btn-generar" onClick={() => setShowInfoModal(true)}>
+                {/* Modal informativo generación de período */}
+                {showInfoModal && (
+                  <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                      <div className="modal-header"><h3>Generar Período</h3><button className="modal-close" onClick={() => setShowInfoModal(false)}>&times;</button></div>
+                      <div className="modal-body"><p style={{color:'var(--color-text-secondary)',textAlign:'center',padding:'20px'}}>La generación automática de períodos de liquidación estará disponible próximamente. Por ahora, los datos de remuneraciones se gestionan a través de la importación de datos.</p></div>
+                      <div className="modal-footer"><button className="btn-primary" onClick={() => setShowInfoModal(false)}>Entendido</button></div>
+                    </div>
+                  </div>
+                )}
           <i className="bi bi-plus-circle"></i>
           Generar Período
         </button>

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 const Producto = require('../models/inventario/Producto');
 const Proveedor = require('../models/inventario/Proveedor');

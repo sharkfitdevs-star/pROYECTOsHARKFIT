@@ -1,13 +1,67 @@
 import React, { useState, useEffect } from 'react';
+import DataTable from '../ui/DataTable';
 import './InventarioStyles.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 
 const ComprasSection = () => {
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtroEstado, setFiltroEstado] = useState('');
+
+  // ESTADOS PARA EL MODAL DE NUEVA ORDEN
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    proveedor: '',
+    fecha: new Date().toISOString().split('T')[0],
+    items: '',
+    montoTotal: '',
+    estado: 'pendiente',
+    notas: '',
+    formaPago: 'transferencia'
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = async () => {
+    if (!formData.proveedor.trim()) {
+      alert('El proveedor es obligatorio');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/inventario/compras`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify(formData)
+      });
+      if (!response.ok) throw new Error('Error al guardar');
+      setShowModal(false);
+      setFormData({
+        proveedor: '',
+        fecha: new Date().toISOString().split('T')[0],
+        items: '',
+        montoTotal: '',
+        estado: 'pendiente',
+        notas: '',
+        formaPago: 'transferencia'
+      });
+      cargarCompras && cargarCompras();
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al guardar la orden de compra');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -82,7 +136,7 @@ const ComprasSection = () => {
           <h1>Órdenes de Compra</h1>
           <p>Gestión de compras a proveedores</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setShowModal(true)}>
           <i className="bi bi-plus"></i>
           Nueva Orden
         </button>
@@ -150,53 +204,99 @@ const ComprasSection = () => {
           <h3>No hay órdenes de compra</h3>
           <p>Crea órdenes de compra para tus proveedores</p>
         </div>
-      ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>N° Orden</th>
-                <th>Fecha</th>
-                <th>Proveedor</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comprasFiltradas.map(compra => {
-                const estadoInfo = getEstadoInfo(compra.estado);
-                return (
-                  <tr key={compra._id}>
-                    <td className="font-mono">#{compra.numero || compra._id?.slice(-6)}</td>
-                    <td>{formatFecha(compra.fecha)}</td>
-                    <td>{compra.proveedor?.nombre || '-'}</td>
-                    <td className="text-center">{compra.items?.length || 0}</td>
-                    <td className="text-right font-mono">{formatMonto(compra.total)}</td>
-                    <td>
-                      <span className={`status-badge ${estadoInfo.class}`}>
-                        {estadoInfo.label}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="btn-icon" title="Ver detalle">
-                        <i className="bi bi-eye"></i>
-                      </button>
-                      <button className="btn-icon" title="Editar">
-                        <i className="bi bi-pencil"></i>
-                      </button>
-                      {compra.estado === 'aprobada' && (
-                        <button className="btn-icon success" title="Marcar recibida">
-                          <i className="bi bi-check-circle"></i>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        ) : (
+          <DataTable
+            columns={[
+              { key: 'numero', label: 'N° Orden', render: (v, row) => `#${row.numero || row._id?.slice(-6)}` },
+              { key: 'fecha', label: 'Fecha', render: (v, row) => formatFecha(row.fecha) },
+              { key: 'proveedor', label: 'Proveedor', render: (v, row) => row.proveedor?.nombre || '-' },
+              { key: 'items', label: 'Items', render: (v, row) => row.items?.length || 0, className: 'text-center' },
+              { key: 'total', label: 'Total', render: (v, row) => formatMonto(row.total), className: 'text-right font-mono' },
+              { key: 'estado', label: 'Estado', render: (v, row) => {
+                  const estadoInfo = getEstadoInfo(row.estado);
+                  return <span className={`status-badge ${estadoInfo.class}`}>{estadoInfo.label}</span>;
+                }
+              },
+            ]}
+            data={comprasFiltradas}
+            loading={loading}
+            error={error}
+            emptyMessage="No hay órdenes de compra"
+            emptyIcon="bi-cart"
+            actions={(row) => (
+              <>
+                <button className="btn-icon" title="Ver detalle">
+                  <i className="bi bi-eye"></i>
+                </button>
+                <button className="btn-icon" title="Editar">
+                  <i className="bi bi-pencil"></i>
+                </button>
+                {row.estado === 'aprobada' && (
+                  <button className="btn-icon success" title="Marcar recibida">
+                    <i className="bi bi-check-circle"></i>
+                  </button>
+                )}
+              </>
+            )}
+          />
+        )}
+      {/* MODAL NUEVA ORDEN DE COMPRA */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nueva Orden de Compra</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Proveedor *</label>
+                <input type="text" name="proveedor" value={formData.proveedor} onChange={handleChange} placeholder="Nombre del proveedor" />
+              </div>
+              <div className="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" value={formData.fecha} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label>Monto Total</label>
+                <input type="number" name="montoTotal" value={formData.montoTotal} onChange={handleChange} placeholder="0" />
+              </div>
+              <div className="form-group">
+                <label>Forma de Pago</label>
+                <select name="formaPago" value={formData.formaPago} onChange={handleChange}>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="credito">Crédito 30 días</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Estado</label>
+                <select name="estado" value={formData.estado} onChange={handleChange}>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="aprobada">Aprobada</option>
+                  <option value="en_proceso">En Proceso</option>
+                  <option value="completada">Completada</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Items / Detalle</label>
+                <textarea name="items" value={formData.items} onChange={handleChange} placeholder="Detalle de productos..." rows="3" />
+              </div>
+              <div className="form-group">
+                <label>Notas</label>
+                <textarea name="notas" value={formData.notas} onChange={handleChange} placeholder="Observaciones..." rows="2" />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar Orden'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

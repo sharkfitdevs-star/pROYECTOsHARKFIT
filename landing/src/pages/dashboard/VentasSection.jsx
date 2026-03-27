@@ -272,11 +272,7 @@ export default function VentasSection() {
           </tbody>
         </table>
       </div>
-      <div className="ventas-pagination">
-        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary">Anterior</button>
-        <span>Pagina {page}</span>
-        <button onClick={() => setPage(p => p + 1)} disabled={ventasFiltradas.length < limit} className="btn-secondary">Siguiente</button>
-      </div>
+
     {ventaOpen && (
       <div className="ventas-modal-overlay"
         onClick={(e) => { if (e.target === e.currentTarget) setVentaOpen(false); }}>

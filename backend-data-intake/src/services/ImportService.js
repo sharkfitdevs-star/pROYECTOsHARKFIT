@@ -156,15 +156,15 @@ class ImportService {
           const colIndex = headersNorm.findIndex((h) => h === normHeader) + 1;
           if (colIndex > 0) {
             const valor = row.getCell(colIndex).value;
-            console.log('MAPPING', { normHeader, field, valor });
+            logger.debug('MAPPING', { normHeader, field, valor });
             this._asignarValor(objeto, field, valor);
           }
         });
-        console.log('OBJETO CONSTRUIDO:', JSON.stringify(objeto, null, 2));
+        logger.debug('OBJETO CONSTRUIDO:', JSON.stringify(objeto, null, 2));
 
         // validate required for clientes
         if (entidad === 'clientes') {
-          console.debug('objeto construido en fila ' + rowNumber + ':', JSON.stringify(objeto));
+          logger.debug('objeto construido en fila ' + rowNumber + ':', JSON.stringify(objeto));
           const hasId = objeto.name || objeto.email || objeto.phone ||
                         objeto.cellphone || objeto.cellPhone || objeto.idMember;
           if (!hasId) {
@@ -536,8 +536,8 @@ class ImportService {
     for (let reg of registros) {
       if (!reg || typeof reg !== 'object') continue;
 
-      console.log('RAW REGISTRO KEYS:', Object.keys(registros[0] || {}));
-      console.log('RAW REGISTRO SAMPLE:', JSON.stringify(registros[0], null, 2));
+      logger.debug('RAW REGISTRO KEYS:', Object.keys(registros[0] || {}));
+      logger.debug('RAW REGISTRO SAMPLE:', JSON.stringify(registros[0], null, 2));
 
       // Normalizar TODAS las keys a minúscula
       const r = Object.fromEntries(
@@ -560,7 +560,7 @@ class ImportService {
       const uniqueId = r.uniqueid || idMemberRaw || email || uuidv4();
       const idMember = idMemberRaw || uniqueId;
 
-      console.log('AUDIT name:', fullName, '| email:', email, '| idMember:', idMember);
+      logger.debug('AUDIT name:', fullName, '| email:', email, '| idMember:', idMember);
 
       const docData = {
         uniqueId, idMember,
@@ -594,7 +594,7 @@ class ImportService {
           await cliente.save();
           updatedCount++;
         } else {
-          console.log('ABOUT TO CREATE docData.name:', docData.name);
+          logger.debug('ABOUT TO CREATE docData.name:', docData.name);
           await Cliente.create(docData);
           insertedCount++;
         }
@@ -630,7 +630,7 @@ class ImportService {
         const r = {};
         Object.entries(reg).forEach(([k, v]) => { r[k.toLowerCase()] = v; });
 
-        console.log('[_importarVentas] fila raw keys:', Object.keys(r));
+        logger.debug('[_importarVentas] fila raw keys:', Object.keys(r));
 
         // ── Helpers ──────────────────────────────────────────────────────────
         const parseFecha = (v) => {
@@ -669,7 +669,7 @@ class ImportService {
           amount,
         ].join('|') || uuidv4();
 
-        console.log('[_importarVentas] procesando:', {
+        logger.debug('[_importarVentas] procesando:', {
           memberName, saleDate, saleType, paymentStatus, employeeName, planName,
           amount, discount, tax, branchName, idSale,
         });
@@ -712,9 +712,9 @@ class ImportService {
       }
     }
 
-    console.log(`[_importarVentas] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    logger.info(`[_importarVentas] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
     if (erroresDetalle.length > 0) {
-      console.error('[_importarVentas] Errores:', erroresDetalle.slice(0, 5));
+      logger.error('[_importarVentas] Errores:', erroresDetalle.slice(0, 5));
     }
 
     return { inseridos, actualizados, errores };
@@ -780,9 +780,9 @@ class ImportService {
       }
     }
 
-    console.log(`[_importarLeads] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    logger.info(`[_importarLeads] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
     if (erroresDetalle.length > 0) {
-      console.error('[_importarLeads] Errores:', erroresDetalle.slice(0, 5));
+      logger.error('[_importarLeads] Errores:', erroresDetalle.slice(0, 5));
     }
 
     return { inseridos, actualizados, errores };
@@ -862,9 +862,9 @@ class ImportService {
       }
     }
 
-    console.log(`[_importarAgendamientos] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
+    logger.info(`[_importarAgendamientos] RESULTADO: inseridos=${inseridos} actualizados=${actualizados} errores=${errores}`);
     if (erroresDetalle.length > 0) {
-      console.error('[_importarAgendamientos] Errores:', erroresDetalle.slice(0, 5));
+      logger.error('[_importarAgendamientos] Errores:', erroresDetalle.slice(0, 5));
     }
 
     return { inseridos, actualizados, errores };
@@ -878,7 +878,7 @@ class ImportService {
   try {
     const workbook = new ExcelJS.Workbook();
     const absolutePath = require('path').resolve(filePath);
-    console.log('[PREVIEW] reading file:', absolutePath, 'exists:', require('fs').existsSync(absolutePath));
+    logger.info('[PREVIEW] reading file:', absolutePath, 'exists:', require('fs').existsSync(absolutePath));
     await workbook.xlsx.readFile(absolutePath);
     
     const worksheet = workbook.getWorksheet(1);

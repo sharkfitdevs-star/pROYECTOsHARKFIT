@@ -1,21 +1,28 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import DataTable from '../../components/ui/DataTable';
 import AlertasService from '../../api/services/AlertasService';
+import { generarReporteAlertasPDF } from '../../utils/pdfGenerator';
 import '../../styles/Dashboard.css';
 
 const PRIORIDAD_ORDEN = { urgente: 5, critica: 4, alta: 3, media: 2, baja: 1 };
 
+
+
+
+
 const PRIORIDAD_COLOR = {
-  urgente: { background: 'rgba(248,113,113,0.2)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.35)' },
-  alta:    { background: 'rgba(248,113,113,0.15)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.25)' },
-  media:   { background: 'rgba(251,191,36,0.15)', color: '#fde68a', border: '1px solid rgba(251,191,36,0.25)' },
-  baja:    { background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.25)' },
+  urgente: { background: 'var(--priority-urgente-bg)', color: 'var(--priority-urgente-text)', border: '1px solid rgba(248,113,113,0.35)' },
+  alta:    { background: 'var(--priority-alta-bg)', color: 'var(--priority-alta-text)', border: '1px solid rgba(248,113,113,0.25)' },
+  media:   { background: 'var(--priority-media-bg)', color: 'var(--priority-media-text)', border: '1px solid rgba(251,191,36,0.25)' },
+  baja:    { background: 'var(--priority-baja-bg)', color: 'var(--priority-baja-text)', border: '1px solid rgba(96,165,250,0.25)' },
 };
 
 const ESTADO_COLOR = {
-  pendiente:   { background: 'rgba(251,191,36,0.15)', color: '#fde68a' },
-  en_proceso:  { background: 'rgba(96,165,250,0.15)', color: '#93c5fd' },
-  completada:  { background: 'rgba(74,222,128,0.15)', color: '#86efac' },
-  cancelada:   { background: 'rgba(248,113,113,0.15)', color: '#fca5a5' },
+  pendiente:   { background: 'var(--badge-warning-bg)', color: 'var(--badge-warning-text)' },
+  en_proceso:  { background: 'var(--badge-info-bg)', color: 'var(--badge-info-text)' },
+  completada:  { background: 'var(--badge-success-bg)', color: 'var(--badge-success-text)' },
+  cancelada:   { background: 'var(--badge-danger-bg)', color: 'var(--badge-danger-text)' },
 };
 
 function Badge({ texto, style }) {
@@ -71,6 +78,8 @@ function exportarCSV(alertas) {
 const PAGE_SIZE = 50;
 
 export default function AlertasSection() {
+    // ...existing code...
+  const { user } = useAuth();
   const [alertas, setAlertas] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [limpiandoObsoletas, setLimpiandoObsoletas] = useState(false);
@@ -89,6 +98,17 @@ export default function AlertasSection() {
   const [filtroHasta, setFiltroHasta]     = useState('');
 
   // token ya no es necesario; AlertasService maneja autenticación automáticamente
+  // BLOQUE 1 - Reincidentes (MOVIDO DESPUÉS DE useState/useAuth/useEffect)
+  const reincidentes = useMemo(() => {
+    const conteoResponsable = {};
+    alertas.filter(a => ['pendiente', 'en_proceso'].includes(a.status)).forEach(a => {
+      const key = a.responsable || a.cliente || 'sin_asignar';
+      if (!conteoResponsable[key]) conteoResponsable[key] = { nombre: key, count: 0, alertas: [] };
+      conteoResponsable[key].count++;
+      conteoResponsable[key].alertas.push(a);
+    });
+    return Object.values(conteoResponsable).filter(r => r.count >= 3);
+  }, [alertas]);
 
   useEffect(() => {
     cargarAlertas();
@@ -99,7 +119,25 @@ export default function AlertasSection() {
     setError(null);
     try {
       const json = await AlertasService.getAll({ limit: 5000 });
-      setAlertas(json.data || []);
+      const todasAlertas = json.data || [];
+      // Filtrar por rol
+      if (user?.role === 'owner') {
+        // Owner ve todas
+        setAlertas(todasAlertas);
+      } else if (user?.role === 'staff') {
+        // Staff ve alertas asignadas a él o sin responsable
+        setAlertas(todasAlertas.filter(a => 
+          !a.responsable || 
+          a.responsable === user.username || 
+          a.responsable === user.firstName ||
+          a.responsable === `${user.firstName} ${user.lastName}`
+        ));
+      } else {
+        // Viewer ve solo alertas públicas (baja prioridad o sin responsable)
+        setAlertas(todasAlertas.filter(a => 
+          a.priority === 'baja' || !a.responsable
+        ));
+      }
     } catch (e) {
       setError('Error cargando alertas: ' + e.message);
     } finally {
@@ -233,6 +271,9 @@ export default function AlertasSection() {
           <button onClick={() => exportarCSV(filtradas)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}>
             Exportar CSV
           </button>
+          <button onClick={() => generarReporteAlertasPDF(filtradas, 'Alertas Operativas')} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}>
+            Exportar PDF
+          </button>
           <button onClick={cargarAlertas} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}>
             Actualizar
           </button>
@@ -341,6 +382,7 @@ export default function AlertasSection() {
                         borderBottom: '1px solid var(--color-border)',
                         background: idx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-surface-card)',
                         transition: 'background 0.1s',
+                reincidentes: reincidentes.length,
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-card)'}
                       onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-surface-card)'}
@@ -362,7 +404,7 @@ export default function AlertasSection() {
                           <span style={{
                             fontSize: '0.78rem',
                             fontWeight: 600,
-                            color: venc.vencida ? '#dc2626' : venc.hoy ? '#d97706' : '#059669',
+                            color: venc.vencida ? 'var(--color-vencida)' : venc.hoy ? 'var(--color-vence-hoy)' : 'var(--color-dias-restantes)',
                           }}>
                             {venc.texto}
                           </span>
@@ -445,4 +487,5 @@ const paginaBtnStyle = {
   fontSize: '0.83rem',
   color: 'var(--color-text-secondary)',
 };
+
 

@@ -54,12 +54,12 @@ class DashboardService {
     hoy.setHours(0, 0, 0, 0);
     
     const Venta = mongoose.model('Venta');
-    const query = { fecha: { $gte: hoy } };
-    if (sedeId) query.sede = sedeId;
+    const query = { saleDate: { $gte: hoy } };
+    if (sedeId) query.idBranch = sedeId;
 
     const ventas = await Venta.aggregate([
       { $match: query },
-      { $group: { _id: null, total: { $sum: '$monto' }, cantidad: { $sum: 1 } } }
+      { $group: { _id: null, total: { $sum: '$totalAmount' }, cantidad: { $sum: 1 } } }
     ]);
 
     return {
@@ -75,12 +75,12 @@ class DashboardService {
     const fin = fechaFin ? new Date(fechaFin) : new Date();
 
     const Venta = mongoose.model('Venta');
-    const query = { fecha: { $gte: inicio, $lte: fin } };
-    if (sedeId) query.sede = sedeId;
+    const query = { saleDate: { $gte: inicio, $lte: fin } };
+    if (sedeId) query.idBranch = sedeId;
 
     const ventas = await Venta.aggregate([
       { $match: query },
-      { $group: { _id: null, total: { $sum: '$monto' }, cantidad: { $sum: 1 } } }
+      { $group: { _id: null, total: { $sum: '$totalAmount' }, cantidad: { $sum: 1 } } }
     ]);
 
     const mesAnterior = await this.getVentasMesAnterior(sedeId);
@@ -101,21 +101,21 @@ class DashboardService {
     const finMesAnterior = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
 
     const Venta = mongoose.model('Venta');
-    const query = { fecha: { $gte: inicioMesAnterior, $lte: finMesAnterior } };
-    if (sedeId) query.sede = sedeId;
+    const query = { saleDate: { $gte: inicioMesAnterior, $lte: finMesAnterior } };
+    if (sedeId) query.idBranch = sedeId;
 
     const ventas = await Venta.aggregate([
       { $match: query },
-      { $group: { _id: null, total: { $sum: '$monto' } } }
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
 
     return ventas[0]?.total || 0;
   }
 
   static async getClientesActivos(sedeId) {
-    const Cliente = mongoose.model('Client');
-    const query = { status: 'active' };
-    if (sedeId) query.sede = sedeId;
+    const Cliente = mongoose.model('Cliente');
+    const query = { active: true };
+    if (sedeId) query.idBranch = sedeId;
 
     const total = await Cliente.countDocuments(query);
     
@@ -130,9 +130,9 @@ class DashboardService {
     const inicio = fechaInicio ? new Date(fechaInicio) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const fin = fechaFin ? new Date(fechaFin) : new Date();
 
-    const Cliente = mongoose.model('Client');
+    const Cliente = mongoose.model('Cliente');
     const query = { createdAt: { $gte: inicio, $lte: fin } };
-    if (sedeId) query.sede = sedeId;
+    if (sedeId) query.idBranch = sedeId;
 
     const total = await Cliente.countDocuments(query);
 
@@ -163,8 +163,8 @@ class DashboardService {
     const Alerta = mongoose.model('Alerta');
     
     const alertas = await Alerta.find({
-      status: { $in: ['pending', 'in_progress'] },
-      ...(sedeId && { sede: sedeId })
+      status: { $in: ['pendiente', 'en_proceso'] },
+      ...(sedeId && { idBranch: sedeId })
     })
     .sort({ priority: -1, createdAt: -1 })
     .limit(10)
@@ -203,7 +203,7 @@ class DashboardService {
     
     const items = await Inventario.find({
       $expr: { $lte: ['$cantidad_actual', '$stock_minimo'] },
-      ...(sedeId && { sede: sedeId })
+      ...(sedeId && { idBranch: sedeId })
     })
     .populate('producto', 'nombre sku')
     .limit(10)
@@ -240,15 +240,15 @@ class DashboardService {
     const fin = fechaFin ? new Date(fechaFin) : new Date();
 
     const Venta = mongoose.model('Venta');
-    const query = { fecha: { $gte: inicio, $lte: fin } };
-    if (sedeId) query.sede = sedeId;
+    const query = { saleDate: { $gte: inicio, $lte: fin } };
+    if (sedeId) query.idBranch = sedeId;
 
     const datos = await Venta.aggregate([
       { $match: query },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$fecha' } },
-          total: { $sum: '$monto' },
+          _id: { $dateToString: { format: '%Y-%m', date: '$saleDate' } },
+          total: { $sum: '$totalAmount' },
           cantidad: { $sum: 1 }
         }
       },
@@ -276,7 +276,7 @@ class DashboardService {
   static async getColaboradoresActivos(sedeId) {
     const Colaborador = mongoose.model('Colaborador');
     const query = { estado: 'activo' };
-    if (sedeId) query.sede_actual = sedeId;
+    if (sedeId) query.idBranch = sedeId;
 
     const total = await Colaborador.countDocuments(query);
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import DataTable from '../../components/ui/DataTable';
 import { useNavigate } from 'react-router-dom';
 import { fetchClientes, normalizeClientesResponse } from "../../services/clientesApi";
 import { createToast } from "@/components/ui/use-toast";
@@ -314,36 +315,27 @@ export default function ClientesSection() {
       )}
       {importsConnected && !cargando && !error && filtrados.length > 0 && (
         <>
-          <div className="clientes-table-container">
-            <table className="clientes-table">
-            <thead>
-              <tr>
-                {columnasDef.map((c) => (
-                  <th key={c.key}>{c.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map((cli, idx) => {
-                const rowKey = cli._id || cli.uniqueId || cli.idMember || `${cli.email||''}-${idx}`;
-                const statusInfo = getClienteStatusLabel(cli.estado || cli.status);
-                return (
-                  <tr key={rowKey}>
-                    <td>{cli.nombre || cli.nombre_cliente || cli.name || '(sin nombre)'}</td>
-                    <td>{cli.email || '—'}</td>
-                    <td>{cli.telefono || cli.cellPhone || '—'}</td>
-                    <td>
-                      <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
-                    </td>
-                    <td>{cli.fuente || cli.source || '—'}</td>
-                    <td>{cli.createdAt ? new Date(cli.createdAt).toLocaleDateString() : '—'}</td>
-                    <td>{cli.updatedAt ? new Date(cli.updatedAt).toLocaleDateString() : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+          <DataTable
+            columns={[
+              { key: 'nombre', label: 'Nombre', sortable: true, render: (v, row) => row.nombre || row.nombre_cliente || row.name || '(sin nombre)' },
+              { key: 'email', label: 'Email', sortable: true, render: (v) => v || '—' },
+              { key: 'telefono', label: 'Teléfono', render: (v, row) => row.telefono || row.cellPhone || '—' },
+              { key: 'estado', label: 'Estado', sortable: true, render: (v, row) => {
+                const info = getClienteStatusLabel(row.estado || row.status);
+                return <span className={`sf-badge ${info.className}`}>{info.label}</span>;
+              }},
+              { key: 'fuente', label: 'Fuente', render: (v, row) => row.fuente || row.source || '—' },
+              { key: 'createdAt', label: 'Fecha registro', sortable: true, render: (v) => v ? new Date(v).toLocaleDateString() : '—' },
+              { key: 'updatedAt', label: 'Última actualización', sortable: true, render: (v) => v ? new Date(v).toLocaleDateString() : '—' },
+            ]}
+            data={filtrados}
+            loading={cargando}
+            error={error && !error.includes('Sesión expirada') ? error : null}
+            emptyMessage="No hay clientes registrados"
+            emptyIcon="bi-people"
+            searchable={false}
+            pageSize={200}
+          />
           {/* load more button */}
           {clientes.length < totalCount && (
             <button

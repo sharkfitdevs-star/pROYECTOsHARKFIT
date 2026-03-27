@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const SyncService = require('../services/SyncServiceMongo');
+const SyncService = require('../services/SyncService');
 const { SyncLog } = require('../models');
 const { queueSyncTask } = require('../workers/api-worker');
 

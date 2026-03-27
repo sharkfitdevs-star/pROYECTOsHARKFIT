@@ -20,20 +20,57 @@ const DB_CONFIGS = {
   },
   sqlite: {
     label: 'SQLite (.db)', icon: '📦', hasFile: true, defaultPort: '',
+    fileAccept: '.db,.sqlite,.sqlite3',
     guide: {
       example: 'archivo.db, app.sqlite, database.sqlite3',
       tip: 'Sube el archivo directamente. Extensiones válidas: .db .sqlite .sqlite3',
     }
-  }
+  },
+  sql: {
+    label: 'Archivo SQL', icon: '📄', hasFile: true, defaultPort: '',
+    fileAccept: '.sql,.txt',
+    guide: {
+      example: 'archivo.sql con sentencias INSERT INTO tabla (col1, col2) VALUES (...)',
+      tip: 'Soporta exports de Agent.AI, AppSheet, Firebase y cualquier BaaS. Solo sentencias INSERT INTO.',
+    }
+  },
+  csv: {
+    label: 'CSV / TSV', icon: '📊', hasFile: true, defaultPort: '',
+    fileAccept: '.csv,.tsv,.txt',
+    guide: {
+      example: 'datos.csv con headers en la primera fila',
+      tip: 'Detecta automaticamente delimitador (coma, punto y coma, tabulacion).',
+    }
+  },
+  excel: {
+    label: 'Excel', icon: '📗', hasFile: true, defaultPort: '',
+    fileAccept: '.xlsx,.xls',
+    guide: {
+      example: 'reporte.xlsx — si tiene multiples hojas, cada una se importa como tabla separada',
+      tip: 'Usa el formato .xlsx para mejor compatibilidad.',
+    }
+  },
 };
 
 const SHARKFIT_ENTITIES = [
-  { key: 'clientes', label: '👥 Clientes' },
-  { key: 'ventas', label: '💰 Ventas' },
-  { key: 'colaboradores', label: '👔 Colaboradores' },
-  { key: 'productos', label: '📦 Productos' },
-  { key: 'prospectos', label: '🎯 Prospectos' },
-  { key: 'ignorar', label: '— Ignorar tabla —' },
+  { key: 'ignorar', label: '— Ignorar tabla —', group: '' },
+  { key: 'clientes', label: 'Clientes', group: 'Principal', icon: 'bi-people' },
+  { key: 'ventas', label: 'Ventas', group: 'Principal', icon: 'bi-cart' },
+  { key: 'alertas', label: 'Alertas', group: 'Principal', icon: 'bi-bell' },
+  { key: 'colaboradores', label: 'Colaboradores', group: 'RRHH', icon: 'bi-person-badge' },
+  { key: 'remuneraciones', label: 'Remuneraciones', group: 'RRHH', icon: 'bi-wallet2' },
+  { key: 'evaluacion', label: 'Evaluacion', group: 'RRHH', icon: 'bi-clipboard-check' },
+  { key: 'documentos', label: 'Documentos', group: 'RRHH', icon: 'bi-file-earmark-text' },
+  { key: 'reclutamiento', label: 'Reclutamiento', group: 'RRHH', icon: 'bi-person-plus' },
+  { key: 'distribucion', label: 'Distribucion', group: 'RRHH', icon: 'bi-diagram-3' },
+  { key: 'productos', label: 'Productos', group: 'Inventario', icon: 'bi-box' },
+  { key: 'stock', label: 'Stock', group: 'Inventario', icon: 'bi-boxes' },
+  { key: 'proveedores', label: 'Proveedores', group: 'Inventario', icon: 'bi-truck' },
+  { key: 'entregas', label: 'Entregas', group: 'Inventario', icon: 'bi-send' },
+  { key: 'compras', label: 'Compras', group: 'Inventario', icon: 'bi-bag' },
+  { key: 'academy', label: 'Shark Academy', group: 'Formacion', icon: 'bi-mortarboard' },
+  { key: 'prospectos', label: 'Prospectos', group: 'Otro', icon: 'bi-bullseye' },
+  { key: 'custom', label: 'Coleccion personalizada...', group: 'Otro', icon: 'bi-plus-circle' },
 ];
 
 function validateForm(dbType, form, file) {
@@ -63,7 +100,7 @@ export default function MigracionBDSection() {
   const [advancedMode, setAdvancedMode] = useState(false);
   const [connForm, setConnForm] = useState({ host: 'localhost', port: '27017', database: '', user: '', password: '', uri: '', ssl: false });
   const [formErrors, setFormErrors] = useState({});
-  const [sqliteFile, setSqliteFile] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const [tables, setTables] = useState([]);
   const [mappings, setMappings] = useState({});
   const [filePath, setFilePath] = useState('');
@@ -87,7 +124,7 @@ export default function MigracionBDSection() {
   }, [dbType]);
 
   const handleTest = async () => {
-    const errs = validateForm(dbType, connForm, sqliteFile);
+    const errs = validateForm(dbType, connForm, uploadedFile);
     if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
     setTestStatus('testing'); setTestDiag(null); setError('');
     setProgress('Verificando conexión...');
@@ -118,19 +155,50 @@ export default function MigracionBDSection() {
   };
 
   const handleAnalyze = async () => {
-    const errs = validateForm(dbType, connForm, sqliteFile);
+    const errs = validateForm(dbType, connForm, uploadedFile);
     if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
     setLoading(true); setError('');
     const steps = ['Conectando al servidor...', 'Validando credenciales...', 'Obteniendo esquema...', 'Analizando tablas...'];
     let si = 0;
     const interval = setInterval(() => { if (si < steps.length - 1) setProgress(steps[++si]); }, 1500);
     setProgress(steps[0]);
+    function suggestEntity(tableName) {
+      const name = tableName.toLowerCase();
+      const hints = {
+        clientes: ['cliente', 'client', 'customer', 'member', 'socio', 'afiliado'],
+        ventas: ['venta', 'sale', 'order', 'pedido', 'transaccion', 'compra_cliente', 'purchase'],
+        colaboradores: ['colaborador', 'empleado', 'employee', 'staff', 'personal', 'trabajador', 'responsable'],
+        productos: ['producto', 'product', 'item', 'articulo', 'inventario'],
+        alertas: ['alerta', 'alert', 'notificacion', 'notification', 'aviso'],
+        remuneraciones: ['remuneracion', 'salario', 'sueldo', 'salary', 'payroll', 'pago_empleado', 'liquidacion'],
+        evaluacion: ['evaluacion', 'evaluation', 'desempeno', 'performance', 'amonestacion', 'inasistencia'],
+        documentos: ['documento', 'document', 'contrato', 'contract', 'certificado', 'finiquito'],
+        reclutamiento: ['reclutamiento', 'recruitment', 'postulante', 'candidato', 'applicant', 'entrevista'],
+        distribucion: ['distribucion', 'distribution', 'turno', 'shift', 'asignacion', 'rotacion', 'calendario', 'configuracion_responsable', 'tarea_sistema'],
+        stock: ['stock', 'inventario_stock', 'bodega', 'warehouse', 'almacen'],
+        proveedores: ['proveedor', 'supplier', 'vendor', 'provider'],
+        entregas: ['entrega', 'delivery', 'envio', 'shipment', 'despacho'],
+        compras: ['compra', 'purchase_order', 'orden_compra', 'adquisicion'],
+        academy: ['academy', 'capacitacion', 'training', 'curso', 'formacion', 'programa'],
+        prospectos: ['prospecto', 'prospect', 'lead', 'oportunidad'],
+      };
+      for (const [entity, keywords] of Object.entries(hints)) {
+        if (keywords.some(k => name.includes(k))) return entity;
+      }
+      return 'ignorar';
+    }
     try {
       let res, data;
       if (cfg.hasFile) {
         const form = new FormData();
-        form.append('file', sqliteFile);
-        res = await fetch(`${API_BASE}/migration/analyze-sqlite`, {
+        form.append('file', uploadedFile);
+        const endpoint = {
+          sqlite: 'analyze-sqlite',
+          sql: 'analyze-sql',
+          csv: 'analyze-csv',
+          excel: 'analyze-excel'
+        }[dbType];
+        res = await fetch(`${API_BASE}/migration/${endpoint}`, {
           method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: form
         });
       } else {
@@ -145,7 +213,7 @@ export default function MigracionBDSection() {
       setTables(data.tables);
       setFilePath(data.filePath || '');
       const m = {};
-      data.tables.forEach(t => { m[t.name] = 'ignorar'; });
+      data.tables.forEach(t => { m[t.name] = suggestEntity(t.name); });
       setMappings(m);
       setStep(2);
     } catch (e) {
@@ -262,12 +330,12 @@ export default function MigracionBDSection() {
 
           {cfg.hasFile ? (
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>Archivo SQLite</label>
-              <input type="file" accept=".db,.sqlite,.sqlite3"
-                onChange={e => { setSqliteFile(e.target.files[0]); setFormErrors({}); }}
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem' }}>Archivo</label>
+              <input type="file" accept={cfg.fileAccept || '.db,.sqlite,.sqlite3'}
+                onChange={e => { setUploadedFile(e.target.files[0]); setFormErrors({}); }}
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: `1px solid ${formErrors.file ? '#ef4444' : 'var(--color-border)'}`, background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
               {formErrors.file && <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: '0.2rem 0 0' }}>{formErrors.file}</p>}
-              {sqliteFile && <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#10b981' }}>✓ {sqliteFile.name} ({(sqliteFile.size / 1024).toFixed(1)} KB)</p>}
+              {uploadedFile && <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#10b981' }}>✓ {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)</p>}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -338,11 +406,33 @@ export default function MigracionBDSection() {
                   <select value={mappings[table.name] || 'ignorar'}
                     onChange={e => setMappings(p => ({ ...p, [table.name]: e.target.value }))}
                     style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontSize: '0.85rem' }}>
-                    {SHARKFIT_ENTITIES.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+                    {SHARKFIT_ENTITIES.filter(e => e.key === 'ignorar').map(e => (
+                      <option key={e.key} value={e.key}>{e.label}</option>
+                    ))}
+                    {['Principal', 'RRHH', 'Inventario', 'Formacion', 'Otro'].map(group => (
+                      <optgroup key={group} label={group}>
+                        {SHARKFIT_ENTITIES.filter(e => e.group === group).map(e => (
+                          <option key={e.key} value={e.key}>{e.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </div>
                 <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-muted)', background: 'var(--color-bg-primary)' }}>
-                  <strong>Columnas:</strong> {table.columns?.slice(0, 8).join(' · ')}{table.columns?.length > 8 ? ` +${table.columns.length - 8} más` : ''}
+                  <strong>Columnas:</strong> {table.columns?.slice(0, 8).map(c => (
+                    <span key={c}>
+                      {c}
+                      {table.columnTypes?.[c] && (
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', padding: '1px 4px', borderRadius: '3px',
+                          background: { date: 'rgba(59,130,246,0.15)', boolean: 'rgba(168,85,247,0.15)', number: 'rgba(16,185,129,0.15)', id: 'rgba(245,158,11,0.15)', string: 'rgba(100,116,139,0.1)' }[table.columnTypes[c]] || 'transparent',
+                          color: { date: '#3b82f6', boolean: '#a855f7', number: '#10b981', id: '#f59e0b', string: '#64748b' }[table.columnTypes[c]] || 'inherit'
+                        }}>
+                          {table.columnTypes[c]}
+                        </span>
+                      )}
+                      {' · '}
+                    </span>
+                  ))}{table.columns?.length > 8 ? ` +${table.columns.length - 8} más` : ''}
                 </div>
                 {table.preview?.length > 0 && (
                   <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--color-border)', overflowX: 'auto' }}>
@@ -391,7 +481,7 @@ export default function MigracionBDSection() {
               </div>
             ))}
           </div>
-          <button onClick={() => { setStep(1); setResults(null); setTables([]); setSqliteFile(null); setTestStatus(null); setTestDiag(null); }}
+          <button onClick={() => { setStep(1); setResults(null); setTables([]); setUploadedFile(null); setTestStatus(null); setTestDiag(null); }}
             style={{ padding: '0.7rem 2rem', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
             Nueva migración
           </button>

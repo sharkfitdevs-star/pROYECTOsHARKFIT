@@ -3,7 +3,9 @@
    Calcula 4 KPIs por SEDE × MES × AÑO
    Triggers: EventBus (auto) + Cron 07:00 (diario) + manual
 ────────────────────────────────────────────────────────────── */
+
 'use strict';
+const { logger } = require('../utils/logger');
 
 const UMBRALES = {
   tasa_agendamiento:     { alto: 30, normal: 20, label: 'Tasa de Agendamiento' },
@@ -181,17 +183,17 @@ function registrarEventListeners() {
     const trigger = async (event) => {
       try {
         const r = await calcularYGenerarAlertas();
-        console.log(`[KPI-Engine] Trigger ${event.type} → ${r.alertasCreadas.length} alertas creadas`);
+        logger.info(`[KPI-Engine] Trigger ${event.type} → ${r.alertasCreadas.length} alertas creadas`);
       } catch (err) {
-        console.error('[KPI-Engine] Error trigger:', err.message);
+        logger.error('[KPI-Engine] Error trigger:', err.message);
       }
     };
     EventBus.subscribe('sync.completed', trigger);
     EventBus.subscribe('file.processed', trigger);
     _eventosRegistrados = true;
-    console.log('[KPI-Engine] EventBus listeners registrados.');
+    logger.info('[KPI-Engine] EventBus listeners registrados.');
   } catch (err) {
-    console.warn('[KPI-Engine] EventBus no disponible:', err.message);
+    logger.warn('[KPI-Engine] EventBus no disponible:', err.message);
   }
 }
 
@@ -202,18 +204,18 @@ function initCron() {
   try {
     const cron = require('node-cron');
     cron.schedule('0 7 * * *', async () => {
-      console.log('[KPI-Cron] Cálculo automático iniciando…');
+      logger.info('[KPI-Cron] Cálculo automático iniciando…');
       try {
         const r = await calcularYGenerarAlertas();
-        console.log(`[KPI-Cron] OK — ${r.alertasCreadas.length} alertas en ${r.sedes.length} sede(s)`);
+        logger.info(`[KPI-Cron] OK — ${r.alertasCreadas.length} alertas en ${r.sedes.length} sede(s)`);
       } catch (err) {
-        console.error('[KPI-Cron] Error:', err.message);
+        logger.error('[KPI-Cron] Error:', err.message);
       }
     });
     _cronIniciado = true;
-    console.log('[KPI-Cron] Cron diario 07:00 registrado.');
+    logger.info('[KPI-Cron] Cron diario 07:00 registrado.');
   } catch (err) {
-    console.warn('[KPI-Cron] node-cron no disponible. Ejecutar: npm install node-cron');
+    logger.warn('[KPI-Cron] node-cron no disponible. Ejecutar: npm install node-cron');
   }
 }
 

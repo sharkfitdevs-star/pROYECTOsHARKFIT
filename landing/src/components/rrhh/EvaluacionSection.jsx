@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './EvaluacionSection.css';
+import EvaluacionGrupal from './EvaluacionGrupal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005/api';
 
@@ -221,6 +222,20 @@ const EvaluacionSection = () => {
       autoevaluacion: 'Autoevaluación'
     };
     return labels[tipo] || tipo;
+  };
+
+  const [showGrupal, setShowGrupal] = useState(false);
+
+  const handleShowGrupal = async () => {
+    if (!colaboradores.length) {
+      try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(`${API_URL}/colaboradores`, { headers: { Authorization: `Bearer ${token}` } });
+        const json = await res.json();
+        setColaboradores(json.data || []);
+      } catch {}
+    }
+    setShowGrupal(s => !s);
   };
 
   if (loading && evaluaciones.length === 0) {
@@ -452,6 +467,13 @@ const EvaluacionSection = () => {
           onSave={guardarEvaluacion}
         />
       )}
+      <button
+        style={{ margin: '18px 0', background: 'var(--color-primary-light, #6366f1)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+        onClick={handleShowGrupal}
+      >
+        {showGrupal ? 'Ocultar Evaluación Grupal' : 'Evaluación Grupal'}
+      </button>
+      {showGrupal && <EvaluacionGrupal colaboradores={colaboradores} />}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { WidgetGrid } from './widgets';
 import DashboardWidgetsService from '../../api/services/DashboardWidgetsService';
 import './DashboardOverview.css';
 import ChartBuilder from './ChartBuilder';
+import SemaforosOverview from './SemaforosOverview';
 
 const DashboardOverview = ({ user }) => {
 	const [config, setConfig] = useState(null);
@@ -46,6 +47,7 @@ const DashboardOverview = ({ user }) => {
 		} catch (err) {
 			console.error(err);
 		}
+				<SemaforosOverview />
 	};
 
 	const handleResetear = async () => {
@@ -87,12 +89,12 @@ const DashboardOverview = ({ user }) => {
 						<button className="btn-configurar" onClick={() => setShowConfigurador(!showConfigurador)}>
 							<i className="bi bi-gear"></i> {showConfigurador ? 'Cerrar' : 'Personalizar'}
 						</button>
-						<button style={{ marginLeft: 8 }} onClick={() => setShowChartBuilder(true)}>
-							＋ Agregar widget
-						</button>
-						<button className="btn-refresh" onClick={cargarConfig}>
-							<i className="bi bi-arrow-clockwise"></i>
-						</button>
+					<button style={{ marginLeft: 8 }} onClick={() => setShowChartBuilder(true)}>
+						＋ Agregar widget
+					</button>
+					<button className="btn-refresh" onClick={cargarConfig}>
+						<i className="bi bi-arrow-clockwise"></i>
+					</button>
 					</div>
 				</div>
 

@@ -317,97 +317,83 @@ if (!formData.nombre) { alert('El nombre es requerido'); return; }
 onSave(formData);
 };
 return (
-<div className="modal-overlay" onClick={onClose}>
-<div className="modal-content modal-lg" onClick={e => e.stopPropagation()}>
-<div className="modal-header">
-<h2>{modoEdicion ? (curso ? 'Editar' : 'Nuevo') : 'Detalle del'} Curso</h2>
-<button className="modal-close" onClick={onClose}><i className="bi bi-x-lg"></i></button>
-</div>
-<form onSubmit={handleSubmit}>
-<div className="modal-body">
-<div className="form-grid">
-<div className="form-group col-span-2">
-<label>Nombre del Curso *</label>
-<input type="text" name="nombre" value={formData.nombre} onChange={handleChange} disabled={!modoEdicion} required />
-</div>
-<div className="form-group col-span-2">
-<label>Descripción</label>
-<textarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows={3} disabled={!modoEdicion} />
-</div>
-<div className="form-group">
-<label>Categoría</label>
-<select name="categoria" value={formData.categoria} onChange={handleChange} disabled={!modoEdicion}>
-<option value="onboarding">Onboarding</option>
-<option value="tecnico">Técnico</option>
-<option value="liderazgo">Liderazgo</option>
-<option value="ventas">Ventas</option>
-<option value="servicio_cliente">Servicio al Cliente</option>
-<option value="seguridad">Seguridad</option>
-<option value="compliance">Compliance</option>
-<option value="desarrollo_personal">Desarrollo Personal</option>
-<option value="otro">Otro</option>
-</select>
-</div>
-<div className="form-group">
-<label>Nivel</label>
-<select name="nivel" value={formData.nivel} onChange={handleChange} disabled={!modoEdicion}>
-<option value="basico">Básico</option>
-<option value="intermedio">Intermedio</option>
-<option value="avanzado">Avanzado</option>
-</select>
-</div>
-<div className="form-group">
-<label>Duración (horas)</label>
-<input type="number" name="duracion_horas" value={formData.duracion_horas} onChange={handleChange} min="0.5" step="0.5" disabled={!modoEdicion} />
-</div>
-<div className="form-group">
-<label>Modalidad</label>
-<select name="modalidad" value={formData.modalidad} onChange={handleChange} disabled={!modoEdicion}>
-<option value="presencial">Presencial</option>
-<option value="online">Online</option>
-<option value="mixto">Mixto</option>
-</select>
-</div>
-<div className="form-group">
-<label className="checkbox-label">
-<input type="checkbox" name="tiene_evaluacion" checked={formData.tiene_evaluacion} onChange={handleChange} disabled={!modoEdicion} />
-<span>Tiene Evaluación</span>
-</label>
-</div>
-<div className="form-group">
-<label className="checkbox-label">
-<input type="checkbox" name="otorga_certificado" checked={formData.otorga_certificado} onChange={handleChange} disabled={!modoEdicion} />
-<span>Otorga Certificado</span>
-</label>
-</div>
-{formData.tiene_evaluacion && (
-<div className="form-group">
-<label>Puntaje Aprobación (%)</label>
-<input type="number" name="puntaje_aprobacion" value={formData.puntaje_aprobacion} onChange={handleChange} min="0" max="100" disabled={!modoEdicion} />
-</div>
-)}
-<div className="form-group col-span-2">
-<label>URL Imagen</label>
-<input type="url" name="imagen_url" value={formData.imagen_url} onChange={handleChange} placeholder="https://..." disabled={!modoEdicion} />
-</div>
-</div>
-</div>
-<div className="modal-footer">
-{curso && !modoEdicion && (
-<button type="button" className="btn-secondary" onClick={() => setModoEdicion(true)}>
-<i className="bi bi-pencil"></i> Editar
-</button>
-)}
-<button type="button" className="btn-secondary" onClick={onClose}>{modoEdicion ? 'Cancelar' : 'Cerrar'}</button>
-{modoEdicion && (
-<button type="submit" className="btn-primary">
-<i className="bi bi-check-lg"></i> {curso ? 'Guardar' : 'Crear Curso'}
-</button>
-)}
-</div>
-</form>
-</div>
-</div>
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-header">
+        <h2>{modoEdicion ? (curso ? 'Editar' : 'Nuevo') : 'Detalle del'} Curso</h2>
+        <button className="modal-close" onClick={onClose}><i className="bi bi-x-lg"></i></button>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <div className="modal-body">
+          <label>Nombre del Curso *
+            <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} disabled={!modoEdicion} required />
+          </label>
+          <label>Descripción
+            <textarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows={3} disabled={!modoEdicion} />
+          </label>
+          <label>Categoría
+            <select name="categoria" value={formData.categoria} onChange={handleChange} disabled={!modoEdicion}>
+              <option value="onboarding">Onboarding</option>
+              <option value="tecnico">Técnico</option>
+              <option value="liderazgo">Liderazgo</option>
+              <option value="ventas">Ventas</option>
+              <option value="servicio_cliente">Servicio al Cliente</option>
+              <option value="seguridad">Seguridad</option>
+              <option value="compliance">Compliance</option>
+              <option value="desarrollo_personal">Desarrollo Personal</option>
+              <option value="otro">Otro</option>
+            </select>
+          </label>
+          <label>Nivel
+            <select name="nivel" value={formData.nivel} onChange={handleChange} disabled={!modoEdicion}>
+              <option value="basico">Básico</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzado">Avanzado</option>
+            </select>
+          </label>
+          <label>Duración (horas)
+            <input type="number" name="duracion_horas" value={formData.duracion_horas} onChange={handleChange} min="0.5" step="0.5" disabled={!modoEdicion} />
+          </label>
+          <label>Modalidad
+            <select name="modalidad" value={formData.modalidad} onChange={handleChange} disabled={!modoEdicion}>
+              <option value="presencial">Presencial</option>
+              <option value="online">Online</option>
+              <option value="mixto">Mixto</option>
+            </select>
+          </label>
+          <label className="checkbox-label">
+            <input type="checkbox" name="tiene_evaluacion" checked={formData.tiene_evaluacion} onChange={handleChange} disabled={!modoEdicion} />
+            <span>Tiene Evaluación</span>
+          </label>
+          <label className="checkbox-label">
+            <input type="checkbox" name="otorga_certificado" checked={formData.otorga_certificado} onChange={handleChange} disabled={!modoEdicion} />
+            <span>Otorga Certificado</span>
+          </label>
+          {formData.tiene_evaluacion && (
+            <label>Puntaje Aprobación (%)
+              <input type="number" name="puntaje_aprobacion" value={formData.puntaje_aprobacion} onChange={handleChange} min="0" max="100" disabled={!modoEdicion} />
+            </label>
+          )}
+          <label>URL Imagen
+            <input type="url" name="imagen_url" value={formData.imagen_url} onChange={handleChange} placeholder="https://..." disabled={!modoEdicion} />
+          </label>
+        </div>
+        <div className="modal-footer">
+          {curso && !modoEdicion && (
+            <button type="button" className="btn-secondary" onClick={() => setModoEdicion(true)}>
+              <i className="bi bi-pencil"></i> Editar
+            </button>
+          )}
+          <button type="button" className="btn-secondary" onClick={onClose}>{modoEdicion ? 'Cancelar' : 'Cerrar'}</button>
+          {modoEdicion && (
+            <button type="submit" className="btn-primary">
+              <i className="bi bi-check-lg"></i> {curso ? 'Guardar' : 'Crear Curso'}
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  </div>
 );
 };
 export default AcademySection;

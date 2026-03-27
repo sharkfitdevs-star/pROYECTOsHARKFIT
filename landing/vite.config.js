@@ -33,7 +33,7 @@ export default defineConfig({
     strictPort: false,
     host: true,
     cors: true,
-    proxy: {
+    proxy: process.env.NODE_ENV !== 'production' ? {
       // auth endpoint must come first or `/api` will match it and override.
       '/api/auth': {
         target: 'http://127.0.0.1:4001',
@@ -42,7 +42,6 @@ export default defineConfig({
         // ensure explicit path rewrite is not needed but keep for clarity
         rewrite: (path) => path, // preserve /api/auth/* exactly
         configure: (proxy) => {
-          if (process.env.NODE_ENV === 'production') return;
           proxy.on('proxyReq', (proxyReq, req) => {
             if (req.url && req.url.startsWith('/api/auth')) {
               console.log('[VITE PROXY AUTH REQ] ->', req.method, req.url);
@@ -56,8 +55,10 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
-          if (process.env.NODE_ENV === 'production') return;
           proxy.on('error', (err, req) => console.log('[VITE PROXY ERROR]', err.message, req && req.url));
+        }
+      }
+    } : undefined
           proxy.on('proxyReq', (proxyReq, req) => {
             console.log('[VITE PROXY REQ]', req.method, req.url);
             if (req.url && req.url.startsWith('/api/auth')) {

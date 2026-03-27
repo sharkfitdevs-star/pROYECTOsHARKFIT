@@ -9,7 +9,7 @@
 .section-header h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: white;
+  color: var(--color-white);
   margin: 0;
 }
 
@@ -35,7 +35,7 @@
   padding: 0.6rem 1.2rem;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   cursor: pointer;
   border-radius: 8px;
@@ -49,7 +49,7 @@
 
 .tab-btn.active {
   background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
+  color: var(--color-primary);
 }
 
 /* Resumen Cards */
@@ -82,7 +82,7 @@
 
 .resumen-icon i {
   font-size: 1.25rem;
-  color: #818cf8;
+  color: var(--color-primary);
 }
 
 .resumen-icon.generadas {
@@ -90,7 +90,7 @@
 }
 
 .resumen-icon.generadas i {
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .resumen-icon.pendientes {
@@ -98,7 +98,7 @@
 }
 
 .resumen-icon.pendientes i {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .resumen-icon.total {
@@ -106,7 +106,7 @@
 }
 
 .resumen-icon.total i {
-  color: #8b5cf6;
+  color: var(--color-purple);
 }
 
 .resumen-info {
@@ -222,11 +222,11 @@
 }
 
 .col-monto.descuento {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .col-monto.liquido {
-  color: #10b981;
+  color: var(--color-success);
   font-weight: 600;
 }
 
@@ -257,7 +257,7 @@
 
 .btn-accion.ver {
   background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+  color: var(--color-info);
 }
 
 .btn-accion.ver:hover {
@@ -266,7 +266,7 @@
 
 .btn-accion.aprobar {
   background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .btn-accion.aprobar:hover {
@@ -275,7 +275,7 @@
 
 .btn-accion.pagar {
   background: rgba(139, 92, 246, 0.2);
-  color: #8b5cf6;
+  color: var(--color-purple);
 }
 
 .btn-accion.pagar:hover {
@@ -371,22 +371,22 @@
 
 .adelanto-estado.estado-solicitado {
   background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .adelanto-estado.estado-aprobado {
   background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .adelanto-estado.estado-rechazado {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .adelanto-estado.estado-completado {
   background: rgba(139, 92, 246, 0.2);
-  color: #8b5cf6;
+  color: var(--color-purple);
 }
 
 /* Estados comunes */
@@ -460,7 +460,7 @@
 
 .modal-header h2 {
   font-size: 1.25rem;
-  color: white;
+  color: var(--color-white);
   margin: 0;
 }
 
@@ -563,7 +563,7 @@
   font-weight: 600;
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
+  color: var(--color-white);
 }
 
 .detalle-totales {
@@ -594,11 +594,11 @@
   padding-top: 1rem;
   font-weight: 700;
   font-size: 1.1rem;
-  color: white;
+  color: var(--color-white);
 }
 
 .total-item.liquido .valor {
-  color: #10b981;
+  color: var(--color-success);
 }
 
 /* Botones */

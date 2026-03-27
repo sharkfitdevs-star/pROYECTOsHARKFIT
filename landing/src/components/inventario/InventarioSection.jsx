@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DataTable from '../ui/DataTable';
 import './InventarioStyles.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -7,6 +8,10 @@ const InventarioSection = () => {
   const [inventario, setInventario] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ productoId: '', tipo: 'entrada', cantidad: '', motivo: '', sede: '' });
+  const [saving, setSaving] = useState(false);
+  const [productosDisponibles, setProductosDisponibles] = useState([]);
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -31,6 +36,32 @@ const InventarioSection = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const cargarProductosParaSelect = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`${API_URL}/inventario/productos`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      setProductosDisponibles(data.success ? (data.data || []) : []);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleSave = async () => {
+    if (!formData.productoId || !formData.cantidad) return alert('Producto y cantidad son obligatorios');
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`${API_URL}/inventario/stock/ajuste`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ...formData, cantidad: Number(formData.cantidad) })
+      });
+      setShowModal(false);
+      setFormData({ productoId: '', tipo: 'entrada', cantidad: '', motivo: '', sede: '' });
+      cargarInventario();
+    } catch (err) { console.error(err); alert('Error al guardar ajuste'); }
+    finally { setSaving(false); }
   };
 
   const getStockStatus = (item) => {
@@ -63,7 +94,7 @@ const InventarioSection = () => {
             <i className="bi bi-arrow-repeat"></i>
             Actualizar
           </button>
-          <button className="btn-primary">
+          <button className="btn-primary" onClick={() => { setShowModal(true); cargarProductosParaSelect(); }}>
             <i className="bi bi-plus"></i>
             Ajuste de Stock
           </button>
@@ -110,48 +141,68 @@ const InventarioSection = () => {
           <h3>Sin registros de inventario</h3>
           <p>Agrega productos y registra su stock</p>
         </div>
-      ) : (
-        <div className="sf-table-wrapper">
-          <table className="sf-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>SKU</th>
-                <th>Sede</th>
-                <th>Stock Actual</th>
-                <th>Mínimo</th>
-                <th>Máximo</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventario.map(item => {
-                const status = getStockStatus(item);
-                return (
-                  <tr key={item._id}>
-                    <td>{item.producto?.nombre || '-'}</td>
-                    <td>{item.producto?.sku || '-'}</td>
-                    <td>{item.sede?.nombre || '-'}</td>
-                    <td className="text-center">{item.cantidad_actual}</td>
-                    <td className="text-center">{item.stock_minimo}</td>
-                    <td className="text-center">{item.stock_maximo}</td>
-                    <td>
-                      <span className={`sf-badge ${status.label?.toLowerCase()}`}>{status.label}</span>
-                    </td>
-                    <td>
-                      <button className="sf-btn-action" title="Ajustar">
-                        <i className="bi bi-pencil"></i>
-                      </button>
-                      <button className="sf-btn-action" title="Historial">
-                        <i className="bi bi-clock-history"></i>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        ) : (
+          <DataTable
+            columns={[
+              { key: 'producto', label: 'Producto', render: (v, row) => row.producto?.nombre || '-' },
+              { key: 'sku', label: 'SKU', render: (v, row) => row.producto?.sku || '-' },
+              { key: 'sede', label: 'Sede', render: (v, row) => row.sede?.nombre || '-' },
+              { key: 'cantidad_actual', label: 'Stock Actual', render: (v) => v, className: 'text-center' },
+              { key: 'stock_minimo', label: 'Mínimo', render: (v) => v, className: 'text-center' },
+              { key: 'stock_maximo', label: 'Máximo', render: (v) => v, className: 'text-center' },
+              { key: 'estado', label: 'Estado', render: (v, row) => {
+                  const status = getStockStatus(row);
+                  return <span className={`sf-badge ${status.label?.toLowerCase()}`}>{status.label}</span>;
+                }
+              },
+            ]}
+            data={inventario}
+            loading={loading}
+            error={error}
+            emptyMessage="Sin registros de inventario"
+            emptyIcon="bi-boxes"
+            actions={(row) => (
+              <>
+                <button className="sf-btn-action" title="Ajustar">
+                  <i className="bi bi-pencil"></i>
+                </button>
+                <button className="sf-btn-action" title="Historial">
+                  <i className="bi bi-clock-history"></i>
+                </button>
+              </>
+            )}
+          />
+        )}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Ajuste de Stock</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <label>Producto *
+                <select value={formData.productoId} onChange={e => setFormData({...formData, productoId: e.target.value})}>
+                  <option value="">Seleccionar producto</option>
+                  {productosDisponibles.map(p => <option key={p._id} value={p._id}>{p.nombre} ({p.sku})</option>)}
+                </select>
+              </label>
+              <label>Tipo de ajuste *
+                <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})}>
+                  <option value="entrada">Entrada</option>
+                  <option value="salida">Salida</option>
+                  <option value="correccion">Corrección</option>
+                </select>
+              </label>
+              <label>Cantidad *<input type="number" min="1" value={formData.cantidad} onChange={e => setFormData({...formData, cantidad: e.target.value})} /></label>
+              <label>Motivo<input value={formData.motivo} onChange={e => setFormData({...formData, motivo: e.target.value})} placeholder="Ej: Compra proveedor, Merma, Inventario..." /></label>
+              <label>Sede<input value={formData.sede} onChange={e => setFormData({...formData, sede: e.target.value})} placeholder="Ej: Sede central" /></label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Aplicar Ajuste'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

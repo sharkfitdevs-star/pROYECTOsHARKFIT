@@ -283,6 +283,17 @@
   margin-bottom: 1rem;
 }
 
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: var(--color-surface, #1e293b); border-radius: 12px; padding: 0; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; border: 1px solid var(--color-border, rgba(255,255,255,0.1)); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.1)); }
+.modal-header h3 { margin: 0; color: var(--color-text, #f1f5f9); font-size: 1.1rem; }
+.modal-close { background: none; border: none; color: var(--color-text-secondary, #94a3b8); font-size: 1.5rem; cursor: pointer; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.modal-body label { display: flex; flex-direction: column; gap: 4px; color: var(--color-text-secondary, #94a3b8); font-size: 0.85rem; }
+.modal-body input, .modal-body textarea, .modal-body select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--color-border, rgba(255,255,255,0.1)); background: var(--color-bg, #0f172a); color: var(--color-text, #f1f5f9); font-size: 0.9rem; }
+.modal-body textarea { min-height: 60px; resize: vertical; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--color-border, rgba(255,255,255,0.1)); }
+
 .proveedor-avatar {
   width: 48px;
   height: 48px;

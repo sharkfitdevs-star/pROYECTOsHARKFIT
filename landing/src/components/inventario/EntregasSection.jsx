@@ -8,6 +8,25 @@ const EntregasSection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ proveedor: '', fecha: new Date().toISOString().split('T')[0], items: '', estado: 'pendiente', notas: '', numeroGuia: '' });
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    if (!formData.proveedor || !formData.fecha) return alert('Proveedor y fecha son obligatorios');
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`${API_URL}/inventario/entregas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(formData)
+      });
+      setShowModal(false);
+      setFormData({ proveedor: '', fecha: new Date().toISOString().split('T')[0], items: '', estado: 'pendiente', notas: '', numeroGuia: '' });
+      cargarEntregas();
+    } catch (err) { console.error(err); alert('Error al guardar entrega'); }
+    finally { setSaving(false); }
+  };
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -75,7 +94,7 @@ const EntregasSection = () => {
           <h1>Entregas</h1>
           <p>Seguimiento de entregas de mercadería</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setShowModal(true)}>
           <i className="bi bi-plus"></i>
           Nueva Entrega
         </button>
@@ -196,6 +215,34 @@ const EntregasSection = () => {
               </div>
             );
           })}
+        </div>
+      )}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nueva Entrega</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <label>Proveedor *<input value={formData.proveedor} onChange={e => setFormData({...formData, proveedor: e.target.value})} placeholder="Nombre del proveedor" /></label>
+              <label>Fecha *<input type="date" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} /></label>
+              <label>Número de guía<input value={formData.numeroGuia} onChange={e => setFormData({...formData, numeroGuia: e.target.value})} placeholder="Ej: GD-2026-001" /></label>
+              <label>Estado
+                <select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})}>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_transito">En tránsito</option>
+                  <option value="recibida">Recibida</option>
+                </select>
+              </label>
+              <label>Items / Descripción<textarea value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} placeholder="Detalle de productos recibidos..." /></label>
+              <label>Notas<textarea value={formData.notas} onChange={e => setFormData({...formData, notas: e.target.value})} placeholder="Observaciones adicionales..." /></label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Registrar Entrega'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

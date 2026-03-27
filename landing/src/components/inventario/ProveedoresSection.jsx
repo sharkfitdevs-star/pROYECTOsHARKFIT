@@ -8,6 +8,26 @@ const ProveedoresSection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ nombre: '', rut: '', contacto: '', email: '', telefono: '', direccion: '', categorias: '', condicionesPago: '30 días' });
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    if (!formData.nombre) return alert('Nombre es obligatorio');
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const payload = { ...formData, categorias: formData.categorias ? formData.categorias.split(',').map(c => c.trim()) : [] };
+      await fetch(`${API_URL}/inventario/proveedores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      setShowModal(false);
+      setFormData({ nombre: '', rut: '', contacto: '', email: '', telefono: '', direccion: '', categorias: '', condicionesPago: '30 días' });
+      cargarProveedores();
+    } catch (err) { console.error(err); alert('Error al guardar proveedor'); }
+    finally { setSaving(false); }
+  };
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -57,7 +77,7 @@ const ProveedoresSection = () => {
           <h1>Proveedores</h1>
           <p>Gestión de proveedores y contactos</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setShowModal(true)}>
           <i className="bi bi-plus"></i>
           Nuevo Proveedor
         </button>
@@ -138,6 +158,38 @@ const ProveedoresSection = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nuevo Proveedor</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <label>Nombre / Razón Social *<input value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} /></label>
+              <label>RUT<input value={formData.rut} onChange={e => setFormData({...formData, rut: e.target.value})} placeholder="12.345.678-9" /></label>
+              <label>Persona de contacto<input value={formData.contacto} onChange={e => setFormData({...formData, contacto: e.target.value})} /></label>
+              <label>Email<input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></label>
+              <label>Teléfono<input value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} placeholder="+56 9 1234 5678" /></label>
+              <label>Dirección<input value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} /></label>
+              <label>Categorías (separadas por coma)<input value={formData.categorias} onChange={e => setFormData({...formData, categorias: e.target.value})} placeholder="Suplementos, Equipamiento, Limpieza" /></label>
+              <label>Condiciones de pago
+                <select value={formData.condicionesPago} onChange={e => setFormData({...formData, condicionesPago: e.target.value})}>
+                  <option value="contado">Contado</option>
+                  <option value="15 días">15 días</option>
+                  <option value="30 días">30 días</option>
+                  <option value="60 días">60 días</option>
+                  <option value="90 días">90 días</option>
+                </select>
+              </label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Guardar Proveedor'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

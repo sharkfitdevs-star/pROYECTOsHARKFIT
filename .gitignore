@@ -36,3 +36,7 @@ htmlcov/
 tmp/
 tree-depth3.txt
 tree-dirs-depth3.txt
+
+# SSL certificates
+docker/ssl/certs/*.pem
+docker/ssl/certbot/

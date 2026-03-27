@@ -12,9 +12,11 @@ const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
 const { connectDB } = require('./db/mongodb');
+require('./models/Aprobacion');
 const { logger } = require('./utils/logger');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8000;
 
 // ==================== MIDDLEWARE ====================
@@ -123,7 +125,6 @@ if (process.env.NODE_ENV === 'production') {
 // ==================== RUTAS ====================
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuariosNew');
-const clientesRoutes = require('./routes/clientesRoutes');
 const clientesNew = require('./routes/clientesNew');
 const ventasRoutes = require('./routes/ventasNew');
 
@@ -142,7 +143,6 @@ const auditLogRoutes = require('./routes/auditLog');
 // Montar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
-app.use('/api/clientes', clientesRoutes);
 app.use('/api/clientes', clientesNew);
 app.use('/api/ventas', ventasRoutes);
 app.use('/api/agendamientos', agendamientosRoutes);

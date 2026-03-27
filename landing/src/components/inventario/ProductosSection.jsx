@@ -10,6 +10,9 @@ const ProductosSection = () => {
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ nombre: '', sku: '', categoria: '', precio: '', stock: '', descripcion: '' });
+  const [saving, setSaving] = useState(false);
 
   const getHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -54,6 +57,27 @@ const ProductosSection = () => {
     }).format(monto || 0);
   };
 
+  const handleSave = async () => {
+    if (!formData.nombre || !formData.sku) return alert('Nombre y SKU son obligatorios');
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`${API_URL}/inventario/productos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ...formData, precio: Number(formData.precio) || 0, stock: Number(formData.stock) || 0 })
+      });
+      setShowModal(false);
+      setFormData({ nombre: '', sku: '', categoria: '', precio: '', stock: '', descripcion: '' });
+      cargarProductos();
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     console.log('>>> ProductosSection - Estado: LOADING');
     return (
@@ -73,7 +97,7 @@ const ProductosSection = () => {
           <h1>Productos</h1>
           <p>Catálogo de productos del inventario</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setShowModal(true)}>
           <i className="bi bi-plus"></i>
           Nuevo Producto
         </button>
@@ -148,6 +172,28 @@ const ProductosSection = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nuevo Producto</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <label>Nombre *<input value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} /></label>
+              <label>SKU *<input value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} /></label>
+              <label>Categoría<input value={formData.categoria} onChange={e => setFormData({...formData, categoria: e.target.value})} /></label>
+              <label>Precio<input type="number" value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} /></label>
+              <label>Stock inicial<input type="number" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} /></label>
+              <label>Descripción<textarea value={formData.descripcion} onChange={e => setFormData({...formData, descripcion: e.target.value})} /></label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

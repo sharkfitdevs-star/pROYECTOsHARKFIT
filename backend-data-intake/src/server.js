@@ -1,3 +1,4 @@
+const aprobacionesRouter = require('./routes/aprobaciones');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
 if (!process.env.MONGODB_URI) {
@@ -27,9 +28,7 @@ const evoRoutes = require("./routes/evo");
 const webhooksRoutes = require("./routes/webhooks");
 const apiSetupRoutes = require("./routes/apiSetup");
 const healthRoutes = require("./routes/health");
-const clientesRoutes = require("./routes/clientesRoutes");
 const alertasRoutes = require("./routes/alertasRouter");
-const alertasRouter = require('./routes/alertas');
 const dashboardLayoutRouter = require('./routes/dashboardLayout');
 const dashboardWidgetsRouter = require('./routes/dashboardWidgets');
 const automatizacionesRoutes = require('./routes/automatizaciones');
@@ -126,6 +125,8 @@ let app, server, io;
 const startServer = async () => {
   try {
     app = createApp();
+
+      app.set('trust proxy', 1);
 
     // ✅ UNA SOLA creacion de servidor HTTP + Socket.io
     server = http.createServer(app);
@@ -240,10 +241,11 @@ const startServer = async () => {
     app.get("/health", (req, res) => res.json({ ok: true, service: "sharkfit-data-intake", status: "running", timestamp: new Date().toISOString() }));
 
     // Montar todos los routers
+    app.use("/api", crudUniversalRoutes);
     app.use("/api/import", importRoutes);
     app.use("/api/settings", settingsRoutes);
     app.use("/api/health", healthRoutes);
-    app.use("/api/clientes", clientesRoutes);
+    app.use("/api/clientes", require("./routes/clientesNew"));
     app.use("/api/alertas", alertasRoutes);
     app.use('/api/automatizaciones', automatizacionesRoutes);
     app.use('/api/reglas-alertas', reglasAlertasRoutes);
@@ -266,12 +268,19 @@ const startServer = async () => {
     app.use('/api/documentos', documentosRouter);
     app.use('/api/reclutamiento', reclutamientoRouter);
     app.use('/api/distribucion', distribucionRouter);
+
+
+    // Montar rutas de migración
+    const migrationRouter = require('./routes/migration');
+    app.use('/api/migration', migrationRouter);
+
+    app.use('/api/aprobaciones', aprobacionesRouter);
     app.use('/api/academy', academyRouter);
     app.use("/api/export", require("./routes/export"));
     app.use("/api/prospectos", require("./routes/prospectos"));
     app.use("/api/pagos", require("./routes/pagos"));
     app.use("/api/clases", require("./routes/clases"));
-    app.use('/api/alertas', alertasRouter);
+    // app.use('/api/alertas', alertasRouter); // Eliminado: duplicado, ya está montado con alertasRoutes
     app.use('/api/dashboard/layout', dashboardLayoutRouter);
     app.use(notFoundHandler);
 
