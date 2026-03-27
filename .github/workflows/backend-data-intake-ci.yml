@@ -1,0 +1,31 @@
+name: Backend Data Intake CI
+
+on:
+  push:
+    paths:
+      - 'backend-data-intake/**'
+  pull_request:
+    paths:
+      - 'backend-data-intake/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Install & test backend-data-intake
+        working-directory: backend-data-intake
+        run: |
+          npm ci
+          npm test --silent
+        env:
+          CI: true
+          NODE_ENV: test

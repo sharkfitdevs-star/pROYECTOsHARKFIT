@@ -1,0 +1,56 @@
+{
+  "id": "api-evo",
+  "name": "EVO W12 API",
+  "baseURL": "https://evo-integracao-api.w12app.com.br",
+  "auth": {
+    "type": "basic",
+    "usernameEnv": "EVO_DNS",
+    "passwordEnv": "EVO_TOKEN"
+  },
+  "endpoints": [
+    {
+      "name": "ventas",
+      "path": "/api/v2/sales",
+      "method": "GET",
+      "dataType": "ventas",
+      "dataPath": "",
+      "params": {
+        "take": 100,
+        "skip": 0
+      }
+    },
+    {
+      "name": "prospectos",
+      "path": "/api/v1/prospects",
+      "method": "GET",
+      "dataType": "prospectos",
+      "dataPath": "",
+      "params": {
+        "take": 100,
+        "skip": 0
+      }
+    },
+    {
+      "name": "accesos",
+      "path": "/api/v1/entries",
+      "method": "GET",
+      "dataType": "accesos",
+      "dataPath": "",
+      "params": {
+        "take": 100,
+        "skip": 0
+      }
+    },
+    {
+      "name": "miembros",
+      "path": "/api/v1/members",
+      "method": "GET",
+      "dataType": "miembros",
+      "dataPath": "",
+      "params": {
+        "take": 100,
+        "skip": 0
+      }
+    }
+  ]
+}
