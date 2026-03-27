@@ -6,7 +6,6 @@ build/
 .env.production
 *.log
 *.bak
-*.IMPROVED.js
 uploads/
 coverage/
 .venv/
@@ -15,28 +14,23 @@ db.sqlite3
 tatus
 .tree_depth4_tmp.txt
 target/
-
 # Testing
 coverage/
 .coverage
 htmlcov/
-
 # Database
 *.db
 *.sqlite
 *.sqlite3
 .pgdata
-
 # Backups
 *.bak
 *.backup
-
 # Temp
 .tmp/
 tmp/
 tree-depth3.txt
 tree-dirs-depth3.txt
-
 # SSL certificates
 docker/ssl/certs/*.pem
 docker/ssl/certbot/
