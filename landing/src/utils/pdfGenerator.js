@@ -4,7 +4,7 @@ import 'jspdf-autotable';
 export function generarLiquidacionPDF(liquidacion, colaborador) {
   const doc = new jsPDF();
   doc.setFontSize(18);
-  doc.text('SharkFit - Liquidación de Sueldo', 14, 22);
+  doc.text('Sharcknegocios - Liquidación de Sueldo', 14, 22);
   doc.setFontSize(10);
   doc.text('Fecha: ' + new Date().toLocaleDateString('es-CL'), 14, 30);
   doc.setFontSize(12);
@@ -34,7 +34,7 @@ export function generarLiquidacionPDF(liquidacion, colaborador) {
 export function generarFichaColaboradorPDF(colaborador) {
   const doc = new jsPDF();
   doc.setFontSize(18);
-  doc.text('SharkFit - Ficha de Colaborador', 14, 22);
+  doc.text('Sharcknegocios - Ficha de Colaborador', 14, 22);
   doc.setFontSize(10);
   doc.text('Generado: ' + new Date().toLocaleDateString('es-CL'), 14, 30);
   doc.autoTable({

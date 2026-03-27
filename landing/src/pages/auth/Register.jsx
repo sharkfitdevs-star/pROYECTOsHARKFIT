@@ -121,8 +121,7 @@ function Register() {
       <div className="auth-header-wrapper">
         <div className="auth-header-content">
           <div className="auth-logo">
-            <span className="logo-icon">🦈</span>
-            <h1>SharkFit</h1>
+            <h1>Sharcknegocios</h1>
           </div>
         </div>
       </div>

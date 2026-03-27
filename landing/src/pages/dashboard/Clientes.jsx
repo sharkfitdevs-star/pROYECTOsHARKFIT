@@ -179,7 +179,7 @@ export default function Clientes() {
       <h2>Clientes</h2>
       <p className="info-text">Los datos se obtienen de las importaciones realizadas en Excel/CSV.</p>
 
-      {/* Toolbar — global SharkFit */}
+      {/* Toolbar — global Sharcknegocios */}
       <div className="sf-filters" style={{ marginBottom: 16 }}>
         <label htmlFor="busqueda-cliente">Buscar: </label>
         <input
@@ -219,7 +219,7 @@ export default function Clientes() {
       {cargando && <p className="info-text">Cargando clientes...</p>}
       {error    && <div className="error-text">{error}</div>}
 
-      {/* Tabla global SharkFit */}
+      {/* Tabla global Sharcknegocios */}
       <div className="sf-table-wrapper">
         <table className="sf-table">
           <thead>

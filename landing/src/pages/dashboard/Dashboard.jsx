@@ -205,7 +205,7 @@ function Dashboard() {
       />
       <header className="dashboard-header">
         <div className="header-content">
-          <h1>SharkFit Dashboard</h1>
+          <h1>Sharcknegocios Dashboard</h1>
           <p>Bienvenido, {user?.firstName || user?.username || 'Usuario'}</p>
         </div>
         <div className="header-actions">

@@ -4,28 +4,23 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import './Landing.css';
 
-const stats = [
-  { value: '500+', label: 'Clientes' },
-  { value: '10K+', label: 'Ventas' },
-  { value: '99.9%', label: 'Uptime' },
-  { value: '24/7', label: 'Soporte' },
-];
+// Sección de estadísticas eliminada
 
 const features = [
   {
-    icon: '◌',
-    title: 'Datos en tiempo real',
-    description: 'Monitorea clientes, operaciones y rendimiento comercial con una vista viva y accionable.',
+    icon: '📊',
+    title: 'Gestion integral',
+    description: 'Administra colaboradores, inventario, ventas, clientes, remuneraciones, evaluaciones y mas desde un solo dashboard.',
   },
   {
-    icon: '◎',
+    icon: '🔗',
     title: 'Integracion con EVO',
-    description: 'Conecta tus fuentes clave y centraliza la operacion sin friccion ni procesos manuales repetitivos.',
+    description: 'Conecta tu sistema EVO5 y sincroniza datos de ventas, clientes y membresias automaticamente.',
   },
   {
-    icon: '✦',
-    title: 'Reportes inteligentes',
-    description: 'Detecta patrones, oportunidades y alertas relevantes con reportes claros para tomar mejores decisiones.',
+    icon: '📈',
+    title: 'Reportes y Business Intelligence',
+    description: 'Genera reportes dinamicos, visualiza KPIs en tiempo real y toma decisiones basadas en datos con el Centro de Comando CEO.',
   },
 ];
 
@@ -33,14 +28,25 @@ const pricingCards = [
   {
     name: 'Starter',
     price: 'Gratis',
-    description: 'Ideal para explorar SharkFit y ordenar la operacion inicial.',
-    items: ['Dashboard unificado', 'Metricas esenciales', 'Soporte por email'],
+    description: 'Ideal para explorar SharkNegocios y ordenar la operacion inicial.',
+    items: [
+      'Dashboard unificado',
+      'Gestion de clientes y ventas',
+      'Modulos RRHH basicos',
+      'Soporte por email',
+    ],
   },
   {
     name: 'Growth',
     price: 'Escalable',
     description: 'Pensado para equipos que necesitan velocidad, visibilidad y control.',
-    items: ['Integracion con EVO', 'Reportes avanzados', 'Alertas automatizadas'],
+    items: [
+      'Integracion con EVO',
+      'Business Intelligence avanzado',
+      'Modulos de inventario completos',
+      'Alertas automatizadas',
+      'Exportacion de datos',
+    ],
   },
 ];
 
@@ -78,7 +84,7 @@ function Landing() {
             onClick={() => handleSectionNavigation('hero')}
             aria-label="Ir al inicio"
           >
-            SharkFit
+            Sharcknegocios
           </button>
 
           <button
@@ -95,9 +101,7 @@ function Landing() {
 
           <div className={`landing-navbar-panel${isMenuOpen ? ' is-open' : ''}`}>
             <nav className="landing-navbar-menu">
-              <button type="button" className="landing-nav-link" onClick={() => handleSectionNavigation('features')}>
-                Caracteristicas
-              </button>
+              {/* Botón Características eliminado */}
               <button type="button" className="landing-nav-link" onClick={() => handleSectionNavigation('pricing')}>
                 Precios
               </button>
@@ -160,21 +164,12 @@ function Landing() {
           </div>
         </section>
 
-        <section className="landing-stats" aria-label="Metricas clave">
-          <div className="landing-stats-grid">
-            {stats.map((stat) => (
-              <article key={stat.label} className="landing-stat-item">
-                <strong className="stat-number">{stat.value}</strong>
-                <span className="stat-label">{stat.label}</span>
-              </article>
-            ))}
-          </div>
-        </section>
+        {/* Sección de estadísticas eliminada */}
 
         <section id="features" className="landing-section landing-features">
           <div className="landing-section-heading">
-            <span className="landing-section-kicker">Ventaja SharkFit</span>
-            <h2>Por que SharkFit</h2>
+            <span className="landing-section-kicker">Ventaja SharkNegocios</span>
+            <h2>Por que SharkNegocios</h2>
             <p>
               Una plataforma pensada para equipos comerciales que necesitan velocidad, claridad operativa y control real del negocio.
             </p>
@@ -221,7 +216,7 @@ function Landing() {
 
       <footer id="contact" className="landing-footer">
         <div className="landing-footer-content">
-          <p>© 2026 SharkFit. Todos los derechos reservados.</p>
+          <p>© 2026 SharkNegocios. Todos los derechos reservados.</p>
           <div className="landing-footer-links">
             <button type="button" className="landing-footer-link">Terminos</button>
             <button type="button" className="landing-footer-link">Privacidad</button>

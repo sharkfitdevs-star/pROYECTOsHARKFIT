@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const THEME_KEY = 'sharkfit-theme';
+const THEME_KEY = 'sharcknegocios-theme';
 
 const getInitialTheme = () => {
   const saved = localStorage.getItem(THEME_KEY);

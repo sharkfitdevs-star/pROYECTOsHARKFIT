@@ -52,7 +52,7 @@ const DB_CONFIGS = {
   },
 };
 
-const SHARKFIT_ENTITIES = [
+const SHARCKNEGOCIOS_ENTITIES = [
   { key: 'ignorar', label: '— Ignorar tabla —', group: '' },
   { key: 'clientes', label: 'Clientes', group: 'Principal', icon: 'bi-people' },
   { key: 'ventas', label: 'Ventas', group: 'Principal', icon: 'bi-cart' },
@@ -286,7 +286,7 @@ export default function MigracionBDSection() {
       <div style={{ marginBottom: '2rem' }}>
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700 }}>Migración de Base de Datos</h2>
         <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-          Conecta tu BD existente, analiza su estructura y exporta o importa a SharkFit.
+          Conecta tu BD existente, analiza su estructura y exporta o importa a Sharcknegocios.
         </p>
       </div>
 
@@ -406,12 +406,12 @@ export default function MigracionBDSection() {
                   <select value={mappings[table.name] || 'ignorar'}
                     onChange={e => setMappings(p => ({ ...p, [table.name]: e.target.value }))}
                     style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontSize: '0.85rem' }}>
-                    {SHARKFIT_ENTITIES.filter(e => e.key === 'ignorar').map(e => (
+                    {SHARCKNEGOCIOS_ENTITIES.filter(e => e.key === 'ignorar').map(e => (
                       <option key={e.key} value={e.key}>{e.label}</option>
                     ))}
                     {['Principal', 'RRHH', 'Inventario', 'Formacion', 'Otro'].map(group => (
                       <optgroup key={group} label={group}>
-                        {SHARKFIT_ENTITIES.filter(e => e.group === group).map(e => (
+                        {SHARCKNEGOCIOS_ENTITIES.filter(e => e.group === group).map(e => (
                           <option key={e.key} value={e.key}>{e.label}</option>
                         ))}
                       </optgroup>
@@ -462,7 +462,7 @@ export default function MigracionBDSection() {
             </button>
             <button onClick={handleImport} disabled={loading}
               style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
-              {loading ? '⏳ Importando...' : '⬆️ Importar a SharkFit'}
+              {loading ? '⏳ Importando...' : '⬆️ Importar a Sharcknegocios'}
             </button>
           </div>
         </div>
