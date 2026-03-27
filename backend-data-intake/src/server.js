@@ -17,7 +17,7 @@ process.on("uncaughtException", (err) => { logger.error("UNCAUGHT_EXCEPTION", { 
 
 const { errorHandler } = require("./middleware/errorHandler");
 const { seedOwner } = require("./utils/seedOwner");
-const { connectToDB } = require('./db/db');
+const { connectDB } = require('./db/mongodb');
 const { createApp, notFoundHandler } = require('./app.IMPROVED');
 const EventBus = require('./events/EventBus');
 const importRoutes = require("./routes/import");
@@ -240,6 +240,7 @@ const startServer = async () => {
 
     app.get("/health", (req, res) => res.json({ ok: true, service: "sharkfit-data-intake", status: "running", timestamp: new Date().toISOString() }));
 
+    
     // Montar todos los routers
     app.use("/api", crudUniversalRoutes);
     app.use("/api/import", importRoutes);
